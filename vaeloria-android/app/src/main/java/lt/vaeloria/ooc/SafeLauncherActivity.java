@@ -11,6 +11,8 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 public class SafeLauncherActivity extends Activity {
+    private LinearLayout root;
+
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().setStatusBarColor(Color.rgb(7,15,22));
@@ -20,7 +22,7 @@ public class SafeLauncherActivity extends Activity {
 
     private void render() {
         ScrollView sv = new ScrollView(this);
-        LinearLayout root = new LinearLayout(this);
+        root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(22),dp(30),dp(22),dp(30));
         root.setBackgroundColor(Color.rgb(7,15,22));
@@ -102,7 +104,7 @@ public class SafeLauncherActivity extends Activity {
     private void showInlineError(Throwable t) {
         TextView e = text("Žaidimo paleidimo klaida:\n" + t.getClass().getName() + "\n" + safe(t.getMessage()), 14, Color.rgb(255,145,130));
         e.setPadding(dp(12),dp(16),dp(12),0);
-        ((LinearLayout)((ScrollView)findViewById(android.R.id.content).getChildAt(0)).getChildAt(0)).addView(e);
+        if (root != null) root.addView(e);
     }
 
     private TextView text(String v,int size,int color){TextView t=new TextView(this);t.setText(v);t.setTextSize(size);t.setTextColor(color);return t;}
