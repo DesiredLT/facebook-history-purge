@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: vaeloria-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -54,4 +58,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.2" \
-            --notes "Mobile RPG v0.2: equipment slots, interactive world map, redesigned character sheet, action feedback, local save/undo/import/export, secure Groq GM integration."
+            --notes "Mobile RPG v0.2: equipment slots, interactive world map, location visuals, tactical combat board, redesigned character sheet, action feedback, safe v0.1 migration, local save/undo/import/export, secure Groq GM integration."
