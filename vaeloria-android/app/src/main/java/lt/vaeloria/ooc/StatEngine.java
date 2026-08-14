@@ -63,32 +63,34 @@ public final class StatEngine {
     }
 
     private static void chooseStats(Check c,String a){
+        // Specifinės maginės ir relikvijų sąveikos turi pirmenybę prieš bendrą analizę.
+        if(has(a,"relikv","rezonans","artefakt")){c.primary="Relikvijų rezonansas";c.secondary="Magijos jutimas";return;}
+        if(has(a,"meridian","erdv","kelionės vart","teleport","perkel")){c.primary="Erdvinė magija";c.secondary="Relikvijų rezonansas";return;}
+        if(has(a,"laiko mag","chron","laiko versij","praeitį","ateitį")){c.primary="Laiko magija";c.secondary="Burtų stabilumas";return;}
+        if(has(a,"ardyti burt","nutraukti burt","išsklaid")){c.primary="Užkeikimų ardymas";c.secondary="Magijos jutimas";return;}
+        if(has(a,"gyd","atkurti kūną")){c.primary="Gydomoji magija";c.secondary="Manos kontrolė";return;}
+        if(has(a,"burti","magij","mana","runa","užkeik")){c.primary="Manos kontrolė";c.secondary="Burtų tikslumas";return;}
+
         if(has(a,"įtik","derėt","kalb","įkalb","diplomat","susitart")){c.primary="Įtikinėjimas";c.secondary="Derybos";return;}
         if(has(a,"mel","apga","apsimest","suklaid")){c.primary="Apgaulė";c.secondary="Žmonių perpratimas";return;}
         if(has(a,"gras","baugin","įbaug")){c.primary="Bauginimas";c.secondary="Charizma";return;}
+        if(has(a,"vadov","įsak","komand")){c.primary="Vadovavimas";c.secondary="Charizma";return;}
         if(has(a,"slėp","sėlin","nepasteb","tyliai")){c.primary="Slėpimasis";c.secondary="Pastabumas";return;}
         if(has(a,"sekt","pėdsak","surasti kelią","orient")){c.primary="Sekimas";c.secondary="Orientavimasis vietovėje";return;}
         if(has(a,"pasteb","apžiūr","iešk","tirti","ištirti","analiz","patikr","palygin")){c.primary="Analitinis mąstymas";c.secondary="Pastabumas";return;}
         if(has(a,"atsim","prisim","žini","istor","atpaž")){c.primary="Atmintis";c.secondary="Žinių pritaikymas";return;}
         if(has(a,"planu","strateg","spąst","taktik")){c.primary="Strateginis mąstymas";c.secondary="Planavimas";return;}
         if(has(a,"lauž","kelti","stum","plėš","smūgiuoti jėga")){c.primary="Jėga";c.secondary="Sprogstamoji jėga";return;}
-        if(has(a,"bėg","vytis","sprukt","pabėg")){c.primary="Greitis";c.secondary="Ištvermė";return;}
+        if(has(a,"bėg","vytis","sprukt","pabėg")){c.primary="Greitis";c.secondary="Širdies ir kvėpavimo ištvermė";return;}
         if(has(a,"šok","peršok")){c.primary="Šuolio galia";c.secondary="Pusiausvyra";return;}
         if(has(a,"lip","kopti")){c.primary="Laipiojimas";c.secondary="Suėmimo jėga";return;}
         if(has(a,"plauk")){c.primary="Plaukimas";c.secondary="Širdies ir kvėpavimo ištvermė";return;}
         if(has(a,"išsisuk","veng","atšok","išveng")){c.primary="Refleksai";c.secondary="Vikrumas";return;}
         if(has(a,"imtyn","parter","grum","sulaik")){c.primary="Imtynės";c.secondary="Kūno kontrolė";return;}
         if(has(a,"kard","ašmen","ginklu","pjaut","durti")){c.primary="Kardo meistriškumas";c.secondary="Atakos tikslumas";return;}
-        if(has(a,"smūg","pulti","ataku","kovoti")){c.primary="Kovinė nuojauta";c.secondary="Kovinis laiko parinkimas";return;}
         if(has(a,"gint","bloku","pariru")){c.primary="Gynyba";c.secondary="Refleksai";return;}
-        if(has(a,"gyd","atkurti kūną")){c.primary="Gydomoji magija";c.secondary="Manos kontrolė";return;}
-        if(has(a,"laik","chron","praeit","ateit")){c.primary="Laiko magija";c.secondary="Burtų stabilumas";return;}
-        if(has(a,"erdv","vart","meridian","teleport","perkel")){c.primary="Erdvinė magija";c.secondary="Relikvijų rezonansas";return;}
-        if(has(a,"ardyti burt","nutraukti burt","išsklaid")){c.primary="Užkeikimų ardymas";c.secondary="Magijos jutimas";return;}
-        if(has(a,"burti","magij","mana","runa","užkeik")){c.primary="Manos kontrolė";c.secondary="Burtų tikslumas";return;}
-        if(has(a,"relikv","rezonans","artefakt")){c.primary="Relikvijų rezonansas";c.secondary="Magijos jutimas";return;}
-        if(has(a,"vadov","įsak","komand")){c.primary="Vadovavimas";c.secondary="Charizma";return;}
-        c.primary="Kovinė nuojauta";c.secondary="Sprendimų greitis";
+        if(has(a,"smūg","pulti","ataku","kovoti")){c.primary="Kovinė nuojauta";c.secondary="Kovinis laiko parinkimas";return;}
+        c.primary="Sprendimų greitis";c.secondary="Kovinė nuojauta";
     }
 
     private static int difficulty(String a,GameState s){
