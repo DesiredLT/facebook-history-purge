@@ -24,34 +24,34 @@ public class WorldMapView extends View {
     private String current = "Luminara";
 
     private static class Node {
-        String name; float x,y; int danger;
-        Node(String n,float x,float y,int d){this.name=n;this.x=x;this.y=y;this.danger=d;}
+        String oldName, name; float x,y; int danger;
+        Node(String oldName,String name,float x,float y,int d){this.oldName=oldName;this.name=name;this.x=x;this.y=y;this.danger=d;}
     }
 
     public WorldMapView(Context c) {
         super(c);
         setBackgroundColor(Color.rgb(7,15,22));
-        nodes.add(new Node("Luminara",500,330,3));
-        nodes.add(new Node("Veyrhold",665,255,3));
-        nodes.add(new Node("Aurelion Reach",760,405,4));
-        nodes.add(new Node("Crown of Aster",350,195,4));
-        nodes.add(new Node("The Starfall Vault",540,495,7));
-        nodes.add(new Node("The Glasswood",735,155,5));
-        nodes.add(new Node("The Hollow Spire",320,555,8));
-        nodes.add(new Node("Kharad Vorn",1140,280,5));
-        nodes.add(new Node("Dragonwake Peaks",1330,155,8));
-        nodes.add(new Node("Ashen Crown Citadel",965,210,7));
-        nodes.add(new Node("The Sapphire Expanse",1010,535,7));
-        nodes.add(new Node("Everspring Vale",915,650,4));
-        nodes.add(new Node("The Verdant Labyrinth",1135,735,8));
-        nodes.add(new Node("Mire of Saints",790,755,6));
+        nodes.add(new Node("Luminara","Luminara",500,330,3));
+        nodes.add(new Node("Veyrhold","Veyrhold",665,255,3));
+        nodes.add(new Node("Aurelion Reach","Aureliono Pakraštys",760,405,4));
+        nodes.add(new Node("Crown of Aster","Asterio Karūna",350,195,4));
+        nodes.add(new Node("The Starfall Vault","Žvaigždėkritos Skliautas",540,495,7));
+        nodes.add(new Node("The Glasswood","Stiklo Giria",735,155,5));
+        nodes.add(new Node("The Hollow Spire","Tuščiavidurė Smailė",320,555,8));
+        nodes.add(new Node("Kharad Vorn","Kharad Vorn",1140,280,5));
+        nodes.add(new Node("Dragonwake Peaks","Drakono Pabudimo Viršūnės",1330,155,8));
+        nodes.add(new Node("Ashen Crown Citadel","Pelenų Karūnos Citadelė",965,210,7));
+        nodes.add(new Node("The Sapphire Expanse","Safyro Platybės",1010,535,7));
+        nodes.add(new Node("Everspring Vale","Amžinojo Šaltinio Slėnis",915,650,4));
+        nodes.add(new Node("The Verdant Labyrinth","Žaliasis Labirintas",1135,735,8));
+        nodes.add(new Node("Mire of Saints","Šventųjų Pelkynas",790,755,6));
         scaler = new ScaleGestureDetector(c, new ScaleGestureDetector.SimpleOnScaleGestureListener(){
-            @Override public boolean onScale(ScaleGestureDetector d){ scale=Math.max(.75f,Math.min(3.2f,scale*d.getScaleFactor())); invalidate(); return true; }
+            @Override public boolean onScale(ScaleGestureDetector d){ scale=Math.max(.85f,Math.min(3.4f,scale*d.getScaleFactor())); invalidate(); return true; }
         });
     }
 
     public void setListener(Listener l){listener=l;}
-    public void setCurrentLocation(String s){current=s;invalidate();}
+    public void setCurrentLocation(String s){current=s==null?"Luminara":s;invalidate();}
 
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
@@ -86,13 +86,13 @@ public class WorldMapView extends View {
         line(c,"Luminara","Veyrhold");line(c,"Luminara","Aurelion Reach");line(c,"Luminara","Crown of Aster");line(c,"Luminara","The Starfall Vault");line(c,"Veyrhold","The Glasswood");line(c,"Aurelion Reach","Kharad Vorn");line(c,"Kharad Vorn","Dragonwake Peaks");line(c,"Aurelion Reach","The Sapphire Expanse");line(c,"The Sapphire Expanse","Everspring Vale");line(c,"Everspring Vale","The Verdant Labyrinth");line(c,"Everspring Vale","Mire of Saints");line(c,"Luminara","The Hollow Spire");
         p.setPathEffect(new android.graphics.DashPathEffect(new float[]{14,10},0)); p.setColor(Color.argb(180,111,182,214)); line(c,"Luminara","Kharad Vorn"); line(c,"Aurelion Reach","The Sapphire Expanse"); p.setPathEffect(null);
     }
-    private Node find(String n){for(Node x:nodes)if(x.name.equals(n))return x;return null;}
+    private Node find(String n){for(Node x:nodes)if(x.oldName.equals(n)||x.name.equals(n))return x;return null;}
     private void line(Canvas c,String a,String b){Node x=find(a),y=find(b);if(x!=null&&y!=null)c.drawLine(x.x,x.y,y.x,y.y,p);}
 
     private void drawNodes(Canvas c){
-        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(24);p.setStyle(Paint.Style.FILL);
+        p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(23);p.setStyle(Paint.Style.FILL);
         for(Node n:nodes){
-            boolean here=n.name.equals(current);
+            boolean here=n.name.equals(current)||n.oldName.equals(current);
             p.setColor(here?Color.rgb(244,214,138):dangerColor(n.danger));
             c.drawCircle(n.x,n.y,here?18:13,p);
             if(here){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(Color.argb(160,244,214,138));c.drawCircle(n.x,n.y,29,p);p.setStyle(Paint.Style.FILL);}
@@ -103,9 +103,9 @@ public class WorldMapView extends View {
     private int dangerColor(int d){ if(d>=8)return Color.rgb(205,75,70); if(d>=6)return Color.rgb(220,134,68); if(d>=4)return Color.rgb(206,177,84); return Color.rgb(89,178,129); }
 
     private void drawLegend(Canvas c){
-        p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(210,8,16,24));c.drawRoundRect(18,18,260,105,18,18,p);
+        p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(215,8,16,24));c.drawRoundRect(18,18,335,112,18,18,p);
         p.setTextSize(25);p.setTypeface(Typeface.DEFAULT_BOLD);p.setColor(Color.rgb(244,214,138));c.drawText("VAELORIA",38,52,p);
-        p.setTextSize(19);p.setTypeface(Typeface.DEFAULT);p.setColor(Color.rgb(190,203,206));c.drawText("Pinch • drag • tap",38,82,p);
+        p.setTextSize(18);p.setTypeface(Typeface.DEFAULT);p.setColor(Color.rgb(190,203,206));c.drawText("Priartink · tempk · paliesk",38,84,p);
     }
 
     @Override public boolean onTouchEvent(MotionEvent e){
@@ -124,6 +124,6 @@ public class WorldMapView extends View {
         float wy=(sy-getHeight()/2f-ty)/(fit*scale)+450;
         Node best=null;float bd=Float.MAX_VALUE;
         for(Node n:nodes){float dx=n.x-wx,dy=n.y-wy,d=dx*dx+dy*dy;if(d<bd){bd=d;best=n;}}
-        if(best!=null && bd<60*60 && listener!=null)listener.onLocationSelected(best.name,best.danger);
+        if(best!=null && bd<70*70 && listener!=null)listener.onLocationSelected(best.name,best.danger);
     }
 }
