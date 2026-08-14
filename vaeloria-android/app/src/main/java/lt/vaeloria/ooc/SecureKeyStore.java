@@ -30,6 +30,17 @@ public final class SecureKeyStore {
     }
 
     public static String load(Context context) {
+        String current = loadCurrent(context);
+        if (!current.isEmpty()) return current;
+        String legacy = loadLegacy(context);
+        if (!legacy.isEmpty()) {
+            try { save(context, legacy); } catch (Exception ignored) {}
+            return legacy;
+        }
+        return "";
+    }
+
+    private static String loadCurrent(Context context) {
         try {
             SharedPreferences p = context.getSharedPreferences(PREF, Context.MODE_PRIVATE);
             String packed = p.getString(VALUE, "");
@@ -38,17 +49,31 @@ public final class SecureKeyStore {
             if (parts.length != 2) return "";
             byte[] iv = Base64.decode(parts[0], Base64.NO_WRAP);
             byte[] enc = Base64.decode(parts[1], Base64.NO_WRAP);
-            SecretKey key = getOrCreateKey();
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
-            return new String(cipher.doFinal(enc), StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            return "";
-        }
+            return decrypt(iv, enc);
+        } catch (Exception e) { return ""; }
+    }
+
+    private static String loadLegacy(Context context) {
+        try {
+            SharedPreferences p = context.getSharedPreferences("secure", Context.MODE_PRIVATE);
+            String ct = p.getString("ct", "");
+            String iv = p.getString("iv", "");
+            if (ct == null || iv == null || ct.isEmpty() || iv.isEmpty()) return "";
+            byte[] enc = java.util.Base64.getDecoder().decode(ct);
+            byte[] ivBytes = java.util.Base64.getDecoder().decode(iv);
+            return decrypt(ivBytes, enc);
+        } catch (Exception e) { return ""; }
+    }
+
+    private static String decrypt(byte[] iv, byte[] enc) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, iv));
+        return new String(cipher.doFinal(enc), StandardCharsets.UTF_8);
     }
 
     public static void clear(Context context) {
         context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().remove(VALUE).apply();
+        context.getSharedPreferences("secure", Context.MODE_PRIVATE).edit().remove("ct").remove("iv").apply();
     }
 
     private static SecretKey getOrCreateKey() throws Exception {
