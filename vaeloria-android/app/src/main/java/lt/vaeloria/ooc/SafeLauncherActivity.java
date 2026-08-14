@@ -32,7 +32,7 @@ public class SafeLauncherActivity extends Activity {
         title.setGravity(Gravity.CENTER);
         root.addView(title);
 
-        TextView status = text("SAFE START · v0.2.3", 12, Color.rgb(82,177,167));
+        TextView status = text("SAFE START · v0.2.4", 12, Color.rgb(82,177,167));
         status.setGravity(Gravity.CENTER);
         status.setPadding(0,dp(8),0,dp(24));
         root.addView(status);
@@ -53,7 +53,7 @@ public class SafeLauncherActivity extends Activity {
         play.setBackgroundColor(Color.rgb(214,182,107));
         play.setOnClickListener(v -> {
             try {
-                startActivity(new Intent(this, VaeloriaActivity.class));
+                startActivity(new Intent(this, SafeGameActivity.class));
             } catch (Throwable t) {
                 showInlineError(t);
             }
