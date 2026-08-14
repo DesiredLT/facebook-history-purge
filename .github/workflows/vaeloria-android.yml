@@ -55,6 +55,19 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+      - name: Integrate full statistics screen
+        run: python3 tools/patch_stats_button.py
+      - name: Verify exactly 92 base stats
+        run: |
+          python3 - <<'PY'
+          import re
+          text=open('app/src/main/java/lt/vaeloria/ooc/BaseStatCatalog.java',encoding='utf-8').read()
+          groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',text,re.S)
+          count=sum(len(re.findall(r'"[^"]+"',g)) for g in groups)
+          print('Base stat count:',count)
+          if count != 92:
+              raise SystemExit(f'Expected 92 stats, found {count}')
+          PY
       - name: Build debug APK
         run: |
           set -o pipefail
@@ -63,25 +76,25 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.3.0-build-log
+          name: vaeloria-v0.3.1-build-log
           path: vaeloria-android/build.log
           if-no-files-found: warn
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.3.0-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk
+          name: vaeloria-ooc-v0.3.1-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.3.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.3.0 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk \
+          gh release delete vaeloria-ooc-v0.3.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.3.1 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.3.0" \
-            --notes "RPG presentation upgrade: full 16-slot equipment layout including helmet, chest, gloves, legs, boots, belt, necklace, two rings, utility and four relics; structured loot from the AI GM; Lithuanian UI and narrative terminology; Android safe-area fixes; compact map layout; clearer journal and character sheet; persistent local save migration from v0.2."
+            --title "Vaeloria OOC v0.3.1" \
+            --notes "Adds the complete canonical 92-base-stat screen: seven Lithuanian categories, every individual stat visible at 100/100, search, and direct access from the character progression card. Keeps the v0.3 equipment, Lithuanian UI, map and AI GM improvements."
