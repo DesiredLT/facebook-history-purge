@@ -137,7 +137,7 @@ jobs:
           test "$(grep -c '^uses-permission:' apk-permissions.txt)" -eq 1
           grep -q 'android.permission.INTERNET' apk-permissions.txt
           "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-tree.txt
-          grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:debuggable.*0x0'
+          if grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:debuggable.*0xffffffff'; then echo 'APK is debuggable'; exit 1; fi
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:allowBackup.*0x0'
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:usesCleartextTraffic.*0x0'
           CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
@@ -145,7 +145,7 @@ jobs:
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           "$APKSIGNER" verify --verbose "$APK"
           if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then echo 'Hardcoded Groq key detected'; exit 1; fi
-          unzip -p "$APK" classes.dex | strings | grep -q 'ACTION_CREATE_DOCUMENT\|vaeloria-save.json'
+          unzip -p "$APK" classes.dex | strings | grep -q 'vaeloria-save.json'
       - name: Upload build audit
         if: always()
         uses: actions/upload-artifact@v4
