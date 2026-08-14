@@ -36,6 +36,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: vaeloria-android-debug-signing-v1
+      - name: Verify cached key matches installed v0.3.2
+        run: |
+          test -f "$HOME/.android/debug.keystore"
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          echo "Cached key SHA256=$FP"
+          test "$FP" = "1891707CCDE764619E2A10E4954656EBAE4287B5BCE09C3A8373A444BEBC7DBB"
       - name: Create stable Android signing key on first run
         if: steps.signing-cache.outputs.cache-hit != 'true'
         run: |
