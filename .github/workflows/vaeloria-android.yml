@@ -55,8 +55,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Integrate full statistics screen
-        run: python3 tools/patch_stats_button.py
+      - name: Integrate full statistics and gameplay checks
+        run: |
+          python3 tools/patch_stats_button.py
+          python3 tools/fix_generated_java.py
       - name: Verify exactly 92 base stats
         run: |
           python3 - <<'PY'
@@ -97,4 +99,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.3.1" \
-            --notes "Adds the complete canonical 92-base-stat screen: seven Lithuanian categories, every individual stat visible at 100/100, search, and direct access from the character progression card. Keeps the v0.3 equipment, Lithuanian UI, map and AI GM improvements."
+            --notes "Adds all 92 Lithuanian base stats as real SQLite-backed gameplay values. Risky actions are resolved locally from the relevant stat, a d100 check, situation difficulty, current resources, equipped items and post-cap abilities before the AI GM narrates the fixed result. Includes the full searchable 92-stat screen and all v0.3 equipment, localization, map and UI improvements."
