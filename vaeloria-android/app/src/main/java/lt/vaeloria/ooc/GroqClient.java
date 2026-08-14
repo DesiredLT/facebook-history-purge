@@ -10,22 +10,38 @@ import java.util.List;
 public final class GroqClient {
     private static final String ENDPOINT="https://api.groq.com/openai/v1/chat/completions";
     private static final String MODEL="openai/gpt-oss-120b";
+    private static final int MAX_COMPLETION_TOKENS=1800;
     private GroqClient(){}
 
     public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities)throws Exception{
         JSONObject req=new JSONObject();
         req.put("model",MODEL);
         req.put("reasoning_effort","low");
+        req.put("max_completion_tokens",MAX_COMPLETION_TOKENS);
         req.put("messages",messages(s,action,equipped,abilities));
         req.put("response_format",responseFormat());
-        HttpURLConnection c=(HttpURLConnection)new URL(ENDPOINT).openConnection();
-        c.setConnectTimeout(15000);c.setReadTimeout(45000);c.setRequestMethod("POST");
-        c.setRequestProperty("Authorization","Bearer "+apiKey);c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);
-        try(OutputStream os=c.getOutputStream()){os.write(req.toString().getBytes(StandardCharsets.UTF_8));}
-        int code=c.getResponseCode();InputStream stream=code>=200&&code<300?c.getInputStream():c.getErrorStream();String body=read(stream);
-        if(code<200||code>=300)throw new IllegalStateException("Groq HTTP "+code+": "+body);
-        String content=new JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
-        return new JSONObject(content);
+
+        Exception last=null;
+        for(int attempt=0;attempt<2;attempt++){
+            HttpURLConnection c=null;
+            try{
+                c=(HttpURLConnection)new URL(ENDPOINT).openConnection();
+                c.setConnectTimeout(15000);c.setReadTimeout(60000);c.setRequestMethod("POST");
+                c.setRequestProperty("Authorization","Bearer "+apiKey);c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);
+                try(OutputStream os=c.getOutputStream()){os.write(req.toString().getBytes(StandardCharsets.UTF_8));}
+                int code=c.getResponseCode();InputStream stream=code>=200&&code<300?c.getInputStream():c.getErrorStream();String body=read(stream);
+                if(code>=200&&code<300){
+                    String content=new JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
+                    return new JSONObject(content);
+                }
+                String msg="Groq HTTP "+code+": "+apiError(body);
+                if((code==429||code>=500)&&attempt==0){last=new IllegalStateException(msg);Thread.sleep(1200);continue;}
+                throw new IllegalStateException(msg);
+            }catch(SocketTimeoutException|UnknownHostException e){
+                last=e;if(attempt==0){Thread.sleep(700);continue;}throw e;
+            }finally{if(c!=null)c.disconnect();}
+        }
+        throw last==null?new IllegalStateException("Groq užklausa nepavyko"):last;
     }
 
     private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities)throws Exception{
@@ -64,5 +80,6 @@ public final class GroqClient {
     }
     private static JSONObject str()throws Exception{return new JSONObject().put("type","string");}
     private static JSONObject integer(int min,int max)throws Exception{return new JSONObject().put("type","integer").put("minimum",min).put("maximum",max);}
-    private static String read(InputStream in)throws Exception{if(in==null)return"";BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8));StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);return b.toString();}
+    private static String read(InputStream in)throws Exception{if(in==null)return"";try(BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);return b.toString();}}
+    private static String apiError(String body){try{String m=new JSONObject(body).getJSONObject("error").optString("message",body);return m.length()>500?m.substring(0,500)+"…":m;}catch(Exception e){return body==null?"":(body.length()>500?body.substring(0,500)+"…":body);}}
 }
