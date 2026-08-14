@@ -37,12 +37,13 @@ public class CombatBoardView extends View {
         p.setStrokeWidth(dp(2));p.setStyle(Paint.Style.STROKE);p.setColor(Color.argb(150,205,82,77));
         c.drawLine(ex-dp(18),ey+dp(23),px+dp(22),py-dp(18),p);p.setStyle(Paint.Style.FILL);
         p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(dp(10));p.setColor(Color.rgb(170,187,193));
-        c.drawText("ATSTUMAS: "+state.combatDistance.toUpperCase(),dp(14),dp(22),p);
+        c.drawText("ATSTUMAS: "+distance(state.combatDistance),dp(14),dp(22),p);
         if(state.combatHazard!=null&&!state.combatHazard.isEmpty()){
-            p.setColor(Color.rgb(223,155,83));c.drawText("! "+trim(state.combatHazard,34),dp(14),h-dp(8),p);
+            p.setColor(Color.rgb(223,155,83));c.drawText("PAVOJUS: "+trim(state.combatHazard,32),dp(14),h-dp(8),p);
         }
     }
 
+    private String distance(String d){if("close".equals(d))return"ARTIMAS";if("far".equals(d))return"TOLIMAS";return"VIDUTINIS";}
     private void drawActor(Canvas c,float x,float y,String mark,int color,String name){
         p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawCircle(x,y,dp(23),p);
         p.setColor(Color.rgb(7,15,22));p.setTextSize(dp(18));p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);c.drawText(mark,x,y+dp(6),p);
