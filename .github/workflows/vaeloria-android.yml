@@ -72,11 +72,15 @@ jobs:
           print('Base stat count:',len(stats))
           if len(stats) != 92:
               raise SystemExit(f'Expected 92 stats, found {len(stats)}')
+          if len(set(stats)) != 92:
+              raise SystemExit('Duplicate base stat names found')
           missing=[s for s in stats if ('"'+s+'"') not in engine]
           if missing:
               raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
           print('Mechanically referenced:',len(stats),'of 92')
           PY
+      - name: Run 92-stat classifier tests
+        run: gradle :app:testDebugUnitTest --stacktrace
       - name: Build debug APK
         run: |
           set -o pipefail
@@ -85,25 +89,25 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.3.1-build-log
+          name: vaeloria-v0.3.2-build-log
           path: vaeloria-android/build.log
           if-no-files-found: warn
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.3.1-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk
+          name: vaeloria-ooc-v0.3.2-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.3.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.3.1 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.1.apk \
+          gh release delete vaeloria-ooc-v0.3.2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.3.2 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.3.1" \
-            --notes "Adds all 92 Lithuanian base stats as real SQLite-backed gameplay values. Every stat is mechanically addressable. Each risky action selects a primary and supporting stat, combines them 75/25, then applies a local d100 roll, situation difficulty, resources, equipment and post-cap abilities before the AI GM narrates the fixed result. Includes the full searchable 92-stat screen and all v0.3 equipment, localization, map and UI improvements."
+            --title "Vaeloria OOC v0.3.2" \
+            --notes "Audits and hardens all 92 base stats. Fixes Lithuanian substring collisions, diacritic-free player input, physical-vs-magic category classification, primary-stat reachability and difficulty classification. Adds automated tests requiring all 92 canonical stats to classify to themselves plus regression cases for natural Lithuanian actions."
