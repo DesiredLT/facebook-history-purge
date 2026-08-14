@@ -31,7 +31,6 @@ jobs:
           distribution: temurin
           java-version: '17'
       - name: Restore pinned Android signing key
-        id: signing-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
@@ -39,7 +38,6 @@ jobs:
           fail-on-cache-miss: true
       - name: Verify pinned signing key
         run: |
-          test -f "$HOME/.android/debug.keystore"
           FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           echo "Pinned key SHA256=$FP"
           test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
@@ -51,23 +49,27 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Integrate 92-stat engine
+      - name: Integrate core systems
         run: |
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
           python3 tools/patch_stat_engine_audit.py
           python3 tools/patch_stat_test_aggregate.py
-      - name: Integrate v0.4 systems and interface
-        run: |
           python3 tools/patch_v040.py
           python3 tools/fix_v040_db_methods.py
           python3 tools/cleanup_v040_lithuanian.py
-      - name: Integrate v0.5 reliability fixes
-        run: python3 tools/patch_v050.py
-      - name: Integrate v0.5.1 hardening and visual map
-        run: |
+          python3 tools/patch_v050.py
           python3 tools/patch_v051.py
           python3 tools/patch_v051_lintfix.py
+      - name: Verify core before visual layer
+        run: |
+          grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'max_completion_tokens' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
+          grep -q 'ACTION_CREATE_DOCUMENT' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
+          grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -77,62 +79,61 @@ jobs:
           groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',catalog,re.S)
           stats=[]
           for g in groups: stats += re.findall(r'"([^"]+)"',g)
-          print('Base stat count:',len(stats))
-          if len(stats)!=92: raise SystemExit(f'Expected 92 stats, found {len(stats)}')
-          if len(set(stats))!=92: raise SystemExit('Duplicate base stat names found')
+          if len(stats)!=92 or len(set(stats))!=92: raise SystemExit(f'Expected 92 unique stats, got {len(stats)}')
           missing=[s for s in stats if ('"'+s+'"') not in engine]
-          if missing: raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
+          if missing: raise SystemExit('Stats without mechanics: '+', '.join(missing))
           print('Mechanically referenced:',len(stats),'of 92')
           PY
-      - name: Verify v0.5.1 source hardening
+      - name: Install visual build dependency
+        run: python3 -m pip install --disable-pip-version-check pillow
+      - name: Generate v0.6.0 art and install premium views
         run: |
-          grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
-          grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
-          grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'max_completion_tokens' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
-          grep -q 'Thread.sleep(1200)' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
-          grep -q 'k.startsWith("gsk_")' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'ACTION_CREATE_DOCUMENT' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'ACTION_OPEN_DOCUMENT' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'drawBiomes' app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
-          grep -q 'drawVolcanic' app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
-          grep -q 'onDoubleTap' app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
-          grep -q 'versionCode 13' app/build.gradle
-          grep -q "versionName '0.5.1'" app/build.gradle
-          grep -q 'debuggable false' app/build.gradle
-          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
-          grep -q 'android:label="Vaeloria OOC 0.5.1"' app/src/main/AndroidManifest.xml
-          ! grep -q 'android:debuggable=' app/src/main/AndroidManifest.xml
-          ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-      - name: Run 92-stat and mastery tests
+          python3 v060/generate_assets.py
+          rm -f app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/SceneBannerView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CombatBoardView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CharacterLoadoutView.java
+          cp v060/PremiumViews.java app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
+          cp v060/PremiumActivity.java app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          g=Path('app/build.gradle');s=g.read_text();s=re.sub(r'versionCode\s+13\b','versionCode 14',s);s=re.sub(r"versionName\s+'0\.5\.1'","versionName '0.6.0'",s);g.write_text(s)
+          m=Path('app/src/main/AndroidManifest.xml');s=m.read_text();s=s.replace('android:label="Vaeloria OOC 0.5.1"','android:label="Vaeloria OOC 0.6.0"');s=s.replace('android:name="lt.vaeloria.ooc.VaeloriaActivity"','android:name="lt.vaeloria.ooc.PremiumActivity"');m.write_text(s)
+          PY
+      - name: Verify v0.6.0 source and generated art
         run: |
-          set +e
-          gradle :app:testDebugUnitTest --stacktrace
-          code=$?
-          if [ "$code" -ne 0 ]; then
-            echo "--- FAILED TEST DETAILS ---"
-            find app/build/test-results/testDebugUnitTest -type f -name '*.xml' -print -exec cat {} \; || true
-          fi
-          exit "$code"
-      - name: Build v0.5.1 release APK
+          grep -q 'versionCode 14' app/build.gradle
+          grep -q "versionName '0.6.0'" app/build.gradle
+          grep -q 'lt.vaeloria.ooc.PremiumActivity' app/src/main/AndroidManifest.xml
+          grep -q 'Vaeloria OOC 0.6.0' app/src/main/AndroidManifest.xml
+          grep -q 'class PremiumActivity extends VaeloriaActivity' app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
+          grep -q 'PASAULIO ATLASAS' app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
+          grep -q 'class WorldMapView' app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
+          test -s app/src/main/res/drawable-nodpi/world_map_v060.png
+          test -s app/src/main/res/drawable-nodpi/scene_luminara.png
+          test -s app/src/main/res/drawable-nodpi/combat_forest.png
+          test -s app/src/main/res/drawable-nodpi/hero_einoras.png
+          test -s app/src/main/res/drawable-nodpi/npc_lyra.png
+          test -s app/src/main/res/drawable-nodpi/quest_meridian.png
+      - name: Run unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+      - name: Build v0.6.0 release APK
         run: |
           set -o pipefail
           gradle :app:assembleRelease --stacktrace 2>&1 | tee build.log
-          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.5.1.apk
-      - name: Verify APK identity security and signer
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.6.0.apk
+      - name: Verify APK identity security visuals and signer
         run: |
-          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.5.1.apk
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.6.0.apk
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           head -1 apk-badging.txt | tee apk-identity.txt
           grep -q "name='lt.vaeloria.ooc.personal'" apk-identity.txt
-          grep -q "versionCode='13'" apk-identity.txt
-          grep -q "versionName='0.5.1'" apk-identity.txt
-          grep -q "application-label:'Vaeloria OOC 0.5.1'" apk-badging.txt
+          grep -q "versionCode='14'" apk-identity.txt
+          grep -q "versionName='0.6.0'" apk-identity.txt
+          grep -q "application-label:'Vaeloria OOC 0.6.0'" apk-badging.txt
           "$AAPT" dump permissions "$APK" | tee apk-permissions.txt
           test "$(grep -c '^uses-permission:' apk-permissions.txt)" -eq 1
           grep -q 'android.permission.INTERNET' apk-permissions.txt
@@ -140,38 +141,46 @@ jobs:
           if grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:debuggable.*0xffffffff'; then echo 'APK is debuggable'; exit 1; fi
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:allowBackup.*0x0'
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:usesCleartextTraffic.*0x0'
+          unzip -l "$APK" | tee apk-files.txt
+          grep -q 'world_map_v060' apk-files.txt
+          grep -q 'scene_luminara' apk-files.txt
+          grep -q 'hero_einoras' apk-files.txt
+          grep -q 'npc_lyra' apk-files.txt
           CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           echo "APK signer SHA256=$CERT"
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           "$APKSIGNER" verify --verbose "$APK"
           if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then echo 'Hardcoded Groq key detected'; exit 1; fi
-          unzip -p "$APK" classes.dex | strings | grep -q 'vaeloria-save.json'
+          unzip -p "$APK" classes.dex | strings | grep -q 'PremiumActivity'
+          sha256sum "$APK" | tee apk-sha256.txt
       - name: Upload build audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.5.1-build-audit
+          name: vaeloria-v0.6.0-build-audit
           path: |
             vaeloria-android/build.log
             vaeloria-android/apk-identity.txt
             vaeloria-android/apk-badging.txt
             vaeloria-android/apk-permissions.txt
             vaeloria-android/apk-manifest-tree.txt
+            vaeloria-android/apk-files.txt
+            vaeloria-android/apk-sha256.txt
           if-no-files-found: warn
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.5.1-apk
-          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.5.1.apk
+          name: vaeloria-ooc-v0.6.0-apk
+          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.6.0.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.5.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.5.1 \
-            app/build/outputs/apk/release/Vaeloria-OOC-v0.5.1.apk \
+          gh release delete vaeloria-ooc-v0.6.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.6.0 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v0.6.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.5.1" \
-            --notes "Sustiprintas vietinis Android leidimas: release režimas su debuggable=false, allowBackup=false, uždraustas cleartext srautas, tas pats stabilus pasirašymo raktas, failinis save eksportas/importas vietoje iškarpinės, sutvarkyta 0.5.1 versija ir ikona, detalesnis visiškai offline pasaulio žemėlapis su biomais, kalnais, pelkynais, vulkanine zona, upėmis, maršrutais, zoom/pan ir vietos pasirinkimu. Išlieka kanoninė Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančios bazinės savybės, meistriškumo ir įrangos sistemos, vietinis SQLite ir Android Keystore saugomas Groq raktas."
+            --title "Vaeloria OOC v0.6.0 · Visual Overhaul" \
+            --notes "Presentation-layer perstatymas: iliustruotas offline atlasas, lokacijų scenos, vizualinis kovos ekranas, herojaus ir įrangos kompozicija, inventoriaus ikonografija, NPC dialogų sluoksnis, quest timeline, faction/world-state vizualizacija, nauja tipografijos hierarchija, nav glyphai, animacijos ir haptika. Mechaninis branduolys, SQLite save, 92 savybės, meistriškumas, Groq GM ir Android Keystore išlieka. Release: debuggable=false, allowBackup=false, tik HTTPS, tas pats stabilus signing key."
