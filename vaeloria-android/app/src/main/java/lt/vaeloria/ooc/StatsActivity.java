@@ -19,17 +19,24 @@ import android.widget.TextView;
 import android.graphics.drawable.GradientDrawable;
 
 import java.util.Locale;
+import java.util.Map;
 
 public class StatsActivity extends Activity {
-    private static final int BG=Color.rgb(7,15,22), SUR=Color.rgb(16,28,37), SUR2=Color.rgb(23,38,49), TEXT=Color.rgb(238,239,232), MUT=Color.rgb(166,183,188), GOLD=Color.rgb(214,182,107), TEAL=Color.rgb(82,177,167);
+    private static final int BG=Color.rgb(7,15,22), SUR=Color.rgb(16,28,37), SUR2=Color.rgb(23,38,49), TEXT=Color.rgb(238,239,232), MUT=Color.rgb(166,183,188), GOLD=Color.rgb(214,182,107), TEAL=Color.rgb(82,177,167), RED=Color.rgb(213,91,82);
     private LinearLayout list;
+    private VaeloriaDb db;
+    private Map<String,Integer> values;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        db=new VaeloriaDb(this);
+        values=db.getStatValues();
         build();
     }
+
+    @Override public void onDestroy(){if(db!=null)db.close();super.onDestroy();}
 
     private void build() {
         LinearLayout root = col();
@@ -53,11 +60,12 @@ public class StatsActivity extends Activity {
         top.addView(title,new LinearLayout.LayoutParams(0,dp(46),1));
         root.addView(top,new LinearLayout.LayoutParams(-1,dp(62)));
 
+        int perfect=0;for(String stat:values.keySet())if(values.get(stat)!=null&&values.get(stat)>=100)perfect++;
         LinearLayout head=card();
-        head.addView(t("EINORAS · 92 / 92",17,TEXT,true));
-        head.addView(t("Visos bazinės savybės pasiekė absoliučią 100/100 ribą.",12,MUT,false));
-        ProgressBar total=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);total.setMax(100);total.setProgress(100);total.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD));total.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34,49,57)));head.addView(total,new LinearLayout.LayoutParams(-1,dp(8)));
-        TextView note=t("Skaitinis bazinių savybių augimas baigtas. Tolimesnė pažanga vyksta per meistriškumą, technikas, principus, gebėjimus ir pasaulio pažinimą.",11,MUT,false);note.setPadding(0,dp(8),0,0);head.addView(note);
+        head.addView(t("EINORAS · "+perfect+" / 92 ties riba",17,TEXT,true));
+        head.addView(t(perfect==92?"Visos bazinės savybės pasiekė absoliučią 100/100 ribą.":"Kai kurios bazinės savybės šiuo metu yra paveiktos būsenų ar kitų pasekmių.",12,perfect==92?MUT:RED,false));
+        ProgressBar total=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);total.setMax(92);total.setProgress(perfect);total.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD));total.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34,49,57)));head.addView(total,new LinearLayout.LayoutParams(-1,dp(8)));
+        TextView note=t("Patikrose naudojama čia rodoma faktinė konkrečios savybės reikšmė. Įranga, gebėjimai ir dabartinė fizinė ar maginė būsena gali pridėti atskirus situacinius modifikatorius.",11,MUT,false);note.setPadding(0,dp(8),0,0);head.addView(note);
         LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.setMargins(dp(14),0,dp(14),dp(10));root.addView(head,hp);
 
         EditText search=new EditText(this);search.setHint("Ieškoti savybės…");search.setSingleLine(true);search.setTextColor(TEXT);search.setHintTextColor(Color.rgb(112,136,145));search.setTextSize(13);search.setPadding(dp(13),0,dp(13),0);search.setBackground(round(Color.rgb(10,21,29),13,Color.rgb(43,65,76)));
@@ -79,19 +87,20 @@ public class StatsActivity extends Activity {
             int groupShown=0;
             for(String stat:g.stats){
                 if(!q.isEmpty()&&!stat.toLowerCase(Locale.forLanguageTag("lt-LT")).contains(q))continue;
-                box.addView(statRow(stat));groupShown++;shown++;
+                box.addView(statRow(stat,values.getOrDefault(stat,100)));groupShown++;shown++;
             }
             if(groupShown>0){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,0,0,dp(9));list.addView(box,p);}
         }
         if(shown==0){LinearLayout empty=card();empty.addView(t("Nerasta savybių pagal „"+query+"“.",12,MUT,false));list.addView(empty);}
     }
 
-    private View statRow(String name) {
+    private View statRow(String name,int value) {
+        int v=Math.max(0,Math.min(100,value));
         LinearLayout wrap=col();wrap.setPadding(0,dp(6),0,dp(6));
         LinearLayout r=row();r.setGravity(Gravity.CENTER_VERTICAL);
         TextView n=t(name,12,TEXT,false);r.addView(n,new LinearLayout.LayoutParams(0,-2,1));
-        TextView v=t("100 / 100",11,GOLD,true);v.setGravity(Gravity.END);r.addView(v,new LinearLayout.LayoutParams(dp(78),-2));wrap.addView(r);
-        ProgressBar p=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);p.setMax(100);p.setProgress(100);p.setProgressTintList(android.content.res.ColorStateList.valueOf(TEAL));p.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(33,48,57)));LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(4));pp.setMargins(0,dp(4),0,0);wrap.addView(p,pp);
+        TextView val=t(v+" / 100",11,v==100?GOLD:(v>=75?TEAL:RED),true);val.setGravity(Gravity.END);r.addView(val,new LinearLayout.LayoutParams(dp(78),-2));wrap.addView(r);
+        ProgressBar p=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);p.setMax(100);p.setProgress(v);p.setProgressTintList(android.content.res.ColorStateList.valueOf(v==100?TEAL:(v>=75?GOLD:RED)));p.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(33,48,57)));LinearLayout.LayoutParams pp=new LinearLayout.LayoutParams(-1,dp(4));pp.setMargins(0,dp(4),0,0);wrap.addView(p,pp);
         return wrap;
     }
 
