@@ -9,6 +9,7 @@
         <activity android:name="lt.vaeloria.ooc.MainActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name="lt.vaeloria.ooc.SafeGameActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name="lt.vaeloria.ooc.SafeLauncherActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name="lt.vaeloria.ooc.StatsActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
             android:name="lt.vaeloria.ooc.VaeloriaActivity"
             android:exported="true"
