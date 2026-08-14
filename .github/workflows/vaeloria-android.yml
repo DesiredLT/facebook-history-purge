@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -42,9 +42,24 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Upload APK
+      - name: Prepare APK name
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.1.apk
+
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: vaeloria-ooc-debug-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/app-debug.apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.1.apk
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v0.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.1 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.1.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Vaeloria OOC v0.1" \
+            --notes "Android APK. Veikia lokaliai telefone; internetas reikalingas tik Groq AI užklausoms."
