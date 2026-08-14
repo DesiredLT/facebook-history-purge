@@ -30,29 +30,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Restore stable Android signing key
+      - name: Restore pinned Android signing key
         id: signing-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: vaeloria-android-debug-signing-v1
-      - name: Verify cached key matches installed v0.3.2
+          fail-on-cache-miss: true
+      - name: Verify pinned signing key
         run: |
           test -f "$HOME/.android/debug.keystore"
           FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
-          echo "Cached key SHA256=$FP"
-          test "$FP" = "1891707CCDE764619E2A10E4954656EBAE4287B5BCE09C3A8373A444BEBC7DBB"
-      - name: Create stable Android signing key on first run
-        if: steps.signing-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair -v \
-            -keystore "$HOME/.android/debug.keystore" \
-            -storepass android \
-            -alias androiddebugkey \
-            -keypass android \
-            -dname "CN=Vaeloria Local Android,O=Vaeloria,C=LT" \
-            -keyalg RSA -keysize 2048 -validity 10000
+          echo "Pinned key SHA256=$FP"
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
       - name: Android SDK
         uses: android-actions/setup-android@v3
       - name: Install Android 35
@@ -61,7 +51,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Integrate v0.3.2 stat engine
+      - name: Integrate 92-stat engine
         run: |
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
@@ -111,33 +101,42 @@ jobs:
             find app/build/test-results/testDebugUnitTest -type f -name '*.xml' -print -exec cat {} \; || true
           fi
           exit "$code"
-      - name: Build debug APK
+      - name: Build v0.4.1 APK
         run: |
           set -o pipefail
           gradle :app:assembleDebug --stacktrace 2>&1 | tee build.log
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
+      - name: Verify APK identity and signer
+        run: |
+          APK=app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | tee apk-identity.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-identity.txt
+          grep -q "versionCode='11'" apk-identity.txt
+          CERT=$($ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          echo "APK signer SHA256=$CERT"
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.4.0-build-log
+          name: vaeloria-v0.4.1-build-log
           path: vaeloria-android/build.log
           if-no-files-found: warn
-      - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.4.0-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk
+          name: vaeloria-ooc-v0.4.1-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.4.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.4.0 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk \
+          gh release delete vaeloria-ooc-v0.4.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.4.1 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.4.0" \
-            --notes "Didelis žaidimo pateikimo ir mechanikos atnaujinimas: veikėjo siluetas su 16 paspaudžiamų įrangos vietų; atskiras visų 92 savybių meistriškumas ir patirtis, realiai veikiantys patikras; gebėjimų kortelės su mechaniniu poveikiu; viso ekrano interaktyvus žemėlapis; turtingesnės scenų iliustracijos pagal vietą, laiką ir sceną; patobulintas žurnalas, lietuviška terminija, pasirinkimų išdėstymas ir naudingas vietinis veiksmų sprendimas. Išlieka pilnai patikrintas 92 savybių klasifikatorius ir stabilus pasirašymo raktas."
+            --title "Vaeloria OOC v0.4.1" \
+            --notes "Diegimo taisymas po v0.3.x pasirašymo rakto praradimo. Ši versija naudoja naują atskirą paketą lt.vaeloria.ooc.personal, todėl gali būti įdiegta šalia senos programėlės ir leidžia saugiai perkelti išsaugojimą per Eksportuoti / Importuoti. Nuo šios versijos Gradle tiesiogiai naudoja fiksuotą raktą, o CI prieš ir po buildo tikrina tą patį sertifikato SHA-256. Įtraukti visi v0.4 žaidimo mechanikos ir sąsajos patobulinimai."
