@@ -65,7 +65,9 @@ jobs:
       - name: Integrate v0.5 reliability fixes
         run: python3 tools/patch_v050.py
       - name: Integrate v0.5.1 hardening and visual map
-        run: python3 tools/patch_v051.py
+        run: |
+          python3 tools/patch_v051.py
+          python3 tools/patch_v051_lintfix.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -101,9 +103,9 @@ jobs:
           grep -q "versionName '0.5.1'" app/build.gradle
           grep -q 'debuggable false' app/build.gradle
           grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q 'android:debuggable="false"' app/src/main/AndroidManifest.xml
           grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
           grep -q 'android:label="Vaeloria OOC 0.5.1"' app/src/main/AndroidManifest.xml
+          ! grep -q 'android:debuggable=' app/src/main/AndroidManifest.xml
           ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
       - name: Run 92-stat and mastery tests
         run: |
@@ -172,4 +174,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.5.1" \
-            --notes "Sustiprintas vietinis Android leidimas: debuggable=false, allowBackup=false, uždraustas cleartext srautas, tas pats stabilus pasirašymo raktas, failinis save eksportas/importas vietoje iškarpinės, sutvarkyta 0.5.1 versija ir ikona, detalesnis visiškai offline pasaulio žemėlapis su biomais, kalnais, pelkynais, vulkanine zona, upėmis, maršrutais, zoom/pan ir vietos pasirinkimu. Išlieka kanoninė Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančios bazinės savybės, meistriškumo ir įrangos sistemos, vietinis SQLite ir Android Keystore saugomas Groq raktas."
+            --notes "Sustiprintas vietinis Android leidimas: release režimas su debuggable=false, allowBackup=false, uždraustas cleartext srautas, tas pats stabilus pasirašymo raktas, failinis save eksportas/importas vietoje iškarpinės, sutvarkyta 0.5.1 versija ir ikona, detalesnis visiškai offline pasaulio žemėlapis su biomais, kalnais, pelkynais, vulkanine zona, upėmis, maršrutais, zoom/pan ir vietos pasirinkimu. Išlieka kanoninė Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančios bazinės savybės, meistriškumo ir įrangos sistemos, vietinis SQLite ir Android Keystore saugomas Groq raktas."
