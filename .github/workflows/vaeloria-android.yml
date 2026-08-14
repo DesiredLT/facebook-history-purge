@@ -60,6 +60,7 @@ jobs:
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
           python3 tools/patch_stat_engine_audit.py
+          python3 tools/patch_stat_test_aggregate.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -119,4 +120,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.3.2" \
-            --notes "Full 92-stat audit. Exactly 92 unique canonical stats; every canonical stat is directly reachable; natural Lithuanian classifier regressions and text without diacritics are tested; physical/magic categories and difficulty logic no longer rely on unsafe substring fragments."
+            --notes "Full 92-stat audit. Exactly 92 unique canonical stats; every canonical stat is directly reachable; one natural Lithuanian action per stat is tested; classifier regressions and text without diacritics are tested; physical/magic categories and difficulty logic no longer rely on unsafe substring fragments."
