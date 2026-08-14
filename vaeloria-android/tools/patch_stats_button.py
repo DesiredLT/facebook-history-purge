@@ -65,6 +65,18 @@ g = g.replace(
     'private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{'
 )
 
+# The old rollback MainActivity is still compiled. Keep a 5-argument compatibility overload for it.
+compat = '''    public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities)throws Exception{
+        return resolveTurn(apiKey,s,action,equipped,abilities,null);
+    }
+
+'''
+if 'return resolveTurn(apiKey,s,action,equipped,abilities,null);' not in g:
+    marker = '    private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{'
+    if marker not in g:
+        raise SystemExit("Nepavyko pridėti seno Groq kvietimo suderinamumo")
+    g = g.replace(marker, compat + marker, 1)
+
 old_rule = 'Nauja dėvima įranga gali būti šių kategorijų: weapon, offhand, head, chest, hands, legs, feet, belt, neck, ring, utility, relic. Artefaktams naudok artifact.'
 new_rule = old_rule + ' Kai vartotojo žinutėje pateikta PRIVALOMA SAVYBĖS PATIKRA, jos skaitinį rezultatą laikyk nekintamu žaidimo variklio sprendimu. Negali nesėkmės paversti sėkme ar sėkmės nesėkme. Interpretacijos mastą, kainą ir pasaulio reakciją parink pagal nurodytą rezultatą.'
 if new_rule not in g:
@@ -172,7 +184,6 @@ if new_import_head not in d:
 
 old_success = 'db.setTransactionSuccessful();return true;'
 new_success = 'if(stats!=null)for(int si=0;si<stats.length();si++){JSONObject so=stats.optJSONObject(si);if(so==null)continue;ContentValues sv=new ContentValues();sv.put("value",Math.max(0,Math.min(100,so.optInt("value",100))));db.update("stats",sv,"name=?",new String[]{so.optString("name","")});}\n                db.setTransactionSuccessful();return true;'
-# Only patch the importSave transaction occurrence by searching after its method declaration.
 import_pos = d.find('public boolean importSave(String raw)')
 if import_pos >= 0 and 'if(stats!=null)for(int si=0;' not in d[import_pos:]:
     pos = d.find(old_success, import_pos)
