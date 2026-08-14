@@ -59,6 +59,7 @@ jobs:
         run: |
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
+          python3 tools/patch_stat_engine_audit.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -80,7 +81,15 @@ jobs:
           print('Mechanically referenced:',len(stats),'of 92')
           PY
       - name: Run 92-stat classifier tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: |
+          set +e
+          gradle :app:testDebugUnitTest --stacktrace
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            echo "--- FAILED TEST DETAILS ---"
+            find app/build/test-results/testDebugUnitTest -type f -name '*.xml' -print -exec cat {} \; || true
+          fi
+          exit "$code"
       - name: Build debug APK
         run: |
           set -o pipefail
@@ -110,4 +119,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.3.2" \
-            --notes "Audits and hardens all 92 base stats. Fixes Lithuanian substring collisions, diacritic-free player input, physical-vs-magic category classification, primary-stat reachability and difficulty classification. Adds automated tests requiring all 92 canonical stats to classify to themselves plus regression cases for natural Lithuanian actions."
+            --notes "Full 92-stat audit. Exactly 92 unique canonical stats; every canonical stat is directly reachable; natural Lithuanian classifier regressions and text without diacritics are tested; physical/magic categories and difficulty logic no longer rely on unsafe substring fragments."
