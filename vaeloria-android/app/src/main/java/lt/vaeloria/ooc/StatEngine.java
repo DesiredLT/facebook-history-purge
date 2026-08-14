@@ -3,6 +3,7 @@ package lt.vaeloria.ooc;
 import java.security.SecureRandom;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public final class StatEngine {
     private static final SecureRandom RNG = new SecureRandom();
@@ -42,10 +43,11 @@ public final class StatEngine {
         }
     }
 
-    public static Check resolve(GameState s, String action, String equipped, List<String[]> abilities) {
+    public static Check resolve(GameState s, String action, String equipped, List<String[]> abilities, Map<String,Integer> stats) {
         String a = norm(action);
         Check c = new Check();
         chooseStats(c,a);
+        c.base = stats==null ? 100 : Math.max(0,Math.min(100,stats.getOrDefault(c.primary,100)));
         c.roll = 1 + RNG.nextInt(100);
         c.difficulty = difficulty(a,s);
         c.conditionModifier = conditionModifier(c.primary,s);
@@ -63,14 +65,12 @@ public final class StatEngine {
     }
 
     private static void chooseStats(Check c,String a){
-        // Specifinės maginės ir relikvijų sąveikos turi pirmenybę prieš bendrą analizę.
         if(has(a,"relikv","rezonans","artefakt")){c.primary="Relikvijų rezonansas";c.secondary="Magijos jutimas";return;}
         if(has(a,"meridian","erdv","kelionės vart","teleport","perkel")){c.primary="Erdvinė magija";c.secondary="Relikvijų rezonansas";return;}
         if(has(a,"laiko mag","chron","laiko versij","praeitį","ateitį")){c.primary="Laiko magija";c.secondary="Burtų stabilumas";return;}
         if(has(a,"ardyti burt","nutraukti burt","išsklaid")){c.primary="Užkeikimų ardymas";c.secondary="Magijos jutimas";return;}
         if(has(a,"gyd","atkurti kūną")){c.primary="Gydomoji magija";c.secondary="Manos kontrolė";return;}
         if(has(a,"burti","magij","mana","runa","užkeik")){c.primary="Manos kontrolė";c.secondary="Burtų tikslumas";return;}
-
         if(has(a,"įtik","derėt","kalb","įkalb","diplomat","susitart")){c.primary="Įtikinėjimas";c.secondary="Derybos";return;}
         if(has(a,"mel","apga","apsimest","suklaid")){c.primary="Apgaulė";c.secondary="Žmonių perpratimas";return;}
         if(has(a,"gras","baugin","įbaug")){c.primary="Bauginimas";c.secondary="Charizma";return;}
