@@ -55,12 +55,14 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Integrate full statistics and gameplay checks
+      - name: Integrate v0.3.2 stat engine
         run: |
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
           python3 tools/patch_stat_engine_audit.py
           python3 tools/patch_stat_test_aggregate.py
+      - name: Integrate v0.4 RPG systems and UI
+        run: python3 tools/patch_v040.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -69,19 +71,23 @@ jobs:
           engine=open('app/src/main/java/lt/vaeloria/ooc/StatEngine.java',encoding='utf-8').read()
           groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',catalog,re.S)
           stats=[]
-          for g in groups:
-              stats += re.findall(r'"([^"]+)"',g)
+          for g in groups: stats += re.findall(r'"([^"]+)"',g)
           print('Base stat count:',len(stats))
-          if len(stats) != 92:
-              raise SystemExit(f'Expected 92 stats, found {len(stats)}')
-          if len(set(stats)) != 92:
-              raise SystemExit('Duplicate base stat names found')
+          if len(stats)!=92: raise SystemExit(f'Expected 92 stats, found {len(stats)}')
+          if len(set(stats))!=92: raise SystemExit('Duplicate base stat names found')
           missing=[s for s in stats if ('"'+s+'"') not in engine]
-          if missing:
-              raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
+          if missing: raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
           print('Mechanically referenced:',len(stats),'of 92')
           PY
-      - name: Run 92-stat classifier tests
+      - name: Verify v0.4 integration
+        run: |
+          grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+      - name: Run 92-stat and mastery tests
         run: |
           set +e
           gradle :app:testDebugUnitTest --stacktrace
@@ -99,25 +105,25 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.3.2-build-log
+          name: vaeloria-v0.4.0-build-log
           path: vaeloria-android/build.log
           if-no-files-found: warn
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.3.2-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk
+          name: vaeloria-ooc-v0.4.0-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.3.2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.3.2 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.2.apk \
+          gh release delete vaeloria-ooc-v0.4.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.4.0 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.3.2" \
-            --notes "Full 92-stat audit. Exactly 92 unique canonical stats; every canonical stat is directly reachable; one natural Lithuanian action per stat is tested; classifier regressions and text without diacritics are tested; physical/magic categories and difficulty logic no longer rely on unsafe substring fragments."
+            --title "Vaeloria OOC v0.4.0" \
+            --notes "Major RPG presentation and mechanics pass: visual character equipment silhouette with 16 tappable slots; per-stat post-cap mastery levels and XP that affect checks; mechanical ability cards; full-height interactive map with safer labels; richer scene visuals based on location/time/scene; improved journal, Lithuanian terminology, choice spacing and useful offline stat-driven resolution. Keeps the fully audited 92-stat classifier and stable signing key."
