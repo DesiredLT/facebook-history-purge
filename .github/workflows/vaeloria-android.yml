@@ -59,16 +59,23 @@ jobs:
         run: |
           python3 tools/patch_stats_button.py
           python3 tools/fix_generated_java.py
-      - name: Verify exactly 92 base stats
+      - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
           import re
-          text=open('app/src/main/java/lt/vaeloria/ooc/BaseStatCatalog.java',encoding='utf-8').read()
-          groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',text,re.S)
-          count=sum(len(re.findall(r'"[^"]+"',g)) for g in groups)
-          print('Base stat count:',count)
-          if count != 92:
-              raise SystemExit(f'Expected 92 stats, found {count}')
+          catalog=open('app/src/main/java/lt/vaeloria/ooc/BaseStatCatalog.java',encoding='utf-8').read()
+          engine=open('app/src/main/java/lt/vaeloria/ooc/StatEngine.java',encoding='utf-8').read()
+          groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',catalog,re.S)
+          stats=[]
+          for g in groups:
+              stats += re.findall(r'"([^"]+)"',g)
+          print('Base stat count:',len(stats))
+          if len(stats) != 92:
+              raise SystemExit(f'Expected 92 stats, found {len(stats)}')
+          missing=[s for s in stats if ('"'+s+'"') not in engine]
+          if missing:
+              raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
+          print('Mechanically referenced:',len(stats),'of 92')
           PY
       - name: Build debug APK
         run: |
@@ -99,4 +106,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.3.1" \
-            --notes "Adds all 92 Lithuanian base stats as real SQLite-backed gameplay values. Risky actions are resolved locally from the relevant stat, a d100 check, situation difficulty, current resources, equipped items and post-cap abilities before the AI GM narrates the fixed result. Includes the full searchable 92-stat screen and all v0.3 equipment, localization, map and UI improvements."
+            --notes "Adds all 92 Lithuanian base stats as real SQLite-backed gameplay values. Every stat is mechanically addressable. Each risky action selects a primary and supporting stat, combines them 75/25, then applies a local d100 roll, situation difficulty, resources, equipment and post-cap abilities before the AI GM narrates the fixed result. Includes the full searchable 92-stat screen and all v0.3 equipment, localization, map and UI improvements."
