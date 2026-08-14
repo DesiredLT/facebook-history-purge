@@ -90,7 +90,7 @@ jobs:
           grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'max_completion_tokens' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
-          grep -q 'o.put("time_minutes",0)' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'Thread.sleep(1200)' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
           grep -q 'k.startsWith("gsk_")' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q 'post-cap' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
@@ -144,4 +144,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.5.0" \
-            --notes "Vietinis Android Vaeloria leidimas su kanonine Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančiomis bazinėmis savybėmis, meistriškumo ir įrangos sistemomis, vietiniu SQLite išsaugojimu, Android Keystore saugomu Groq raktu ir gpt-oss-120b žaidimo meistru. v0.5.0 prideda Groq retry/backoff ir atsakymo ribas, griežtesnį API rakto tikrinimą bei užtikrina, kad offline atsarginis režimas nekeistų kanoninio pasaulio laiko. Paketas ir pasirašymo raktas išlieka tie patys kaip v0.4.1, todėl versija atsinaujina vietoje."
+            --notes "Vietinis Android Vaeloria leidimas su kanonine Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančiomis bazinėmis savybėmis, meistriškumo ir įrangos sistemomis, vietiniu SQLite išsaugojimu, Android Keystore saugomu Groq raktu ir gpt-oss-120b žaidimo meistru. v0.5.0 prideda Groq retry/backoff ir atsakymo ribas bei griežtesnį API rakto tikrinimą, išlaikant pilną vietinį 92 savybių ir meistriškumo sprendimo variklį be DI ryšio. Paketas ir pasirašymo raktas išlieka tie patys kaip v0.4.1, todėl versija atsinaujina vietoje."
