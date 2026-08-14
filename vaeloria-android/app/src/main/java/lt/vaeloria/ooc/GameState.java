@@ -24,6 +24,12 @@ public class GameState {
     public String objective = "Investigate the first fresh waygate drift incident and establish what is known versus merely assumed.";
     public String sceneTitle = "The Late Roads";
     public String scene = "Luminara gauna karavano manifestą anksčiau, negu į miestą atvyksta pats karavanas. Laiko neatitikimas sutampa su nauju Waygate Drift incidentu, todėl vien dokumento data jau yra lauko įrodymas, o ne gandas.";
+    public boolean combatActive = false;
+    public String enemyName = "";
+    public String enemyStatus = "";
+    public String enemyTelegraph = "";
+    public String combatDistance = "mid";
+    public String combatHazard = "";
     public final List<String> choices = new ArrayList<>();
     public final List<String> recentTurns = new ArrayList<>();
 
@@ -51,6 +57,12 @@ public class GameState {
         o.put("objective", objective);
         o.put("sceneTitle", sceneTitle);
         o.put("scene", scene);
+        o.put("combatActive", combatActive);
+        o.put("enemyName", enemyName);
+        o.put("enemyStatus", enemyStatus);
+        o.put("enemyTelegraph", enemyTelegraph);
+        o.put("combatDistance", combatDistance);
+        o.put("combatHazard", combatHazard);
         JSONArray c = new JSONArray();
         for (String s : choices) c.put(s);
         o.put("choices", c);
@@ -78,6 +90,12 @@ public class GameState {
         s.objective = o.optString("objective", s.objective);
         s.sceneTitle = o.optString("sceneTitle", s.sceneTitle);
         s.scene = o.optString("scene", s.scene);
+        s.combatActive = o.optBoolean("combatActive", false);
+        s.enemyName = o.optString("enemyName", "");
+        s.enemyStatus = o.optString("enemyStatus", "");
+        s.enemyTelegraph = o.optString("enemyTelegraph", "");
+        s.combatDistance = o.optString("combatDistance", "mid");
+        s.combatHazard = o.optString("combatHazard", "");
         s.choices.clear();
         JSONArray c = o.optJSONArray("choices");
         if (c != null) for (int i=0;i<c.length();i++) s.choices.add(c.optString(i));
@@ -99,6 +117,13 @@ public class GameState {
         stamina = clamp(stamina + result.optInt("stamina_delta", 0), 0, staminaMax);
         aeonic = clamp(aeonic + result.optInt("aeonic_delta", 0), 0, aeonicMax);
         crowns = Math.max(0, crowns + result.optLong("crowns_delta", 0));
+        combatActive = result.optBoolean("combat_active", combatActive);
+        enemyName = result.optString("enemy_name", combatActive ? enemyName : "");
+        enemyStatus = result.optString("enemy_status", combatActive ? enemyStatus : "");
+        enemyTelegraph = result.optString("enemy_telegraph", combatActive ? enemyTelegraph : "");
+        combatDistance = result.optString("combat_distance", combatActive ? combatDistance : "mid");
+        combatHazard = result.optString("combat_hazard", combatActive ? combatHazard : "");
+        if (!combatActive) { enemyName=""; enemyStatus=""; enemyTelegraph=""; combatHazard=""; combatDistance="mid"; }
         String note = result.optString("quest_note", "").trim();
         if (!note.isEmpty()) objective = note;
         choices.clear();
