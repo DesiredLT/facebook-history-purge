@@ -66,23 +66,23 @@ jobs:
         run: gradle :app:assembleDebug --stacktrace
 
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.2.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.2.1-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk
+          name: vaeloria-ooc-v0.2.2-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.2.apk
           if-no-files-found: error
 
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.2.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.2.1 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk \
+          gh release delete vaeloria-ooc-v0.2.2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.2.2 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.2.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.2.1" \
-            --notes "Install-fix release. From this version onward GitHub Actions reuses one persistent Android signing key, so future Vaeloria updates can install over the existing app normally."
+            --title "Vaeloria OOC v0.2.2" \
+            --notes "Install-fix release with permanent package ID lt.vaeloria.ooc.stable and persistent Android signing key. It can install alongside the old Vaeloria app; migrate save by export/import, then future updates install over this app normally."
