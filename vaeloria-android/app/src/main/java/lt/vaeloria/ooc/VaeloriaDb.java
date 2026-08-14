@@ -15,7 +15,7 @@ import java.util.List;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     public static class Item {
         public String id, name, type, rarity, description, slot;
@@ -32,7 +32,51 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         seed(db);
     }
 
-    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {}
+    @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        if (oldVersion < 2) migrateV1(db);
+    }
+
+    private void migrateV1(SQLiteDatabase db) {
+        java.util.HashMap<String,String> old = new java.util.HashMap<>();
+        java.util.ArrayList<String> legacyTurns = new java.util.ArrayList<>();
+        try (Cursor c = db.rawQuery("SELECT k,v FROM state", null)) {
+            while (c.moveToNext()) old.put(c.getString(0), c.getString(1));
+        } catch (Exception ignored) {}
+        try (Cursor c = db.rawQuery("SELECT action,result FROM turns ORDER BY id ASC", null)) {
+            while (c.moveToNext()) legacyTurns.add(c.getString(0) + " → " + compactLegacy(c.getString(1)));
+        } catch (Exception ignored) {}
+        db.execSQL("DROP TABLE IF EXISTS state");
+        db.execSQL("DROP TABLE IF EXISTS turns");
+        db.execSQL("DROP TABLE IF EXISTS undo");
+        db.execSQL("DROP TABLE IF EXISTS items");
+        db.execSQL("DROP TABLE IF EXISTS abilities");
+        db.execSQL("DROP TABLE IF EXISTS checkpoints");
+        onCreate(db);
+        try {
+            GameState s = new GameState();
+            s.location = old.containsKey("location") ? old.get("location") : s.location;
+            s.worldMinute = parseLong(old.get("world_minute"), s.worldMinute);
+            s.hp = parseInt(old.get("hp"), s.hp);
+            s.mana = parseInt(old.get("mana"), s.mana);
+            s.stamina = parseInt(old.get("stamina"), s.stamina);
+            s.aeonic = parseInt(old.get("aeonic"), s.aeonic);
+            s.crowns = parseLong(old.get("crowns"), s.crowns);
+            if (old.get("scene") != null && !old.get("scene").isEmpty()) s.scene = old.get("scene");
+            s.choices.clear();
+            for (int i=1;i<=3;i++) {
+                String choice = old.get("choice"+i);
+                if (choice != null && !choice.isEmpty()) s.choices.add(choice);
+            }
+            while (s.choices.size() < 3) s.choices.add("Stebėti situaciją ir rinkti įrodymus");
+            s.recentTurns.addAll(legacyTurns.subList(Math.max(0, legacyTurns.size()-12), legacyTurns.size()));
+            ContentValues st = new ContentValues(); st.put("json", s.toJson().toString());
+            db.update("state", st, "id=1", null);
+        } catch (Exception ignored) {}
+    }
+
+    private static int parseInt(String s, int fallback) { try { return Integer.parseInt(s); } catch (Exception e) { return fallback; } }
+    private static long parseLong(String s, long fallback) { try { return Long.parseLong(s); } catch (Exception e) { return fallback; } }
+    private static String compactLegacy(String s) { if (s == null) return "legacy turn"; s=s.replace('\n',' '); return s.length()>90?s.substring(0,90)+"…":s; }
 
     private void seed(SQLiteDatabase db) {
         try {
@@ -163,7 +207,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",1); root.put("state",loadState().toJson());
+            JSONObject root=new JSONObject(); root.put("version",2); root.put("state",loadState().toJson());
             JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("equipped",i.equipped);items.put(o);} root.put("items",items); return root.toString();
         } catch(Exception e){return "";}
     }
@@ -182,6 +226,6 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     }
 
     public void reset() {
-        SQLiteDatabase db=getWritableDatabase(); db.execSQL("DROP TABLE IF EXISTS state");db.execSQL("DROP TABLE IF EXISTS items");db.execSQL("DROP TABLE IF EXISTS abilities");db.execSQL("DROP TABLE IF EXISTS checkpoints");onCreate(db);
+        SQLiteDatabase db=getWritableDatabase(); db.execSQL("DROP TABLE IF EXISTS state");db.execSQL("DROP TABLE IF EXISTS items");db.execSQL("DROP TABLE IF EXISTS abilities");db.execSQL("DROP TABLE IF EXISTS checkpoints");db.execSQL("DROP TABLE IF EXISTS turns");db.execSQL("DROP TABLE IF EXISTS undo");onCreate(db);
     }
 }
