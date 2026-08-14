@@ -61,10 +61,11 @@ jobs:
           python3 tools/fix_generated_java.py
           python3 tools/patch_stat_engine_audit.py
           python3 tools/patch_stat_test_aggregate.py
-      - name: Integrate v0.4 RPG systems and UI
+      - name: Integrate v0.4 systems and interface
         run: |
           python3 tools/patch_v040.py
           python3 tools/fix_v040_db_methods.py
+          python3 tools/cleanup_v040_lithuanian.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -81,7 +82,7 @@ jobs:
           if missing: raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
           print('Mechanically referenced:',len(stats),'of 92')
           PY
-      - name: Verify v0.4 integration
+      - name: Verify v0.4 integration and Lithuanian UI
         run: |
           grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
           grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
@@ -91,6 +92,9 @@ jobs:
           grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          ! grep -q 'post-cap' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          ! grep -q ' IR XP' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          ! grep -q 'post-cap\|POST-CAP\| XP' app/src/main/java/lt/vaeloria/ooc/StatsActivity.java app/src/main/java/lt/vaeloria/ooc/AbilityMechanics.java
       - name: Run 92-stat and mastery tests
         run: |
           set +e
@@ -130,4 +134,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.4.0" \
-            --notes "Major RPG presentation and mechanics pass: visual character equipment silhouette with 16 tappable slots; per-stat post-cap mastery levels and XP that affect checks; mechanical ability cards; full-height interactive map with safer labels; richer scene visuals based on location/time/scene; improved journal, Lithuanian terminology, choice spacing and useful offline stat-driven resolution. Keeps the fully audited 92-stat classifier and stable signing key."
+            --notes "Didelis žaidimo pateikimo ir mechanikos atnaujinimas: veikėjo siluetas su 16 paspaudžiamų įrangos vietų; atskiras visų 92 savybių meistriškumas ir patirtis, realiai veikiantys patikras; gebėjimų kortelės su mechaniniu poveikiu; viso ekrano interaktyvus žemėlapis; turtingesnės scenų iliustracijos pagal vietą, laiką ir sceną; patobulintas žurnalas, lietuviška terminija, pasirinkimų išdėstymas ir naudingas vietinis veiksmų sprendimas. Išlieka pilnai patikrintas 92 savybių klasifikatorius ir stabilus pasirašymo raktas."
