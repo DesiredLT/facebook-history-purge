@@ -25,37 +25,64 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
+      - name: Restore stable Android signing key
+        id: signing-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+
+      - name: Create stable Android signing key on first run
+        if: steps.signing-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -dname "CN=Vaeloria Local Android,O=Vaeloria,C=LT" \
+            -keyalg RSA -keysize 2048 -validity 10000
+
       - name: Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install Android 35
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Gradle 8.11.1
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
+
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.2-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.apk
+          name: vaeloria-ooc-v0.2.1-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk
           if-no-files-found: error
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.2 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.apk \
+          gh release delete vaeloria-ooc-v0.2.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.2.1 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.1.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.2" \
-            --notes "Mobile RPG v0.2: equipment slots, interactive world map, location visuals, tactical combat board, redesigned character sheet, action feedback, safe v0.1 migration, local save/undo/import/export, secure Groq GM integration."
+            --title "Vaeloria OOC v0.2.1" \
+            --notes "Install-fix release. From this version onward GitHub Actions reuses one persistent Android signing key, so future Vaeloria updates can install over the existing app normally."
