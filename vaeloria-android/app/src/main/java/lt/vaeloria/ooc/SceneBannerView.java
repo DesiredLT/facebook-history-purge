@@ -13,11 +13,14 @@ import android.view.View;
 public class SceneBannerView extends View {
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
     private String location="Luminara";
-    public SceneBannerView(Context c){super(c);setMinimumHeight(dp(155));}
+    public SceneBannerView(Context c){super(c);setMinimumHeight(dp(165));}
     public void setLocation(String l){location=l==null?"Luminara":l;invalidate();}
     @Override protected void onDraw(Canvas c){super.onDraw(c);int w=getWidth(),h=getHeight();
         p.setShader(new LinearGradient(0,0,w,h,Color.rgb(16,39,56),Color.rgb(9,18,29), Shader.TileMode.CLAMP));c.drawRoundRect(0,0,w,h,dp(18),dp(18),p);p.setShader(null);
-        if(location.contains("Luminara"))drawLuminara(c,w,h);else if(location.contains("Dragonwake")||location.contains("Kharad"))drawMountains(c,w,h);else if(location.contains("Vale")||location.contains("Verdant")||location.contains("Mire"))drawWild(c,w,h);else drawArcane(c,w,h);
+        if(location.contains("Luminara"))drawLuminara(c,w,h);
+        else if(location.contains("Drakono Pabudimo")||location.contains("Dragonwake")||location.contains("Kharad"))drawMountains(c,w,h);
+        else if(location.contains("Slėnis")||location.contains("Labirintas")||location.contains("Pelkynas")||location.contains("Vale")||location.contains("Verdant")||location.contains("Mire"))drawWild(c,w,h);
+        else drawArcane(c,w,h);
         p.setColor(Color.argb(145,0,0,0));c.drawRect(0,h-dp(46),w,h,p);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(dp(15));p.setColor(Color.rgb(239,226,193));c.drawText(location.toUpperCase(),dp(15),h-dp(18),p);
     }
     private void drawLuminara(Canvas c,int w,int h){
