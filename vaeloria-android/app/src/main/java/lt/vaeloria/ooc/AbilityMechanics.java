@@ -29,14 +29,14 @@ public final class AbilityMechanics {
             case"Laiko Paralakso Atskyrimas":return"Laiko magijos ir laiko anomalijų analizės patikroms iki +10 po pakankamo stebėjimo.";
             case"Nežinomų Taisyklių Kalibravimas":return"Nežinomų reiškinių analizės ar magijos jutimo patikroms iki +8 po pirmojo kontakto.";
             case"Pasidalytas Meistriškumas":return"Leidžia perduoti dalį sprendimo sąjungininkui neprarandant koordinacijos; poveikis priklauso nuo jo kompetencijos.";
-            case"Sąlyginio Priežastingumo Struktūra":return"Leidžia kurti sąlyga→pasekmė ryšius, jei pasaulio taisyklės juos priima; DI meistras privalo taikyti kainą ir ribas.";
+            case"Sąlyginio Priežastingumo Struktūra":return"Leidžia kurti sąlyga→pasekmė ryšius, jei pasaulio taisyklės juos priima; DI žaidimo meistras privalo taikyti kainą ir ribas.";
             case"Santarvės Adapterio Struktūra":return"Leidžia laikinai suderinti jau suprastas priežastines formas; neveikia nežinomos sistemos be kalibravimo.";
-            default:return"Situacinis post-cap poveikis; žaidimo variklis ir žaidimo meistras turi taikyti tik tada, kai sąlygos pagrįstos.";
+            default:return"Situacinis poveikis virš bazinės ribos; žaidimo variklis ir žaidimo meistras jį taiko tik tada, kai sąlygos pagrįstos.";
         }
     }
 
     public static String tag(String type){
-        if(type==null)return"POST-CAP";
+        if(type==null)return"VIRŠ RIBOS";
         if(type.contains("principas"))return"PRINCIPAS";
         if(type.contains("technika"))return"TECHNIKA";
         if(type.contains("tobulinimas"))return"TOBULINIMAS";
