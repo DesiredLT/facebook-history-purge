@@ -20,10 +20,10 @@ public class GameState {
     public int stamina = 100, staminaMax = 100;
     public int aeonic = 180, aeonicMax = 900;
     public long crowns = 1_062_400L;
-    public String questTitle = "The Broken Meridian";
-    public String objective = "Investigate the first fresh waygate drift incident and establish what is known versus merely assumed.";
-    public String sceneTitle = "The Late Roads";
-    public String scene = "Luminara gauna karavano manifestą anksčiau, negu į miestą atvyksta pats karavanas. Laiko neatitikimas sutampa su nauju Waygate Drift incidentu, todėl vien dokumento data jau yra lauko įrodymas, o ne gandas.";
+    public String questTitle = "Lūžęs Meridianas";
+    public String objective = "Ištirti pirmą naują kelionės vartų poslinkio atvejį ir atskirti, kas žinoma, nuo to, kas tik numanoma.";
+    public String sceneTitle = "Vėlyvieji keliai";
+    public String scene = "Luminara gauna karavano manifestą anksčiau, negu į miestą atvyksta pats karavanas. Laiko neatitikimas sutampa su nauju kelionės vartų poslinkiu, todėl vien dokumento data jau yra lauko įrodymas, o ne gandas.";
     public boolean combatActive = false;
     public String enemyName = "";
     public String enemyStatus = "";
@@ -34,9 +34,9 @@ public class GameState {
     public final List<String> recentTurns = new ArrayList<>();
 
     public GameState() {
-        choices.add("Ištirti manifestą dėl laiko ir meridiano anomalijų");
-        choices.add("Susisiekti su Mira ir Kaelis bei palyginti jų laiko stebėjimus");
-        choices.add("Vykti tiesiai prie paveikto waygate ir rinkti lauko įrodymus");
+        choices.add("Ištirti manifestą dėl laiko ir Meridiano anomalijų");
+        choices.add("Susisiekti su Mira ir Kaeliu bei palyginti jų laiko stebėjimus");
+        choices.add("Vykti tiesiai prie paveiktų kelionės vartų ir rinkti lauko įrodymus");
     }
 
     public JSONObject toJson() throws JSONException {
