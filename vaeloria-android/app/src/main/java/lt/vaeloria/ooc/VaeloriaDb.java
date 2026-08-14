@@ -12,13 +12,20 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
+
+    public static final String[] EQUIPMENT_SLOTS = new String[]{
+            "weapon","offhand","head","chest","hands","legs","feet","belt","neck",
+            "ring_left","ring_right","utility","relic_1","relic_2","relic_3","relic_4"
+    };
 
     public static class Item {
-        public String id, name, type, rarity, description, slot;
+        public String id, name, type, rarity, description, slot, equippedSlot;
         public boolean equipped, synced;
     }
 
@@ -26,14 +33,18 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     @Override public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE state (id INTEGER PRIMARY KEY CHECK(id=1), json TEXT NOT NULL)");
-        db.execSQL("CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, rarity TEXT NOT NULL, description TEXT NOT NULL, slot TEXT, equipped INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, rarity TEXT NOT NULL, description TEXT NOT NULL, slot TEXT, equipped INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 0, equipped_slot TEXT)");
         db.execSQL("CREATE TABLE abilities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, type TEXT NOT NULL, description TEXT NOT NULL)");
         db.execSQL("CREATE TABLE checkpoints (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT, state_json TEXT NOT NULL, equipment_json TEXT NOT NULL, created_at INTEGER NOT NULL)");
         seed(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        if (oldVersion < 2) migrateV1(db);
+        if (oldVersion < 2) {
+            migrateV1(db);
+            oldVersion = 2;
+        }
+        if (oldVersion < 3) migrateV2toV3(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -74,9 +85,32 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         } catch (Exception ignored) {}
     }
 
+    private void migrateV2toV3(SQLiteDatabase db) {
+        try { db.execSQL("ALTER TABLE items ADD COLUMN equipped_slot TEXT"); } catch (Exception ignored) {}
+        db.execSQL("UPDATE items SET slot='weapon', equipped_slot=CASE WHEN equipped=1 THEN 'weapon' ELSE NULL END WHERE slot='primary_weapon'");
+        db.execSQL("UPDATE items SET slot='chest', equipped_slot=CASE WHEN equipped=1 THEN 'chest' ELSE NULL END WHERE slot='armor_system'");
+        db.execSQL("UPDATE items SET equipped_slot=CASE WHEN equipped=1 THEN 'utility' ELSE NULL END WHERE slot='utility'");
+        int relicIndex = 1;
+        try (Cursor c = db.rawQuery("SELECT id FROM items WHERE slot='relic' AND equipped=1 ORDER BY rowid", null)) {
+            while (c.moveToNext() && relicIndex <= 4) {
+                ContentValues v = new ContentValues();
+                v.put("equipped_slot", "relic_" + relicIndex++);
+                db.update("items", v, "id=?", new String[]{c.getString(0)});
+            }
+        }
+        localizeSeededContent(db);
+        try {
+            GameState s = loadStateFrom(db);
+            localizeState(s);
+            ContentValues v = new ContentValues();
+            v.put("json", s.toJson().toString());
+            db.update("state", v, "id=1", null);
+        } catch (Exception ignored) {}
+    }
+
     private static int parseInt(String s, int fallback) { try { return Integer.parseInt(s); } catch (Exception e) { return fallback; } }
     private static long parseLong(String s, long fallback) { try { return Long.parseLong(s); } catch (Exception e) { return fallback; } }
-    private static String compactLegacy(String s) { if (s == null) return "legacy turn"; s=s.replace('\n',' '); return s.length()>90?s.substring(0,90)+"…":s; }
+    private static String compactLegacy(String s) { if (s == null) return "senas ėjimas"; s=s.replace('\n',' '); return s.length()>90?s.substring(0,90)+"…":s; }
 
     private void seed(SQLiteDatabase db) {
         try {
@@ -86,46 +120,112 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             db.insert("state", null, st);
         } catch (JSONException ignored) {}
 
-        addItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asterion Edge","weapon","legendary","Einoras primary synchronized weapon","primary_weapon",true,true);
-        addItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Sevenfold Mantle","armor_system","legendary","Einoras synchronized layered armor system","armor_system",true,true);
-        addItem(db,"66d2a35a-a00c-4566-bb34-0819af559e32","Wayfold Satchel","utility_item","rare","Spatial utility satchel","utility",true,false);
-        addItem(db,"3b1de6bc-4198-4e4a-9d0d-631891c644e5","Resonance Signet","major_relic","legendary","Resonance-focused major relic","relic",true,true);
-        addItem(db,"0ea61c33-cbe9-4417-9b2b-6575baf1e38d","Nullglass Prism","major_relic","legendary","Null interaction and analysis relic","relic",true,true);
-        addItem(db,"327f8e01-866c-44f1-aa10-189cd03f9155","Meridian Key","major_relic","legendary","Meridian access and boundary relic","relic",true,true);
-        addItem(db,"50dfd168-9b38-4c10-a88b-6f71b1920e9d","Dragonwake Concord Scale","major_relic","legendary","Draconic concord relic","relic",true,true);
-        addItem(db,"fe12ec4f-acea-4c51-b351-0d7449ec7ab8","Heart of Still Thunder","artifact","ancient","Stored campaign artifact",null,false,false);
-        addItem(db,"23639e76-8c70-4df8-97b8-02272314506a","Living Rune Seed","artifact","ancient","Living rune artifact",null,false,false);
-        addItem(db,"ca47899c-451b-4e6e-a635-ab45a4c872c3","Starfall Compass","artifact","ancient","Starfall navigation artifact",null,false,false);
-        addItem(db,"18304996-9186-41d5-9421-7b2a20e31df2","Orison Astrolabe","artifact","ancient","Orison navigation and observation artifact",null,false,false);
-        addItem(db,"fb6dd5fd-8324-4bea-813c-8659bcdd531b","Arkforge Seed","anchored_artifact","ancient","Anchored to the Axiom Crucible architecture",null,false,false);
-        addItem(db,"40e8b726-c711-4f8a-9900-70b32efc9819","Triune Concordance Seal","credential","unique","Noncombat steward credential issued to each Concordance quorum member",null,false,false);
+        addItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","weapon","legendary","Su Einoru susietas pagrindinis ginklas.","weapon","weapon",true,true);
+        addItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","armor_system","legendary","Su Einoru susieta daugiasluoksnė krūtinės apsauga.","chest","chest",true,true);
+        addItem(db,"66d2a35a-a00c-4566-bb34-0819af559e32","Kelių Klostės Krepšys","utility_item","rare","Erdvę lankstantis kelioninis krepšys.","utility","utility",true,false);
+        addItem(db,"3b1de6bc-4198-4e4a-9d0d-631891c644e5","Rezonanso Signetas","major_relic","legendary","Relikvija, stiprinanti rezonanso kontrolę.","relic","relic_1",true,true);
+        addItem(db,"0ea61c33-cbe9-4417-9b2b-6575baf1e38d","Nulinio Stiklo Prizmė","major_relic","legendary","Relikvija nulinėms sąveikoms tirti ir analizuoti.","relic","relic_2",true,true);
+        addItem(db,"327f8e01-866c-44f1-aa10-189cd03f9155","Meridiano Raktas","major_relic","legendary","Prieigos prie Meridiano ribų ir jų sąveikos relikvija.","relic","relic_3",true,true);
+        addItem(db,"50dfd168-9b38-4c10-a88b-6f71b1920e9d","Drakono Pabudimo Santarvės Žvynas","major_relic","legendary","Su drakonų santarve susieta relikvija.","relic","relic_4",true,true);
+        addItem(db,"fe12ec4f-acea-4c51-b351-0d7449ec7ab8","Tyliojo Perkūno Šerdis","artifact","ancient","Ankstesnių žygių metu įgytas artefaktas.",null,null,false,false);
+        addItem(db,"23639e76-8c70-4df8-97b8-02272314506a","Gyvosios Runos Sėkla","artifact","ancient","Gyvos runų kilmės artefaktas.",null,null,false,false);
+        addItem(db,"ca47899c-451b-4e6e-a635-ab45a4c872c3","Žvaigždėkritos Kompasas","artifact","ancient","Navigacinis Žvaigždėkritos artefaktas.",null,null,false,false);
+        addItem(db,"18304996-9186-41d5-9421-7b2a20e31df2","Orisono Astrolabija","artifact","ancient","Orisono stebėjimo ir navigacijos artefaktas.",null,null,false,false);
+        addItem(db,"fb6dd5fd-8324-4bea-813c-8659bcdd531b","Arkakūjės Sėkla","anchored_artifact","ancient","Įtvirtinta Aksiomos Tiglio architektūroje.",null,null,false,false);
+        addItem(db,"40e8b726-c711-4f8a-9900-70b32efc9819","Trigubos Santarvės Antspaudas","credential","unique","Nekovinis Santarvės tarybos nario įgaliojimo ženklas.",null,null,false,false);
 
-        addAbility(db,"Aeonic Bastion","post_cap_ability","Autonomous layered physical, elemental, arcane, spatial and hostile-transmutation defenses.");
-        addAbility(db,"Continuity Lattice","post_cap_ability","Identity and neural continuity anchors permit recovery from otherwise fatal localized destruction if a coherent anchor survives.");
-        addAbility(db,"Catastrophic Regeneration","post_cap_ability","Rebuilds extreme trauma from surviving structure, mana and time; not instant.");
-        addAbility(db,"Null-Adaptive Physiology","post_cap_ability","Legendary physical body remains functional in anti-magic while magical layers are suppressed.");
-        addAbility(db,"Reflexive Spatial Evasion","post_cap_ability","Automatic displacement, vector redirection and partial shunting under threat.");
-        addAbility(db,"Adaptive Counterweaving","post_cap_ability","Defenses adapt after exposure to hostile principles.");
-        addAbility(db,"Relic Symbiosis","post_cap_ability","Coordinates synchronized relics subject to resonance bandwidth.");
-        addAbility(db,"Temporal Parallax Discrimination","post_cap_refinement","Distinguishes local continuity from cross-branch timing echoes after observation.");
-        addAbility(db,"Unknown-Rule Calibration","post_cap_refinement","Forms safer provisional models faster after first contact with unfamiliar rules.");
-        addAbility(db,"Decentered Mastery","post_cap_refinement","Permits competent peers to override Einoras decisions without reducing coordination.");
-        addAbility(db,"Conditional Causality Framing","post_cap_principle","Restructures some magic into anchored condition-to-consequence bindings.");
-        addAbility(db,"Concordance Adapter Framing","post_cap_technique","Designs provisional adapters that translate understood causal forms into sandbox-compatible representations.");
+        addAbility(db,"Eoninis Bastionas","gebėjimas_virš_ribos","Autonominė daugiasluoksnė fizinė, elementinė, arkaninė, erdvinė ir transmutacinė gynyba.");
+        addAbility(db,"Tęstinumo Gardelė","gebėjimas_virš_ribos","Tapatybės ir nervų sistemos tęstinumo atramos leidžia atsikurti po mirtinų vietinių pažeidimų, jei išlieka nuosekli atrama.");
+        addAbility(db,"Katastrofinė Regeneracija","gebėjimas_virš_ribos","Atkuria ekstremalius sužalojimus iš išlikusios struktūros, manos ir laiko; poveikis nėra momentinis.");
+        addAbility(db,"Nuliui Prisitaikanti Fiziologija","gebėjimas_virš_ribos","Legendinis kūnas išlieka funkcionalus antimaginėje aplinkoje net slopinant maginius sluoksnius.");
+        addAbility(db,"Refleksinis Erdvinis Išsisukimas","gebėjimas_virš_ribos","Grėsmės metu automatiškai keičia padėtį, nukreipia vektorius ir dalinai perstumia kūną erdvėje.");
+        addAbility(db,"Prisitaikantis Kontrapynimas","gebėjimas_virš_ribos","Po kontakto su priešišku principu gynyba prisitaiko prie jo veikimo.");
+        addAbility(db,"Relikvijų Simbiozė","gebėjimas_virš_ribos","Koordinuoja susietas relikvijas neviršijant rezonanso pralaidumo.");
+        addAbility(db,"Laiko Paralakso Atskyrimas","tobulinimas_virš_ribos","Po stebėjimo atskiria vietinį tęstinumą nuo kitų laiko šakų aidų.");
+        addAbility(db,"Nežinomų Taisyklių Kalibravimas","tobulinimas_virš_ribos","Po pirmojo kontakto greičiau sudaro saugesnius nežinomų taisyklių modelius.");
+        addAbility(db,"Pasidalytas Meistriškumas","tobulinimas_virš_ribos","Leidžia kompetentingiems sąjungininkams perimti sprendimą nesuardant koordinacijos.");
+        addAbility(db,"Sąlyginio Priežastingumo Struktūra","principas_virš_ribos","Kai kurią magiją pertvarko į įtvirtintus sąlygos ir pasekmės ryšius.");
+        addAbility(db,"Santarvės Adapterio Struktūra","technika_virš_ribos","Kuria laikinus adapterius, verčiančius suprastas priežastines formas į suderinamas išraiškas.");
     }
 
-    private void addItem(SQLiteDatabase db,String id,String name,String type,String rarity,String desc,String slot,boolean eq,boolean synced){
-        ContentValues v=new ContentValues(); v.put("id",id);v.put("name",name);v.put("type",type);v.put("rarity",rarity);v.put("description",desc);v.put("slot",slot);v.put("equipped",eq?1:0);v.put("synced",synced?1:0); db.insert("items",null,v);
+    private void addItem(SQLiteDatabase db,String id,String name,String type,String rarity,String desc,String slot,String equippedSlot,boolean eq,boolean synced){
+        ContentValues v=new ContentValues();
+        v.put("id",id);v.put("name",name);v.put("type",type);v.put("rarity",rarity);v.put("description",desc);v.put("slot",slot);v.put("equipped",eq?1:0);v.put("synced",synced?1:0);v.put("equipped_slot",equippedSlot);
+        db.insert("items",null,v);
     }
+
     private void addAbility(SQLiteDatabase db,String name,String type,String desc){
         ContentValues v=new ContentValues(); v.put("name",name);v.put("type",type);v.put("description",desc); db.insert("abilities",null,v);
     }
 
+    private void localizeSeededContent(SQLiteDatabase db) {
+        updateItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","Su Einoru susietas pagrindinis ginklas.");
+        updateItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","Su Einoru susieta daugiasluoksnė krūtinės apsauga.");
+        updateItem(db,"66d2a35a-a00c-4566-bb34-0819af559e32","Kelių Klostės Krepšys","Erdvę lankstantis kelioninis krepšys.");
+        updateItem(db,"3b1de6bc-4198-4e4a-9d0d-631891c644e5","Rezonanso Signetas","Relikvija, stiprinanti rezonanso kontrolę.");
+        updateItem(db,"0ea61c33-cbe9-4417-9b2b-6575baf1e38d","Nulinio Stiklo Prizmė","Relikvija nulinėms sąveikoms tirti ir analizuoti.");
+        updateItem(db,"327f8e01-866c-44f1-aa10-189cd03f9155","Meridiano Raktas","Prieigos prie Meridiano ribų ir jų sąveikos relikvija.");
+        updateItem(db,"50dfd168-9b38-4c10-a88b-6f71b1920e9d","Drakono Pabudimo Santarvės Žvynas","Su drakonų santarve susieta relikvija.");
+        updateItem(db,"fe12ec4f-acea-4c51-b351-0d7449ec7ab8","Tyliojo Perkūno Šerdis","Ankstesnių žygių metu įgytas artefaktas.");
+        updateItem(db,"23639e76-8c70-4df8-97b8-02272314506a","Gyvosios Runos Sėkla","Gyvos runų kilmės artefaktas.");
+        updateItem(db,"ca47899c-451b-4e6e-a635-ab45a4c872c3","Žvaigždėkritos Kompasas","Navigacinis Žvaigždėkritos artefaktas.");
+        updateItem(db,"18304996-9186-41d5-9421-7b2a20e31df2","Orisono Astrolabija","Orisono stebėjimo ir navigacijos artefaktas.");
+        updateItem(db,"fb6dd5fd-8324-4bea-813c-8659bcdd531b","Arkakūjės Sėkla","Įtvirtinta Aksiomos Tiglio architektūroje.");
+        updateItem(db,"40e8b726-c711-4f8a-9900-70b32efc9819","Trigubos Santarvės Antspaudas","Nekovinis Santarvės tarybos nario įgaliojimo ženklas.");
+
+        db.execSQL("DELETE FROM abilities");
+        addAbility(db,"Eoninis Bastionas","gebėjimas_virš_ribos","Autonominė daugiasluoksnė fizinė, elementinė, arkaninė, erdvinė ir transmutacinė gynyba.");
+        addAbility(db,"Tęstinumo Gardelė","gebėjimas_virš_ribos","Tapatybės ir nervų sistemos tęstinumo atramos leidžia atsikurti po mirtinų vietinių pažeidimų, jei išlieka nuosekli atrama.");
+        addAbility(db,"Katastrofinė Regeneracija","gebėjimas_virš_ribos","Atkuria ekstremalius sužalojimus iš išlikusios struktūros, manos ir laiko; poveikis nėra momentinis.");
+        addAbility(db,"Nuliui Prisitaikanti Fiziologija","gebėjimas_virš_ribos","Legendinis kūnas išlieka funkcionalus antimaginėje aplinkoje net slopinant maginius sluoksnius.");
+        addAbility(db,"Refleksinis Erdvinis Išsisukimas","gebėjimas_virš_ribos","Grėsmės metu automatiškai keičia padėtį, nukreipia vektorius ir dalinai perstumia kūną erdvėje.");
+        addAbility(db,"Prisitaikantis Kontrapynimas","gebėjimas_virš_ribos","Po kontakto su priešišku principu gynyba prisitaiko prie jo veikimo.");
+        addAbility(db,"Relikvijų Simbiozė","gebėjimas_virš_ribos","Koordinuoja susietas relikvijas neviršijant rezonanso pralaidumo.");
+        addAbility(db,"Laiko Paralakso Atskyrimas","tobulinimas_virš_ribos","Po stebėjimo atskiria vietinį tęstinumą nuo kitų laiko šakų aidų.");
+        addAbility(db,"Nežinomų Taisyklių Kalibravimas","tobulinimas_virš_ribos","Po pirmojo kontakto greičiau sudaro saugesnius nežinomų taisyklių modelius.");
+        addAbility(db,"Pasidalytas Meistriškumas","tobulinimas_virš_ribos","Leidžia kompetentingiems sąjungininkams perimti sprendimą nesuardant koordinacijos.");
+        addAbility(db,"Sąlyginio Priežastingumo Struktūra","principas_virš_ribos","Kai kurią magiją pertvarko į įtvirtintus sąlygos ir pasekmės ryšius.");
+        addAbility(db,"Santarvės Adapterio Struktūra","technika_virš_ribos","Kuria laikinus adapterius, verčiančius suprastas priežastines formas į suderinamas išraiškas.");
+    }
+
+    private void updateItem(SQLiteDatabase db,String id,String name,String description){
+        ContentValues v=new ContentValues();v.put("name",name);v.put("description",description);db.update("items",v,"id=?",new String[]{id});
+    }
+
     public GameState loadState() {
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT json FROM state WHERE id=1", null)) {
-            if (c.moveToFirst()) return GameState.fromJson(new JSONObject(c.getString(0)));
+        try {
+            GameState s=loadStateFrom(getReadableDatabase());
+            localizeState(s);
+            return s;
         } catch (Exception ignored) {}
         return new GameState();
+    }
+
+    private GameState loadStateFrom(SQLiteDatabase db) throws Exception {
+        try (Cursor c = db.rawQuery("SELECT json FROM state WHERE id=1", null)) {
+            if (c.moveToFirst()) return GameState.fromJson(new JSONObject(c.getString(0)));
+        }
+        return new GameState();
+    }
+
+    private void localizeState(GameState s){
+        s.questTitle=replaceKnown(s.questTitle);
+        s.objective=replaceKnown(s.objective);
+        s.sceneTitle=replaceKnown(s.sceneTitle);
+        s.scene=replaceKnown(s.scene);
+        for(int i=0;i<s.choices.size();i++)s.choices.set(i,replaceKnown(s.choices.get(i)));
+        for(int i=0;i<s.recentTurns.size();i++)s.recentTurns.set(i,replaceKnown(s.recentTurns.get(i)));
+    }
+
+    private String replaceKnown(String v){
+        if(v==null)return "";
+        return v.replace("The Broken Meridian","Lūžęs Meridianas")
+                .replace("Waygate Drift","kelionės vartų poslinkis")
+                .replace("waygate","kelionės vartai")
+                .replace("Waygate","Kelionės vartai")
+                .replace("The Late Roads","Vėlyvieji keliai")
+                .replace("Discovery","Atradimas")
+                .replace("discovery","atradimas");
     }
 
     public void saveState(GameState s) {
@@ -137,9 +237,28 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public List<Item> getItems() {
         List<Item> out = new ArrayList<>();
-        try (Cursor c = getReadableDatabase().rawQuery("SELECT id,name,type,rarity,description,slot,equipped,synced FROM items ORDER BY equipped DESC, CASE rarity WHEN 'unique' THEN 0 WHEN 'legendary' THEN 1 WHEN 'ancient' THEN 2 WHEN 'rare' THEN 3 ELSE 4 END, name", null)) {
-            while (c.moveToNext()) { Item i=new Item(); i.id=c.getString(0);i.name=c.getString(1);i.type=c.getString(2);i.rarity=c.getString(3);i.description=c.getString(4);i.slot=c.isNull(5)?null:c.getString(5);i.equipped=c.getInt(6)==1;i.synced=c.getInt(7)==1;out.add(i); }
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT id,name,type,rarity,description,slot,equipped,synced,equipped_slot FROM items ORDER BY equipped DESC, CASE rarity WHEN 'unique' THEN 0 WHEN 'legendary' THEN 1 WHEN 'ancient' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 ELSE 5 END, name", null)) {
+            while (c.moveToNext()) {
+                Item i=new Item();
+                i.id=c.getString(0);i.name=c.getString(1);i.type=c.getString(2);i.rarity=c.getString(3);i.description=c.getString(4);i.slot=c.isNull(5)?null:c.getString(5);i.equipped=c.getInt(6)==1;i.synced=c.getInt(7)==1;i.equippedSlot=c.isNull(8)?null:c.getString(8);out.add(i);
+            }
         }
+        return out;
+    }
+
+    public Item getEquippedAt(String targetSlot){
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT id,name,type,rarity,description,slot,equipped,synced,equipped_slot FROM items WHERE equipped=1 AND equipped_slot=? LIMIT 1",new String[]{targetSlot})){
+            if(c.moveToFirst()){
+                Item i=new Item();i.id=c.getString(0);i.name=c.getString(1);i.type=c.getString(2);i.rarity=c.getString(3);i.description=c.getString(4);i.slot=c.isNull(5)?null:c.getString(5);i.equipped=c.getInt(6)==1;i.synced=c.getInt(7)==1;i.equippedSlot=c.isNull(8)?null:c.getString(8);return i;
+            }
+        }
+        return null;
+    }
+
+    public List<Item> getItemsForTarget(String targetSlot){
+        List<Item> out=new ArrayList<>();
+        String category=categoryForTarget(targetSlot);
+        for(Item i:getItems())if(category.equals(i.slot))out.add(i);
         return out;
     }
 
@@ -151,38 +270,67 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         return out;
     }
 
-    public boolean toggleEquip(String itemId) {
-        SQLiteDatabase db = getWritableDatabase();
-        String slot = null; boolean equipped = false;
-        try(Cursor c=db.rawQuery("SELECT slot,equipped FROM items WHERE id=?",new String[]{itemId})){
-            if(c.moveToFirst()){ slot=c.isNull(0)?null:c.getString(0); equipped=c.getInt(1)==1; }
-        }
-        if(slot==null) return false;
-        if(!equipped && "relic".equals(slot) && equippedRelicCount()>=4) return false;
+    public boolean equipToSlot(String itemId,String targetSlot){
+        SQLiteDatabase db=getWritableDatabase();
+        String category=null;
+        try(Cursor c=db.rawQuery("SELECT slot FROM items WHERE id=?",new String[]{itemId})){if(c.moveToFirst())category=c.isNull(0)?null:c.getString(0);}
+        if(category==null || !category.equals(categoryForTarget(targetSlot)))return false;
         db.beginTransaction();
-        try {
-            if(!equipped && !"relic".equals(slot)) {
-                ContentValues off=new ContentValues(); off.put("equipped",0); db.update("items",off,"slot=?",new String[]{slot});
-            }
-            ContentValues v=new ContentValues();v.put("equipped",equipped?0:1);db.update("items",v,"id=?",new String[]{itemId});
-            db.setTransactionSuccessful(); return true;
-        } finally { db.endTransaction(); }
+        try{
+            ContentValues clearTarget=new ContentValues();clearTarget.put("equipped",0);clearTarget.putNull("equipped_slot");db.update("items",clearTarget,"equipped_slot=?",new String[]{targetSlot});
+            ContentValues clearItem=new ContentValues();clearItem.put("equipped",0);clearItem.putNull("equipped_slot");db.update("items",clearItem,"id=?",new String[]{itemId});
+            ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",targetSlot);db.update("items",on,"id=?",new String[]{itemId});
+            db.setTransactionSuccessful();return true;
+        }finally{db.endTransaction();}
     }
 
-    private int equippedRelicCount(){
-        try(Cursor c=getReadableDatabase().rawQuery("SELECT COUNT(*) FROM items WHERE slot='relic' AND equipped=1",null)){ if(c.moveToFirst()) return c.getInt(0); }
-        return 0;
+    public boolean unequipSlot(String targetSlot){
+        ContentValues v=new ContentValues();v.put("equipped",0);v.putNull("equipped_slot");
+        return getWritableDatabase().update("items",v,"equipped_slot=?",new String[]{targetSlot})>0;
+    }
+
+    public boolean toggleEquip(String itemId) {
+        Item found=null;for(Item i:getItems())if(i.id.equals(itemId)){found=i;break;}
+        if(found==null||found.slot==null)return false;
+        if(found.equipped&&found.equippedSlot!=null)return unequipSlot(found.equippedSlot);
+        String target=firstFreeTarget(found.slot);
+        return target!=null&&equipToSlot(itemId,target);
+    }
+
+    private String firstFreeTarget(String category){
+        if("ring".equals(category)){if(getEquippedAt("ring_left")==null)return"ring_left";if(getEquippedAt("ring_right")==null)return"ring_right";return"ring_left";}
+        if("relic".equals(category)){for(int i=1;i<=4;i++)if(getEquippedAt("relic_"+i)==null)return"relic_"+i;return"relic_1";}
+        return category;
+    }
+
+    private String categoryForTarget(String target){
+        if(target==null)return"";
+        if(target.startsWith("ring_"))return"ring";
+        if(target.startsWith("relic_"))return"relic";
+        return target;
     }
 
     public String equippedSummary() {
         StringBuilder b=new StringBuilder();
-        for(Item i:getItems()) if(i.equipped) { if(b.length()>0)b.append(", "); b.append(i.name); }
+        for(String target:EQUIPMENT_SLOTS){Item i=getEquippedAt(target);if(i!=null){if(b.length()>0)b.append("; ");b.append(slotLabel(target)).append(": ").append(i.name);}}
         return b.toString();
     }
 
+    public String addLoot(String name,String category,String rarity,String description){
+        if(!isAllowedCategory(category))category="artifact";
+        if(!isAllowedRarity(rarity))rarity="common";
+        String id=UUID.randomUUID().toString();
+        ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("type","generated_loot");v.put("rarity",rarity);v.put("description",description);v.put("slot","artifact".equals(category)?null:category);v.put("equipped",0);v.put("synced",0);v.putNull("equipped_slot");
+        getWritableDatabase().insert("items",null,v);return id;
+    }
+
+    private boolean isAllowedCategory(String c){return c!=null&&java.util.Arrays.asList("weapon","offhand","head","chest","hands","legs","feet","belt","neck","ring","utility","relic","artifact").contains(c);}
+    private boolean isAllowedRarity(String r){return r!=null&&java.util.Arrays.asList("common","uncommon","rare","epic","legendary","ancient","unique").contains(r.toLowerCase(Locale.ROOT));}
+
     public void checkpoint(String label, GameState state) {
         try {
-            JSONArray eq = new JSONArray(); for(Item i:getItems()) if(i.equipped) eq.put(i.id);
+            JSONArray eq = new JSONArray();
+            for(Item i:getItems()) if(i.equipped) {JSONObject o=new JSONObject();o.put("id",i.id);o.put("slot",i.equippedSlot);eq.put(o);}
             ContentValues v=new ContentValues(); v.put("label",label);v.put("state_json",state.toJson().toString());v.put("equipment_json",eq.toString());v.put("created_at",System.currentTimeMillis());
             SQLiteDatabase db=getWritableDatabase(); db.insert("checkpoints",null,v);
             db.execSQL("DELETE FROM checkpoints WHERE id NOT IN (SELECT id FROM checkpoints ORDER BY id DESC LIMIT 20)");
@@ -197,8 +345,15 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             db.beginTransaction();
             try {
                 ContentValues st=new ContentValues();st.put("json",state);db.update("state",st,"id=1",null);
-                ContentValues off=new ContentValues();off.put("equipped",0);db.update("items",off,null,null);
-                ContentValues on=new ContentValues();on.put("equipped",1);for(int i=0;i<eq.length();i++)db.update("items",on,"id=?",new String[]{eq.getString(i)});
+                ContentValues off=new ContentValues();off.put("equipped",0);off.putNull("equipped_slot");db.update("items",off,null,null);
+                for(int i=0;i<eq.length();i++){
+                    Object raw=eq.get(i);String itemId;String target;
+                    if(raw instanceof JSONObject){JSONObject o=(JSONObject)raw;itemId=o.getString("id");target=o.optString("slot",null);}else{itemId=String.valueOf(raw);target=null;}
+                    if(target==null||target.isEmpty()){
+                        String cat=null;try(Cursor q=db.rawQuery("SELECT slot FROM items WHERE id=?",new String[]{itemId})){if(q.moveToFirst())cat=q.getString(0);}target=firstFreeTarget(cat);
+                    }
+                    if(target!=null){ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",target);db.update("items",on,"id=?",new String[]{itemId});}
+                }
                 db.delete("checkpoints","id=?",new String[]{String.valueOf(id)});
                 db.setTransactionSuccessful(); return true;
             } finally { db.endTransaction(); }
@@ -207,8 +362,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",2); root.put("state",loadState().toJson());
-            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("equipped",i.equipped);items.put(o);} root.put("items",items); return root.toString();
+            JSONObject root=new JSONObject(); root.put("version",3); root.put("state",loadState().toJson());
+            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);items.put(o);} root.put("items",items); return root.toString();
         } catch(Exception e){return "";}
     }
 
@@ -218,8 +373,16 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
             try {
                 ContentValues st=new ContentValues();st.put("json",state.toJson().toString());db.update("state",st,"id=1",null);
-                ContentValues off=new ContentValues();off.put("equipped",0);db.update("items",off,null,null);
-                if(items!=null)for(int i=0;i<items.length();i++){JSONObject o=items.getJSONObject(i);if(o.optBoolean("equipped")){ContentValues on=new ContentValues();on.put("equipped",1);db.update("items",on,"id=?",new String[]{o.getString("id")});}}
+                ContentValues off=new ContentValues();off.put("equipped",0);off.putNull("equipped_slot");db.update("items",off,null,null);
+                if(items!=null)for(int i=0;i<items.length();i++){
+                    JSONObject o=items.getJSONObject(i);String id=o.optString("id","");
+                    if(id.isEmpty())continue;
+                    boolean exists=false;try(Cursor q=db.rawQuery("SELECT 1 FROM items WHERE id=?",new String[]{id})){exists=q.moveToFirst();}
+                    if(!exists){ContentValues add=new ContentValues();add.put("id",id);add.put("name",o.optString("name","Nežinomas daiktas"));add.put("type","imported");add.put("rarity",o.optString("rarity","common"));add.put("description",o.optString("description",""));String cat=o.optString("category","artifact");add.put("slot","artifact".equals(cat)?null:cat);add.put("equipped",0);add.put("synced",0);add.putNull("equipped_slot");db.insert("items",null,add);}
+                    String target=o.isNull("equipped_slot")?null:o.optString("equipped_slot",null);
+                    if(target==null&&o.optBoolean("equipped",false)){String cat=o.optString("category","");target=firstFreeTarget(cat);}
+                    if(target!=null){ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",target);db.update("items",on,"id=?",new String[]{id});}
+                }
                 db.setTransactionSuccessful();return true;
             } finally { db.endTransaction(); }
         } catch(Exception e){return false;}
@@ -227,5 +390,12 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public void reset() {
         SQLiteDatabase db=getWritableDatabase(); db.execSQL("DROP TABLE IF EXISTS state");db.execSQL("DROP TABLE IF EXISTS items");db.execSQL("DROP TABLE IF EXISTS abilities");db.execSQL("DROP TABLE IF EXISTS checkpoints");db.execSQL("DROP TABLE IF EXISTS turns");db.execSQL("DROP TABLE IF EXISTS undo");onCreate(db);
+    }
+
+    public static String slotLabel(String s){
+        if(s==null)return"";
+        switch(s){
+            case"weapon":return"Pagrindinis ginklas";case"offhand":return"Antrinis ginklas / skydas";case"head":return"Šalmas";case"chest":return"Krūtinės šarvai";case"hands":return"Pirštinės";case"legs":return"Kelnės";case"feet":return"Batai";case"belt":return"Diržas";case"neck":return"Pakabukas";case"ring_left":return"Kairysis žiedas";case"ring_right":return"Dešinysis žiedas";case"utility":return"Naudingasis daiktas";case"relic_1":return"Relikvija I";case"relic_2":return"Relikvija II";case"relic_3":return"Relikvija III";case"relic_4":return"Relikvija IV";default:return s;
+        }
     }
 }
