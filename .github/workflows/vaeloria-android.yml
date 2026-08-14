@@ -62,7 +62,9 @@ jobs:
           python3 tools/patch_stat_engine_audit.py
           python3 tools/patch_stat_test_aggregate.py
       - name: Integrate v0.4 RPG systems and UI
-        run: python3 tools/patch_v040.py
+        run: |
+          python3 tools/patch_v040.py
+          python3 tools/fix_v040_db_methods.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -83,6 +85,8 @@ jobs:
         run: |
           grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
           grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'private void migrateV4toV5(SQLiteDatabase db)' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
+          grep -q 'private void seedMastery(SQLiteDatabase db)' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
           grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
