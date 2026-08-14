@@ -58,21 +58,21 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
       - name: Prepare APK name
-        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.4.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.2.4-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.4.apk
+          name: vaeloria-ooc-v0.3.0-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.2.4 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.2.4 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.2.4.apk \
+          gh release delete vaeloria-ooc-v0.3.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.3.0 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.3.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.2.4" \
-            --notes "Safe boot plus guarded game startup. The launcher validates SQLite/state, Keystore and custom views; SafeGameActivity catches game onCreate failures and renders the exact Android runtime error instead of silently closing. Same stable package ID and signing key as v0.2.2+."
+            --title "Vaeloria OOC v0.3.0" \
+            --notes "RPG presentation upgrade: full 16-slot equipment layout including helmet, chest, gloves, legs, boots, belt, necklace, two rings, utility and four relics; structured loot from the AI GM; Lithuanian UI and narrative terminology; Android safe-area fixes; compact map layout; clearer journal and character sheet; persistent local save migration from v0.2."
