@@ -6,9 +6,9 @@
         android:label="Vaeloria OOC"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name="lt.vaeloria.ooc.MainActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
-            android:name=".VaeloriaActivity"
+            android:name="lt.vaeloria.ooc.VaeloriaActivity"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>
