@@ -62,6 +62,8 @@ jobs:
           python3 tools/patch_v040.py
           python3 tools/fix_v040_db_methods.py
           python3 tools/cleanup_v040_lithuanian.py
+      - name: Integrate v0.5 reliability fixes
+        run: python3 tools/patch_v050.py
       - name: Verify all 92 stats are real mechanics
         run: |
           python3 - <<'PY'
@@ -78,7 +80,7 @@ jobs:
           if missing: raise SystemExit('Stats without mechanical reference: '+', '.join(missing))
           print('Mechanically referenced:',len(stats),'of 92')
           PY
-      - name: Verify v0.4 integration and Lithuanian UI
+      - name: Verify v0.5 integration and Lithuanian UI
         run: |
           grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
           grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
@@ -87,6 +89,9 @@ jobs:
           grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'CharacterLoadoutView' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           grep -q 'AbilityMechanics.mechanic' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'max_completion_tokens' app/src/main/java/lt/vaeloria/ooc/GroqClient.java
+          grep -q 'o.put("time_minutes",0)' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
+          grep -q 'k.startsWith("gsk_")' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q 'VIETINIS RPG' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q 'post-cap' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
           ! grep -q ' IR XP' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
@@ -101,17 +106,17 @@ jobs:
             find app/build/test-results/testDebugUnitTest -type f -name '*.xml' -print -exec cat {} \; || true
           fi
           exit "$code"
-      - name: Build v0.4.1 APK
+      - name: Build v0.5.0 APK
         run: |
           set -o pipefail
           gradle :app:assembleDebug --stacktrace 2>&1 | tee build.log
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/Vaeloria-OOC-v0.5.0.apk
       - name: Verify APK identity and signer
         run: |
-          APK=app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
+          APK=app/build/outputs/apk/debug/Vaeloria-OOC-v0.5.0.apk
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -1 | tee apk-identity.txt
           grep -q "name='lt.vaeloria.ooc.personal'" apk-identity.txt
-          grep -q "versionCode='11'" apk-identity.txt
+          grep -q "versionCode='12'" apk-identity.txt
           CERT=$($ANDROID_HOME/build-tools/35.0.0/apksigner verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           echo "APK signer SHA256=$CERT"
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
@@ -120,23 +125,23 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-v0.4.1-build-log
+          name: vaeloria-v0.5.0-build-log
           path: vaeloria-android/build.log
           if-no-files-found: warn
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.4.1-apk
-          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk
+          name: vaeloria-ooc-v0.5.0-apk
+          path: vaeloria-android/app/build/outputs/apk/debug/Vaeloria-OOC-v0.5.0.apk
           if-no-files-found: error
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v0.4.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.4.1 \
-            app/build/outputs/apk/debug/Vaeloria-OOC-v0.4.1.apk \
+          gh release delete vaeloria-ooc-v0.5.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.5.0 \
+            app/build/outputs/apk/debug/Vaeloria-OOC-v0.5.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v0.4.1" \
-            --notes "Diegimo taisymas po v0.3.x pasirašymo rakto praradimo. Ši versija naudoja naują atskirą paketą lt.vaeloria.ooc.personal, todėl gali būti įdiegta šalia senos programėlės ir leidžia saugiai perkelti išsaugojimą per Eksportuoti / Importuoti. Nuo šios versijos Gradle tiesiogiai naudoja fiksuotą raktą, o CI prieš ir po buildo tikrina tą patį sertifikato SHA-256. Įtraukti visi v0.4 žaidimo mechanikos ir sąsajos patobulinimai."
+            --title "Vaeloria OOC v0.5.0" \
+            --notes "Vietinis Android Vaeloria leidimas su kanonine Luminara / Lūžusio Meridiano būsena, 92 realiai veikiančiomis bazinėmis savybėmis, meistriškumo ir įrangos sistemomis, vietiniu SQLite išsaugojimu, Android Keystore saugomu Groq raktu ir gpt-oss-120b žaidimo meistru. v0.5.0 prideda Groq retry/backoff ir atsakymo ribas, griežtesnį API rakto tikrinimą bei užtikrina, kad offline atsarginis režimas nekeistų kanoninio pasaulio laiko. Paketas ir pasirašymo raktas išlieka tie patys kaip v0.4.1, todėl versija atsinaujina vietoje."
