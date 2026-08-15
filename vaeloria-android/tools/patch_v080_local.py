@@ -9,7 +9,7 @@ end = s.find(end_marker, start)
 if start < 0 or end < 0:
     raise SystemExit('Could not locate VaeloriaActivity.local() boundaries')
 
-method = r'''    JSONObject local(String action){
+method = r'''    JSONObject local(String action,StatEngine.Check check){
         try{
             String a=action==null?"":action.trim();
             String q=a.toLowerCase(Locale.ROOT);
