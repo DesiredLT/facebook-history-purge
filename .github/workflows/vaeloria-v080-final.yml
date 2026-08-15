@@ -1,0 +1,171 @@
+name: Final Vaeloria v0.8.0 Release
+
+on:
+  push:
+    branches:
+      - agent/vaeloria-local-android
+    paths:
+      - '.github/workflows/vaeloria-v080-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vaeloria-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore pinned Android signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+          fail-on-cache-miss: true
+
+      - name: Verify signing identity
+        run: |
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          echo "Signer=$FP"
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Apply core mechanics patches
+        run: |
+          python3 tools/patch_stats_button.py
+          python3 tools/fix_generated_java.py
+          python3 tools/patch_stat_engine_audit.py
+          python3 tools/patch_stat_test_aggregate.py
+          python3 tools/patch_v040.py
+          python3 tools/fix_v040_db_methods.py
+          python3 tools/cleanup_v040_lithuanian.py
+          python3 tools/patch_v050.py
+          python3 tools/patch_v051.py
+          python3 tools/patch_v051_lintfix.py
+          python3 tools/patch_v080_local.py
+
+      - name: Generate art and apply v0.8 presentation
+        run: |
+          python3 -m pip install --disable-pip-version-check pillow
+          python3 v060/generate_assets.py
+          python3 v070/generate_assets_v070.py
+          python3 tools/patch_v080_presentation.py
+          rm -f app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/SceneBannerView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CombatBoardView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CharacterLoadoutView.java
+          cp v060/PremiumViews.java app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
+          cp v060/PremiumActivity.java app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
+          cp v070/PremiumViewsV070.java app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
+          cp v070/PolishedActivity.java app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
+
+      - name: Set v0.8 identity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          g=Path('app/build.gradle')
+          s=g.read_text()
+          s=re.sub(r'versionCode\s+\d+', 'versionCode 18', s)
+          s=re.sub(r"versionName\s+'[^']+'", "versionName '0.8.0'", s)
+          g.write_text(s)
+          m=Path('app/src/main/AndroidManifest.xml')
+          s=m.read_text()
+          s=re.sub(r'android:label="Vaeloria OOC [^"]+"', 'android:label="Vaeloria OOC 0.8.0"', s)
+          s=s.replace('android:name="lt.vaeloria.ooc.VaeloriaActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"')
+          s=s.replace('android:name="lt.vaeloria.ooc.PremiumActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"')
+          m.write_text(s)
+          PY
+
+      - name: Source audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          a=Path('app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java').read_text()
+          v7=Path('app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java').read_text()
+          p7=Path('app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java').read_text()
+          v6=Path('app/src/main/java/lt/vaeloria/ooc/PremiumViews.java').read_text()
+          p6=Path('app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java').read_text()
+          checks={
+            'offline resolver':'Manifesto neatitikimas' in a and 'Kova prasideda' in a and 'Veiksmas pasaulyje' in a,
+            'v060 map':'R.drawable.world_map_v060' in v7 and 'world_map_v070' not in v7,
+            'v060 scenes':'R.drawable.combat_forest' in v7 and 'scene_luminara_v070' not in v7 and 'scene_wild_v070' not in v7,
+            'hero':'R.drawable.hero_einoras' in v7 and 'hero_einoras_v070' not in v7,
+            'NPC canvas':'class NpcPortraitV070' in v7 and p6.count('NpcPortraitV070') >= 2,
+            'combat detail':'BŪSENA ·' in v6 and 'APLINKA ·' in v6,
+            'inventory icon':'ItemIconView icon=new ItemIconView' in p7,
+            'larger scenes':'dp(292)' in p7 and 'dp(340)' in p7,
+            'micro polish':'scaleX(.985f)' in p7,
+          }
+          for k,v in checks.items(): print(k, 'OK' if v else 'FAIL')
+          bad=[k for k,v in checks.items() if not v]
+          if bad: raise SystemExit('Source audit failed: '+', '.join(bad))
+          PY
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Build release APK
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.8.0.apk
+
+      - name: APK audit
+        run: |
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.0.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee apk-badging.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging.txt
+          grep -q "versionCode='18'" apk-badging.txt
+          grep -q "versionName='0.8.0'" apk-badging.txt
+          grep -q "application-label:'Vaeloria OOC 0.8.0'" apk-badging.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging.txt
+          "$AAPT" dump permissions "$APK" | tee apk-permissions.txt
+          test "$(grep -c '^uses-permission:' apk-permissions.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions.txt
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          echo "APK signer=$CERT"
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          "$APKSIGNER" verify --verbose "$APK"
+          if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then echo 'Hardcoded Groq key detected'; exit 1; fi
+          unzip -p "$APK" classes.dex | strings | grep -q 'Manifesto neatitikimas'
+          unzip -p "$APK" classes.dex | strings | grep -q 'NpcPortraitV070'
+          sha256sum "$APK" | tee apk-sha256.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-ooc-v0.8.0-apk
+          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.8.0.apk
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v0.8.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.8.0 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v0.8.0.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Vaeloria OOC v0.8.0 · Playable Polish" \
+            --notes "v0.8.0: v0.7 mobilus UX + v0.6 iliustruotas atlasas ir scenos, pilnas Einoro artwork, NPC portretai, išplėstas combat pateikimas, geresnės item ikonos ir mikroanimacijos. Esminis gameplay pataisymas: offline/local veiksmai dabar keičia sceną, laiką, resursus, kelionę ir kovos būseną bei išsisaugo SQLite; Groq lieka pasirenkamas AI GM sluoksnis. APK pasirašytas tuo pačiu stabiliu Vaeloria raktu."
