@@ -154,10 +154,12 @@ jobs:
           if grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:debuggable.*0xffffffff'; then exit 1; fi
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:allowBackup.*0x0'
           grep -A30 'E: application' apk-manifest-tree.txt | grep -q 'android:usesCleartextTraffic.*0x0'
-          unzip -l "$APK" | tee apk-files.txt
+          "$AAPT" dump resources "$APK" | tee apk-resources.txt
           for f in world_map_v070 scene_luminara_v070 scene_wild_v070 hero_einoras_v070; do
-            grep -q "$f" apk-files.txt
+            grep -q "$f" apk-resources.txt
           done
+          unzip -l "$APK" | tee apk-files.txt
+          test "$(grep -E -c 'res/.*\.png' apk-files.txt)" -ge 4
           CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           echo "APK signer SHA256=$CERT"
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
@@ -184,4 +186,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "Vaeloria OOC v0.7.0 · Premium RPG Polish" \
-            --notes "v0.7.0 perstato silpniausias presentation-layer vietas iš eilės: kanoninių koordinačių iliustruotas atlasas su biomais ir maršrutais; atskiras daiktų ekranas su unikalia item ikonografija ir rarity/status signalais; stipresnis hero/loadout pateikimas; daugiasluoksnė Luminara ir wilderness scenų dailė; gebėjimai suskaidyti į skenuojamas korteles; bottom navigation optimizuotas Žaisti/Veikėjas/Daiktai/Žemėlapis/Užduotys, o nustatymai perkelti į viršų. Išlaikytas SQLite save, 92 savybių mechaninis branduolys, mastery, combat, Groq GM, Android Keystore, undo/export/import ir tas pats stabilus APK pasirašymas."
+            --notes "v0.7.0 sutvarko silpniausias presentation-layer vietas iš eilės: kanoninių koordinačių iliustruotas atlasas su biomais ir maršrutais; atskiras daiktų ekranas su unikalia item ikonografija ir rarity/status signalais; stipresnis hero/loadout pateikimas; daugiasluoksnė Luminara ir wilderness scenų dailė; gebėjimai suskaidyti į skenuojamas korteles; bottom navigation optimizuotas Žaisti/Veikėjas/Daiktai/Žemėlapis/Užduotys, o nustatymai perkelti į viršų. Išlaikytas SQLite save, 92 savybių mechaninis branduolys, mastery, combat, Groq GM, Android Keystore, undo/export/import ir tas pats stabilus APK pasirašymas."
