@@ -63,27 +63,38 @@ jobs:
           python3 tools/patch_v050.py
           python3 tools/patch_v051.py
           python3 tools/patch_v051_lintfix.py
+          # Re-apply our cumulative v0.8 source patch after all legacy patchers.
+          python3 -c "import sitecustomize; print('v0.8 cumulative patch applied')"
 
       - name: Verify core mechanics
         run: |
-          grep -q 'private static final int VERSION = 5' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
-          grep -q 'CREATE TABLE mastery' app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java
-          grep -q 'MasteryEngine.apply' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'Veiksmas pasaulyje' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'Kova prasideda' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'Manifesto neatitikimas' app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java
-          grep -q 'android:allowBackup="false"' app/src/main/AndroidManifest.xml
-          grep -q 'android:usesCleartextTraffic="false"' app/src/main/AndroidManifest.xml
           python3 - <<'PY'
+          from pathlib import Path
           import re
-          catalog=open('app/src/main/java/lt/vaeloria/ooc/BaseStatCatalog.java',encoding='utf-8').read()
-          engine=open('app/src/main/java/lt/vaeloria/ooc/StatEngine.java',encoding='utf-8').read()
+          db=Path('app/src/main/java/lt/vaeloria/ooc/VaeloriaDb.java').read_text(encoding='utf-8')
+          activity=Path('app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java').read_text(encoding='utf-8')
+          manifest=Path('app/src/main/AndroidManifest.xml').read_text(encoding='utf-8')
+          checks={
+            'DB version 5':'private static final int VERSION = 5' in db,
+            'mastery table':'CREATE TABLE mastery' in db,
+            'mastery engine':'MasteryEngine.apply' in activity,
+            'local generic resolver':'Veiksmas pasaulyje' in activity,
+            'local combat resolver':'Kova prasideda' in activity,
+            'local manifest resolver':'Manifesto neatitikimas' in activity,
+            'backup disabled':'android:allowBackup="false"' in manifest,
+            'cleartext disabled':'android:usesCleartextTraffic="false"' in manifest,
+          }
+          for k,v in checks.items(): print(k, 'OK' if v else 'MISSING')
+          missing=[k for k,v in checks.items() if not v]
+          if missing: raise SystemExit('Core checks failed: '+', '.join(missing))
+          catalog=Path('app/src/main/java/lt/vaeloria/ooc/BaseStatCatalog.java').read_text(encoding='utf-8')
+          engine=Path('app/src/main/java/lt/vaeloria/ooc/StatEngine.java').read_text(encoding='utf-8')
           groups=re.findall(r'new Group\("[^"]+",(.*?)\)(?:,|\n\s*\})',catalog,re.S)
           stats=[]
           for g in groups: stats += re.findall(r'"([^"]+)"',g)
           assert len(stats)==92 and len(set(stats))==92, len(stats)
-          missing=[x for x in stats if ('"'+x+'"') not in engine]
-          assert not missing, missing
+          absent=[x for x in stats if ('"'+x+'"') not in engine]
+          assert not absent, absent
           print('Mechanically referenced:',len(stats),'of 92')
           PY
 
@@ -101,8 +112,12 @@ jobs:
       - name: Install v0.8 polished mobile layer
         run: |
           python3 v070/generate_assets_v070.py
+          # Re-apply cumulative patch because asset generators run after legacy source patching.
+          python3 -c "import sitecustomize; print('v0.8 presentation patch refreshed')"
           cp v070/PremiumViewsV070.java app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
           cp v070/PolishedActivity.java app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
+          cp v060/PremiumViews.java app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
+          cp v060/PremiumActivity.java app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
           python3 - <<'PY'
           from pathlib import Path
           import re
@@ -121,25 +136,41 @@ jobs:
 
       - name: Verify v0.8 presentation and loop
         run: |
-          grep -q 'versionCode 18' app/build.gradle
-          grep -q "versionName '0.8.0'" app/build.gradle
-          grep -q 'lt.vaeloria.ooc.PolishedActivity' app/src/main/AndroidManifest.xml
-          grep -q 'R.drawable.world_map_v060' app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
-          grep -q 'R.drawable.scene_luminara)' app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
-          grep -q 'R.drawable.combat_forest' app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
-          grep -q 'R.drawable.hero_einoras' app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
-          grep -q 'class NpcPortraitV070' app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
-          grep -q 'BŪSENA ·' app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
-          grep -q 'APLINKA ·' app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
-          grep -q 'ItemIconView icon=new ItemIconView' app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
-          grep -q 'dp(292)' app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
-          grep -q 'dp(340)' app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
-          grep -q 'scaleX(.985f)' app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
-          grep -q 'NpcPortraitV070' app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
-          test -s app/src/main/res/drawable-nodpi/world_map_v060.png
-          test -s app/src/main/res/drawable-nodpi/scene_luminara.png
-          test -s app/src/main/res/drawable-nodpi/combat_forest.png
-          test -s app/src/main/res/drawable-nodpi/hero_einoras.png
+          python3 - <<'PY'
+          from pathlib import Path
+          files={
+            'gradle':Path('app/build.gradle').read_text(),
+            'manifest':Path('app/src/main/AndroidManifest.xml').read_text(),
+            'views70':Path('app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java').read_text(),
+            'views60':Path('app/src/main/java/lt/vaeloria/ooc/PremiumViews.java').read_text(),
+            'activity70':Path('app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java').read_text(),
+            'activity60':Path('app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java').read_text(),
+          }
+          checks={
+            'versionCode 18':'versionCode 18' in files['gradle'],
+            'versionName 0.8.0':"versionName '0.8.0'" in files['gradle'],
+            'Polished launcher':'lt.vaeloria.ooc.PolishedActivity' in files['manifest'],
+            'v0.6 atlas':'R.drawable.world_map_v060' in files['views70'],
+            'v0.6 Luminara scene':'R.drawable.scene_luminara' in files['views70'],
+            'v0.6 wilderness art':'R.drawable.combat_forest' in files['views70'],
+            'illustrated Einoras':'R.drawable.hero_einoras' in files['views70'],
+            'NPC portrait canvas':'class NpcPortraitV070' in files['views70'],
+            'combat status':'BŪSENA ·' in files['views60'],
+            'combat hazard':'APLINKA ·' in files['views60'],
+            'rich item icons':'ItemIconView icon=new ItemIconView' in files['activity70'],
+            'large scene':'dp(292)' in files['activity70'],
+            'large combat':'dp(340)' in files['activity70'],
+            'press animation':'scaleX(.985f)' in files['activity70'],
+            'NPC hub portraits':'NpcPortraitV070' in files['activity60'],
+          }
+          for k,v in checks.items(): print(k, 'OK' if v else 'MISSING')
+          missing=[k for k,v in checks.items() if not v]
+          if missing: raise SystemExit('Presentation checks failed: '+', '.join(missing))
+          for f in ['world_map_v060.png','scene_luminara.png','combat_forest.png','hero_einoras.png']:
+            p=Path('app/src/main/res/drawable-nodpi')/f
+            print(f,p.stat().st_size if p.exists() else 'MISSING')
+            assert p.exists() and p.stat().st_size>0
+          PY
 
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
