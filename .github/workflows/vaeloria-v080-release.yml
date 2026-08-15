@@ -63,8 +63,7 @@ jobs:
           python3 tools/patch_v050.py
           python3 tools/patch_v051.py
           python3 tools/patch_v051_lintfix.py
-          # Re-apply our cumulative v0.8 source patch after all legacy patchers.
-          python3 -c "import sitecustomize; print('v0.8 cumulative patch applied')"
+          python3 tools/patch_v080_local.py
 
       - name: Verify core mechanics
         run: |
@@ -112,7 +111,6 @@ jobs:
       - name: Install v0.8 polished mobile layer
         run: |
           python3 v070/generate_assets_v070.py
-          # Re-apply cumulative patch because asset generators run after legacy source patching.
           python3 -c "import sitecustomize; print('v0.8 presentation patch refreshed')"
           cp v070/PremiumViewsV070.java app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
           cp v070/PolishedActivity.java app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
