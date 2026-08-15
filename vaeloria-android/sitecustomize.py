@@ -20,15 +20,42 @@ if p.exists():
     s = s.replace("bd<76*76", "bd<70*70")
     s = s.replace("m=dp(60)", "m=dp(55)")
 
-    # 2) PLAY / SCENE: remove the abstract v0.7 vector-looking art regression.
-    # Keep the v0.7 scene renderer/UI, but feed it the stronger illustrated v0.6 assets.
+    # 2) PLAY / SCENE: keep v0.7 UI, feed it the stronger illustrated v0.6 art.
     s = s.replace(
         "luminara=BitmapFactory.decodeResource(getResources(),R.drawable.scene_luminara_v070);wild=BitmapFactory.decodeResource(getResources(),R.drawable.scene_wild_v070);map=BitmapFactory.decodeResource(getResources(),R.drawable.world_map_v060);",
         "luminara=BitmapFactory.decodeResource(getResources(),R.drawable.scene_luminara);wild=BitmapFactory.decodeResource(getResources(),R.drawable.combat_forest);map=BitmapFactory.decodeResource(getResources(),R.drawable.world_map_v060);",
     )
 
-    # 3) HERO: use the stronger illustrated Einoras artwork in both hero header and loadout canvas.
+    # 3) HERO: use the stronger illustrated Einoras artwork in hero header/loadout.
     s = s.replace("R.drawable.hero_einoras_v070", "R.drawable.hero_einoras")
+
+    # 4) NPC PORTRAITS: replace letter placeholders with deterministic painted-style portrait canvases.
+    if "class NpcPortraitV070" not in s:
+        s += r'''
+
+class NpcPortraitV070 extends View {
+    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG); String name="",role="";
+    NpcPortraitV070(Context c){super(c);setLayerType(LAYER_TYPE_SOFTWARE,null);}
+    void setNpc(String n,String r){name=n==null?"":n;role=r==null?"":r;invalidate();}
+    protected void onDraw(Canvas c){
+        float w=getWidth(),h=getHeight(),cx=w*.5f;int seed=Math.abs(name.hashCode());
+        int ar=95+(seed%70),ag=92+((seed/7)%65),ab=78+((seed/13)%70);int accent=Color.rgb(ar,ag,ab);
+        p.setShader(new LinearGradient(0,0,w,h,Color.rgb(11,22,29),Color.rgb(4,9,14),Shader.TileMode.CLAMP));c.drawRoundRect(0,0,w,h,Math.min(w,h)*.16f,Math.min(w,h)*.16f,p);p.setShader(null);
+        p.setColor(Color.argb(70,Color.red(accent),Color.green(accent),Color.blue(accent)));c.drawCircle(cx,h*.37f,Math.min(w,h)*.42f,p);
+        // shoulders / cloak
+        p.setColor(Color.rgb(20+(seed%18),27+((seed/5)%18),31+((seed/9)%20)));Path body=new Path();body.moveTo(w*.12f,h);body.quadTo(w*.20f,h*.68f,cx,h*.65f);body.quadTo(w*.80f,h*.68f,w*.88f,h);body.close();c.drawPath(body,p);
+        // neck + face
+        p.setColor(Color.rgb(174+seed%34,142+(seed/3)%30,111+(seed/5)%25));c.drawRoundRect(w*.42f,h*.48f,w*.58f,h*.70f,w*.06f,w*.06f,p);c.drawOval(new RectF(w*.30f,h*.15f,w*.70f,h*.58f),p);
+        // hair / hood silhouette varies by name
+        p.setColor(Color.rgb(18+(seed%24),19+((seed/4)%23),19+((seed/8)%24)));Path hair=new Path();hair.moveTo(w*.27f,h*.39f);hair.quadTo(w*.28f,h*.08f,cx,h*.09f);hair.quadTo(w*.76f,h*.11f,w*.72f,h*.46f);hair.lineTo(w*.63f,h*.35f);hair.quadTo(w*.58f,h*.20f,w*.47f,h*.19f);hair.quadTo(w*.35f,h*.22f,w*.34f,h*.42f);hair.close();c.drawPath(hair,p);
+        // eyes + nose; intentionally graphic rather than emoji/initial placeholder
+        p.setColor(Color.rgb(216,224,211));c.drawCircle(w*.40f,h*.34f,Math.max(1,w*.018f),p);c.drawCircle(w*.60f,h*.34f,Math.max(1,w*.018f),p);
+        p.setColor(Color.argb(120,80,53,40));p.setStrokeWidth(Math.max(1,w*.012f));c.drawLine(cx,h*.34f,cx-w*.018f,h*.43f,p);
+        // profession accent
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(1,w*.025f));p.setColor(accent);c.drawRoundRect(w*.05f,h*.05f,w*.95f,h*.95f,w*.14f,w*.14f,p);p.setStyle(Paint.Style.FILL);
+    }
+}
+'''
 
     p.write_text(s, encoding="utf-8")
 
@@ -39,3 +66,13 @@ if a.exists():
     s = s.replace("c.addView(art,new LinearLayout.LayoutParams(-1,dp(252)));", "c.addView(art,new LinearLayout.LayoutParams(-1,dp(292)));")
     s = s.replace("ImageView art=image(R.drawable.hero_einoras_v070);", "ImageView art=image(R.drawable.hero_einoras);")
     a.write_text(s, encoding="utf-8")
+
+# NPC hub is inherited from PremiumActivity, so patch its placeholder avatars at build time.
+n = Path(__file__).resolve().parent / "v060" / "PremiumActivity.java"
+if n.exists():
+    s = n.read_text(encoding="utf-8")
+    old = 'if("Lyra Fen".equals(n[0]))r.addView(image(R.drawable.npc_lyra),new LinearLayout.LayoutParams(dp(54),dp(64)));else{TextView i=serif(n[0].substring(0,1),20,GOLD2,true);i.setGravity(Gravity.CENTER);i.setBackground(round(Color.rgb(24,34,38),40,Color.argb(170,221,187,104)));r.addView(i,new LinearLayout.LayoutParams(dp(54),dp(54)));}'
+    new = 'NpcPortraitV070 i=new NpcPortraitV070(this);i.setNpc(n[0],n[1]);r.addView(i,new LinearLayout.LayoutParams(dp(58),dp(68)));'
+    s = s.replace(old,new)
+    s = s.replace('if("Lyra Fen".equals(n[0]))c.addView(image(R.drawable.npc_lyra),new LinearLayout.LayoutParams(-1,dp(220)));', 'NpcPortraitV070 portrait=new NpcPortraitV070(this);portrait.setNpc(n[0],n[1]);c.addView(portrait,new LinearLayout.LayoutParams(-1,dp(220)));')
+    n.write_text(s,encoding="utf-8")
