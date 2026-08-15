@@ -27,11 +27,15 @@ if p.exists():
         "luminara=BitmapFactory.decodeResource(getResources(),R.drawable.scene_luminara);wild=BitmapFactory.decodeResource(getResources(),R.drawable.combat_forest);map=BitmapFactory.decodeResource(getResources(),R.drawable.world_map_v060);",
     )
 
+    # 3) HERO: use the stronger illustrated Einoras artwork in both hero header and loadout canvas.
+    s = s.replace("R.drawable.hero_einoras_v070", "R.drawable.hero_einoras")
+
     p.write_text(s, encoding="utf-8")
 
-# Make the gameplay scene more cinematic on mobile without changing interaction flow.
+# Screen-level patches that keep the v0.7 information architecture.
 a = Path(__file__).resolve().parent / "v070" / "PolishedActivity.java"
 if a.exists():
     s = a.read_text(encoding="utf-8")
     s = s.replace("c.addView(art,new LinearLayout.LayoutParams(-1,dp(252)));", "c.addView(art,new LinearLayout.LayoutParams(-1,dp(292)));")
+    s = s.replace("ImageView art=image(R.drawable.hero_einoras_v070);", "ImageView art=image(R.drawable.hero_einoras);")
     a.write_text(s, encoding="utf-8")
