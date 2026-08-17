@@ -3,7 +3,9 @@ name: Release Vaeloria v0.8.3 Audit Fix
 on:
   push:
     branches: [agent/vaeloria-local-android]
-    paths: ['.github/workflows/vaeloria-v083-release.yml']
+    paths:
+      - '.github/workflows/vaeloria-v083-release.yml'
+      - 'vaeloria-android/v083/**'
   workflow_dispatch:
 
 permissions:
@@ -69,7 +71,10 @@ jobs:
           python3 v082/fix_v082_compile.py
           python3 v082/fix_v082_feedback_parser.py
       - name: Apply v0.8.3 audit fixes
-        run: python3 v083/apply_v083.py
+        run: |
+          python3 v083/prepare_v083_assets.py
+          python3 v083/apply_v083.py
+          python3 v083/post_v083.py
       - name: Set v0.8.3 identity
         run: |
           python3 - <<'PY'
