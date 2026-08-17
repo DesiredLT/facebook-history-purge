@@ -1,0 +1,173 @@
+name: Release Vaeloria v0.8.1 Visual Source Fix
+
+on:
+  push:
+    branches:
+      - agent/vaeloria-local-android
+    paths:
+      - '.github/workflows/vaeloria-v081-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vaeloria-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore pinned Android signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+          fail-on-cache-miss: true
+
+      - name: Verify signing identity
+        run: |
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          echo "Signer=$FP"
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Android 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Apply gameplay patches
+        run: |
+          python3 tools/patch_stats_button.py
+          python3 tools/fix_generated_java.py
+          python3 tools/patch_stat_engine_audit.py
+          python3 tools/patch_stat_test_aggregate.py
+          python3 tools/patch_v040.py
+          python3 tools/fix_v040_db_methods.py
+          python3 tools/cleanup_v040_lithuanian.py
+          python3 tools/patch_v050.py
+          python3 tools/patch_v051.py
+          python3 tools/patch_v051_lintfix.py
+          python3 tools/patch_v080_local.py
+
+      - name: Generate presentation sources
+        run: |
+          python3 -m pip install --disable-pip-version-check pillow
+          python3 v060/generate_assets.py
+          python3 v070/generate_assets_v070.py
+          python3 tools/patch_v080_presentation.py
+          rm -f app/src/main/java/lt/vaeloria/ooc/WorldMapView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/SceneBannerView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CombatBoardView.java
+          rm -f app/src/main/java/lt/vaeloria/ooc/CharacterLoadoutView.java
+          cp v060/PremiumViews.java app/src/main/java/lt/vaeloria/ooc/PremiumViews.java
+          cp v060/PremiumActivity.java app/src/main/java/lt/vaeloria/ooc/PremiumActivity.java
+          cp v070/PremiumViewsV070.java app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java
+          cp v070/PolishedActivity.java app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
+
+      - name: Apply v0.8.1 real source fixes
+        run: |
+          python3 v081/generate_assets_v081.py
+          python3 v081/patch_v081_ui.py
+
+      - name: Set v0.8.1 identity
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          g=Path('app/build.gradle')
+          s=g.read_text()
+          s=re.sub(r'versionCode\s+\d+', 'versionCode 19', s)
+          s=re.sub(r"versionName\s+'[^']+'", "versionName '0.8.1'", s)
+          g.write_text(s)
+          m=Path('app/src/main/AndroidManifest.xml')
+          s=m.read_text()
+          s=re.sub(r'android:label="Vaeloria OOC [^"]+"', 'android:label="Vaeloria OOC 0.8.1"', s)
+          s=s.replace('android:name="lt.vaeloria.ooc.VaeloriaActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"')
+          s=s.replace('android:name="lt.vaeloria.ooc.PremiumActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"')
+          m.write_text(s)
+          PY
+
+      - name: Source and asset audit
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p7=Path('app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java').read_text()
+          v7=Path('app/src/main/java/lt/vaeloria/ooc/PremiumViewsV070.java').read_text()
+          v6=Path('app/src/main/java/lt/vaeloria/ooc/PremiumViews.java').read_text()
+          a=Path('app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java').read_text()
+          checks={
+            'visible version':'OOC · LOCAL FIRST · v0.8.1' in p7,
+            'offline resolver':'local(String action,StatEngine.Check check)' in a and 'Manifesto neatitikimas' in a,
+            'dense item cards':'dp(158)' in p7 and 'dp(68)' in p7,
+            'item glyphs':'n.contains("rakt")' in v6 and 'n.contains("ašmen")' in v6,
+            'adaptive title':'int locSize=25' in v7,
+            'atlas fit':'base=Math.min(getWidth()/(float)map.getWidth(),getHeight()/(float)map.getHeight())' in v7,
+          }
+          for k,v in checks.items(): print(k, 'OK' if v else 'FAIL')
+          bad=[k for k,v in checks.items() if not v]
+          if bad: raise SystemExit('Audit failed: '+', '.join(bad))
+          for f in ['world_map_v060.png','scene_luminara.png','combat_forest.png','hero_einoras.png','quest_meridian.png']:
+              p=Path('app/src/main/res/drawable-nodpi')/f
+              assert p.exists() and p.stat().st_size>10000, (f,p.stat().st_size if p.exists() else 0)
+              print(f,p.stat().st_size)
+          PY
+
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Build release APK
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.8.1.apk
+
+      - name: APK audit
+        run: |
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.1.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee apk-badging.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging.txt
+          grep -q "versionCode='19'" apk-badging.txt
+          grep -q "versionName='0.8.1'" apk-badging.txt
+          grep -q "application-label:'Vaeloria OOC 0.8.1'" apk-badging.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging.txt
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          "$APKSIGNER" verify --verbose "$APK"
+          if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          unzip -p "$APK" classes.dex | strings | grep -q 'v0.8.1'
+          unzip -p "$APK" classes.dex | strings | grep -q 'Manifesto neatitikimas'
+          sha256sum "$APK" | tee apk-sha256.txt
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-ooc-v0.8.1-apk
+          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.8.1.apk
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v0.8.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.8.1 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v0.8.1.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Vaeloria OOC v0.8.1 · Visual Source Fix" \
+            --notes "v0.8.1 taiso realiame v0.8.0 telefone matytus regresus: UI rodo teisingą versiją, atlasas generuojamas detalesnis ir rodomas pilnesniu masteliu, Luminara scena ir combat fonas perkurti, Einoro rendereris detalizuotas, Meridiano banneris atnaujintas, inventoriaus Ø placeholderiai pakeisti kategorinėmis ikonografijomis, kortelės sutankintos, o ilgi vietovių pavadinimai automatiškai sumažinami, kad nebūtų nukerpami. Gameplay/local resolveris ir SQLite išsaugojimas išlaikyti."
