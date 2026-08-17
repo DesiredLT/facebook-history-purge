@@ -21,7 +21,7 @@ p=SRC/'PremiumViewsV070.java'; s=p.read_text(encoding='utf-8')
 s=s.replace('base=Math.max(getWidth()/(float)map.getWidth(),getHeight()/(float)map.getHeight());','base=Math.min(getWidth()/(float)map.getWidth(),getHeight()/(float)map.getHeight());')
 s=s.replace('Bitmap b=q.contains("luminara")?luminara:(q.contains("giria")||q.contains("pelkyn")||q.contains("labir")||q.contains("peak"))?wild:map;', 'Bitmap b=q.contains("luminara")?luminara:wild;')
 old='p.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD));p.setTextSize(dp(25));p.setColor(Color.rgb(245,229,194));p.setShadowLayer(dp(5),0,2,Color.BLACK);c.drawText(location.toUpperCase(Locale.forLanguageTag("lt-LT")),dp(16),h-dp(45),p);p.clearShadowLayer();'
-new='p.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD));float locSize=25f;String locTitle=location.toUpperCase(Locale.forLanguageTag("lt-LT"));p.setTextSize(dp(locSize));while(locSize>15f&&p.measureText(locTitle)>w-dp(32)){locSize-=1f;p.setTextSize(dp(locSize));}p.setColor(Color.rgb(245,229,194));p.setShadowLayer(dp(5),0,2,Color.BLACK);c.drawText(locTitle,dp(16),h-dp(45),p);p.clearShadowLayer();'
+new='p.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD));int locSize=25;String locTitle=location.toUpperCase(Locale.forLanguageTag("lt-LT"));p.setTextSize(dp(locSize));while(locSize>15&&p.measureText(locTitle)>w-dp(32)){locSize-=1;p.setTextSize(dp(locSize));}p.setColor(Color.rgb(245,229,194));p.setShadowLayer(dp(5),0,2,Color.BLACK);c.drawText(locTitle,dp(16),h-dp(45),p);p.clearShadowLayer();'
 s=must(s,old,new,'adaptive scene title')
 p.write_text(s,encoding='utf-8')
 
@@ -56,7 +56,7 @@ p.write_text(s,encoding='utf-8')
 checks={
  'version':'v0.8.1' in (SRC/'PolishedActivity.java').read_text(encoding='utf-8'),
  'dense inventory':'dp(158)' in (SRC/'PolishedActivity.java').read_text(encoding='utf-8'),
- 'adaptive title':'locSize=25f' in (SRC/'PremiumViewsV070.java').read_text(encoding='utf-8'),
+ 'adaptive title':'int locSize=25' in (SRC/'PremiumViewsV070.java').read_text(encoding='utf-8'),
  'item key glyph':'n.contains("rakt")' in (SRC/'PremiumViews.java').read_text(encoding='utf-8'),
  'item sword glyph':'n.contains("ašmen")' in (SRC/'PremiumViews.java').read_text(encoding='utf-8'),
 }
