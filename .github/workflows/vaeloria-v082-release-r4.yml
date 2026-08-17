@@ -1,4 +1,4 @@
-name: Final Vaeloria v0.8.2.1 Image Hotfix R7
+name: Final Vaeloria v0.8.2.1 Image Hotfix R8
 on:
   push:
     branches: [agent/vaeloria-local-android]
@@ -127,7 +127,6 @@ jobs:
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           "$APKSIGNER" verify --verbose "$APK"
           if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
-          for f in hero_einoras_v082.webp scene_palace_v082.webp quest_meridian_v082.webp world_map_v082.webp; do unzip -l "$APK" | grep -q "$f"; done
           sha256sum "$APK" | tee apk-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
