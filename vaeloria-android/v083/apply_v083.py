@@ -1,0 +1,171 @@
+from pathlib import Path
+import base64
+import re
+
+ROOT=Path('.')
+SRC=ROOT/'app/src/main/java/lt/vaeloria/ooc'
+RES=ROOT/'app/src/main/res/drawable-nodpi'
+AS=ROOT/'v083/assets'
+RES.mkdir(parents=True,exist_ok=True)
+
+assets={
+    'hero_einoras_v083.webp':'hero_einoras_v083.webp.b64',
+    'scene_palace_v083.webp':'scene_palace_v083.webp.b64',
+    'quest_meridian_v083.webp':'quest_meridian_v083.webp.b64',
+    'world_map_v083.webp':'world_map_v083.webp.b64',
+}
+for dst,src in assets.items():
+    b64=(AS/src).read_text(encoding='utf-8').strip()
+    raw=base64.b64decode(b64,validate=True)
+    q=RES/dst
+    q.write_bytes(raw)
+    print('decoded',dst,len(raw))
+
+from PIL import Image
+expected={
+    'hero_einoras_v083.webp':(540,720),
+    'scene_palace_v083.webp':(720,300),
+    'quest_meridian_v083.webp':(720,360),
+    'world_map_v083.webp':(600,930),
+}
+for f,sz in expected.items():
+    q=RES/f
+    with Image.open(q) as im:
+        im.load()
+        assert im.format=='WEBP',(f,im.format)
+        assert im.size==sz,(f,im.size,sz)
+        px=im.resize((32,32)).convert('RGB')
+        colors=len(set(px.getdata()))
+        assert colors>120,(f,'too little visual detail',colors)
+        print('DECODE OK',f,im.size,'colors',colors,q.stat().st_size)
+
+def must(s,old,new,label):
+    if old not in s:
+        raise SystemExit('Missing v0.8.3 patch target: '+label)
+    print('patch',label)
+    return s.replace(old,new)
+
+p=SRC/'GameState.java'
+s=p.read_text(encoding='utf-8')
+if 'asterraInfluence' not in s:
+    s=must(s,
+        'public long crowns = 1_062_400L;',
+        'public long crowns = 1_062_400L;\n'
+        '    public int asterraInfluence = 34, dravennInfluence = 72, lysaraInfluence = 24;\n'
+        '    public String asterraRelation = "NEUTRALI", dravennRelation = "ĮTAMPA", lysaraRelation = "SĄJUNGINĖ";',
+        'GameState faction fields')
+    s=must(s,
+        'o.put("crowns", crowns);',
+        'o.put("crowns", crowns);\n'
+        '        o.put("asterraInfluence", asterraInfluence); o.put("dravennInfluence", dravennInfluence); o.put("lysaraInfluence", lysaraInfluence);\n'
+        '        o.put("asterraRelation", asterraRelation); o.put("dravennRelation", dravennRelation); o.put("lysaraRelation", lysaraRelation);',
+        'GameState faction JSON write')
+    s=must(s,
+        's.crowns = o.optLong("crowns", s.crowns);',
+        's.crowns = o.optLong("crowns", s.crowns);\n'
+        '        s.asterraInfluence = clamp(o.optInt("asterraInfluence", s.asterraInfluence),0,100);\n'
+        '        s.dravennInfluence = clamp(o.optInt("dravennInfluence", s.dravennInfluence),0,100);\n'
+        '        s.lysaraInfluence = clamp(o.optInt("lysaraInfluence", s.lysaraInfluence),0,100);\n'
+        '        s.asterraRelation = o.optString("asterraRelation", s.asterraRelation);\n'
+        '        s.dravennRelation = o.optString("dravennRelation", s.dravennRelation);\n'
+        '        s.lysaraRelation = o.optString("lysaraRelation", s.lysaraRelation);',
+        'GameState faction JSON read')
+    s=must(s,
+        'crowns = Math.max(0, crowns + result.optLong("crowns_delta", 0));',
+        'crowns = Math.max(0, crowns + result.optLong("crowns_delta", 0));\n'
+        '        asterraInfluence = clamp(asterraInfluence + result.optInt("asterra_delta",0),0,100);\n'
+        '        dravennInfluence = clamp(dravennInfluence + result.optInt("dravenn_delta",0),0,100);\n'
+        '        lysaraInfluence = clamp(lysaraInfluence + result.optInt("lysara_delta",0),0,100);\n'
+        '        asterraRelation = result.optString("asterra_relation", relationFor(asterraInfluence,false));\n'
+        '        dravennRelation = result.optString("dravenn_relation", relationFor(dravennInfluence,true));\n'
+        '        lysaraRelation = result.optString("lysara_relation", relationFor(lysaraInfluence,false));',
+        'GameState faction turn update')
+    s=must(s,
+        'private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }',
+        'private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }\n'
+        '    private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }',
+        'GameState relation derivation')
+p.write_text(s,encoding='utf-8')
+
+p=SRC/'VaeloriaActivity.java'
+s=p.read_text(encoding='utf-8')
+if 'asterra_delta' not in s:
+    s=must(s,
+        'int minutes=6,hp=0,mana=0,stamina=-1,aeonic=0;',
+        'int minutes=6,hp=0,mana=0,stamina=-1,aeonic=0;\n'
+        '            int asterraDelta=0,dravennDelta=0,lysaraDelta=0;',
+        'local faction delta variables')
+    s=must(s,
+        'if(c.length()==0)c.put("Apsidairyti ir rinkti daugiau informacijos").put("Patikrinti įrangą ir užrašus").put("Tęsti pagrindinę užduotį");',
+        'if("dialogue".equals(event)){asterraDelta+=1;lysaraDelta+=1;}\n'
+        '            if("combat".equals(event)){dravennDelta+=2;asterraDelta-=1;}\n'
+        '            if("discovery".equals(event)){asterraDelta+=1;}\n'
+        '            if("travel".equals(event)){if(location.contains("Kharad")||location.contains("Safyro"))dravennDelta+=1;else if(location.contains("Pelkyn")||location.contains("Labirint"))lysaraDelta+=1;else asterraDelta+=1;}\n'
+        '            if(c.length()==0)c.put("Apsidairyti ir rinkti daugiau informacijos").put("Patikrinti įrangą ir užrašus").put("Tęsti pagrindinę užduotį");',
+        'local faction consequences')
+    s=must(s,
+        'o.put("quest_note",questNote);',
+        'o.put("quest_note",questNote);\n'
+        '            o.put("asterra_delta",asterraDelta);o.put("dravenn_delta",dravennDelta);o.put("lysara_delta",lysaraDelta);',
+        'local faction result JSON')
+p.write_text(s,encoding='utf-8')
+
+p=SRC/'GroqClient.java'
+s=p.read_text(encoding='utf-8')
+if 'asterra_delta' not in s:
+    s=must(s,
+        'Jei nėra pagrindo resurso ar pinigų pokyčiui, delta=0.',
+        'Jei nėra pagrindo resurso, pinigų ar frakcijos įtakos pokyčiui, delta=0. Frakcijų deltas keisk tik kai scena realiai paveikia jų interesus.',
+        'Groq faction instruction')
+    s=must(s,
+        '\\nSiužetas: "+s.questTitle+". Tikslas: "+s.objective+"\\nDėvima įranga: "+equipped',
+        '\\nSiužetas: "+s.questTitle+". Tikslas: "+s.objective+"\\nFrakcijos: Asterra "+s.asterraInfluence+" ("+s.asterraRelation+"), Dravenn "+s.dravennInfluence+" ("+s.dravennRelation+"), Lysara "+s.lysaraInfluence+" ("+s.lysaraRelation+").\\nDėvima įranga: "+equipped',
+        'Groq faction context')
+    s=must(s,
+        'p.put("time_minutes",integer(0,1440));p.put("hp_delta",integer(-100,100));p.put("mana_delta",integer(-100,100));p.put("stamina_delta",integer(-100,100));p.put("aeonic_delta",integer(-900,900));p.put("crowns_delta",integer(-1000000,1000000));p.put("quest_note",str());',
+        'p.put("time_minutes",integer(0,1440));p.put("hp_delta",integer(-100,100));p.put("mana_delta",integer(-100,100));p.put("stamina_delta",integer(-100,100));p.put("aeonic_delta",integer(-900,900));p.put("crowns_delta",integer(-1000000,1000000));p.put("quest_note",str());p.put("asterra_delta",integer(-10,10));p.put("dravenn_delta",integer(-10,10));p.put("lysara_delta",integer(-10,10));',
+        'Groq faction schema')
+    s=must(s,
+        '"scene_title","scene","choices","location","time_minutes","hp_delta","mana_delta","stamina_delta","aeonic_delta","crowns_delta","quest_note","event_tag","combat_active","enemy_name","enemy_status","enemy_telegraph","combat_distance","combat_hazard","loot"',
+        '"scene_title","scene","choices","location","time_minutes","hp_delta","mana_delta","stamina_delta","aeonic_delta","crowns_delta","quest_note","asterra_delta","dravenn_delta","lysara_delta","event_tag","combat_active","enemy_name","enemy_status","enemy_telegraph","combat_distance","combat_hazard","loot"',
+        'Groq faction required keys')
+p.write_text(s,encoding='utf-8')
+
+p=SRC/'PolishedActivity.java'
+s=p.read_text(encoding='utf-8')
+s=s.replace('v0.8.2"','v0.8.3"')
+s=s.replace('R.drawable.hero_einoras_v082','R.drawable.hero_einoras_v083')
+s=s.replace('R.drawable.quest_meridian_v082','R.drawable.quest_meridian_v083')
+s=s.replace('FactionStatusV082View fs=new FactionStatusV082View(this);','FactionStatusV082View fs=new FactionStatusV082View(this,state);')
+p.write_text(s,encoding='utf-8')
+
+p=SRC/'PremiumViewsV082.java'
+s=p.read_text(encoding='utf-8')
+s=s.replace('R.drawable.scene_palace_v082','R.drawable.scene_palace_v083')
+s=s.replace('R.drawable.world_map_v082','R.drawable.world_map_v083')
+s=s.replace('R.drawable.hero_einoras_v082','R.drawable.hero_einoras_v083')
+s=s.replace('bh=dp(42)','bh=dp(44)')
+s=s.replace('y+=dp(49)','y+=dp(51)')
+old_nodes='add("Luminara",236,248,3,"capital");add("Asterio Karūna",128,86,4,"fortress");add("Stiklo Giria",318,118,5,"anomaly");add("Veyrhold",396,216,3,"city");add("Aureliono Pakraštys",410,380,4,"gate");add("Žvaigždėkritos Skliautas",356,340,7,"anomaly");add("Tuščiavidurė Smailė",42,396,8,"dungeon");add("Pelenų Karūnos Citadelė",600,150,7,"fortress");add("Kharad Vorn",740,240,5,"city");add("Drakono Pabudimo Viršūnės",790,46,8,"anomaly");add("Safyro Platybės",686,416,7,"unknown");add("Amžinojo Šaltinio Slėnis",424,500,4,"temple");add("Žaliasis Labirintas",704,556,8,"dungeon");add("Šventųjų Pelkynas",280,630,6,"unknown");'
+new_nodes='add("Luminara",215,340,3,"capital");add("Asterio Karūna",120,115,4,"fortress");add("Stiklo Giria",225,170,5,"anomaly");add("Veyrhold",325,300,3,"city");add("Aureliono Pakraštys",325,455,4,"gate");add("Žvaigždėkritos Skliautas",280,430,7,"anomaly");add("Tuščiavidurė Smailė",72,470,8,"dungeon");add("Pelenų Karūnos Citadelė",450,250,7,"fortress");add("Kharad Vorn",505,335,5,"city");add("Drakono Pabudimo Viršūnės",510,130,8,"anomaly");add("Safyro Platybės",450,555,7,"unknown");add("Amžinojo Šaltinio Slėnis",400,690,4,"temple");add("Žaliasis Labirintas",470,805,8,"dungeon");add("Šventųjų Pelkynas",290,865,6,"unknown");'
+if old_nodes in s:s=s.replace(old_nodes,new_nodes)
+s=s.replace('Color.argb(32,92,142,188)','Color.argb(20,92,142,188)').replace('Color.argb(32,203,92,65)','Color.argb(20,203,92,65)').replace('Color.argb(32,112,171,95)','Color.argb(20,112,171,95)')
+s=s.replace('p.setColor(Color.argb(230,3,9,13));','p.setColor(Color.argb(0,3,9,13));').replace('p.setColor(Color.rgb(235,230,214));c.drawText(n.name,lx,ly,p);','p.setColor(Color.argb(0,235,230,214));c.drawText(n.name,lx,ly,p);')
+start=s.find('class FactionStatusV082View extends View {')
+if start<0:raise SystemExit('FactionStatusV082View not found')
+new_faction='''class FactionStatusV082View extends View {\n    final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);final GameState state;\n    FactionStatusV082View(Context c,GameState s){super(c);state=s;}\n    protected void onDraw(Canvas c){int w=getWidth(),h=getHeight();p.setColor(Color.rgb(8,18,25));c.drawRoundRect(0,0,w,h,dp(16),dp(16),p);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(dp(8));p.setColor(Color.rgb(221,187,104));c.drawText("PASAULIO BŪSENA · MERIDIANO KRIZĖ",dp(13),dp(22),p);String[] n={"ASTERRA","DRAVENN","LYSARA"},r={state.asterraRelation,state.dravennRelation,state.lysaraRelation};int[] col={Color.rgb(111,156,198),Color.rgb(206,101,69),Color.rgb(120,174,99)},val={state.asterraInfluence,state.dravennInfluence,state.lysaraInfluence};float gap=dp(7),cw=(w-dp(26)-gap*2)/3f;for(int i=0;i<3;i++){float x=dp(13)+i*(cw+gap),y=dp(35);RectF card=new RectF(x,y,x+cw,h-dp(10));p.setColor(Color.rgb(11,24,31));c.drawRoundRect(card,dp(12),dp(12),p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(1));p.setColor(Color.argb(150,Color.red(col[i]),Color.green(col[i]),Color.blue(col[i])));c.drawRoundRect(card,dp(12),dp(12),p);p.setStyle(Paint.Style.FILL);float cx=x+cw/2,cy=y+dp(28);p.setColor(Color.argb(38,Color.red(col[i]),Color.green(col[i]),Color.blue(col[i])));c.drawCircle(cx,cy,dp(19),p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(col[i]);emblem(c,i,cx,cy);p.setStyle(Paint.Style.FILL);p.setTypeface(Typeface.create(Typeface.SERIF,Typeface.BOLD));p.setTextSize(dp(8));p.setColor(Color.rgb(235,223,193));float tw=p.measureText(n[i]);c.drawText(n[i],cx-tw/2,y+dp(57),p);p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextSize(dp(6.5f));p.setColor(col[i]);tw=p.measureText(r[i]);c.drawText(r[i],cx-tw/2,y+dp(72),p);float by=y+dp(83);p.setColor(Color.rgb(29,41,47));c.drawRoundRect(x+dp(8),by,x+cw-dp(8),by+dp(5),dp(3),dp(3),p);p.setColor(col[i]);c.drawRoundRect(x+dp(8),by,x+dp(8)+(cw-dp(16))*val[i]/100f,by+dp(5),dp(3),dp(3),p);p.setTextSize(dp(6));p.setColor(Color.rgb(145,163,168));String cap="ĮTAKA "+val[i];tw=p.measureText(cap);c.drawText(cap,cx-tw/2,by+dp(15),p);}}\n    void emblem(Canvas c,int i,float x,float y){if(i==0){Path q=new Path();for(int k=0;k<8;k++){double a=-Math.PI/2+k*Math.PI/4;float rr=dp(k%2==0?14:6);float px=x+(float)Math.cos(a)*rr,py=y+(float)Math.sin(a)*rr;if(k==0)q.moveTo(px,py);else q.lineTo(px,py);}q.close();c.drawPath(q,p);c.drawCircle(x,y,dp(3),p);}else if(i==1){Path q=new Path();q.moveTo(x,y-dp(15));q.lineTo(x+dp(10),y-dp(4));q.lineTo(x+dp(5),y+dp(15));q.lineTo(x,y+dp(7));q.lineTo(x-dp(6),y+dp(15));q.lineTo(x-dp(11),y-dp(4));q.close();c.drawPath(q,p);c.drawLine(x,y-dp(10),x,y+dp(9),p);}else{Path q=new Path();q.moveTo(x,y-dp(15));q.cubicTo(x+dp(17),y-dp(8),x+dp(14),y+dp(12),x,y+dp(15));q.cubicTo(x-dp(14),y+dp(12),x-dp(17),y-dp(8),x,y-dp(15));c.drawPath(q,p);c.drawLine(x,y-dp(10),x,y+dp(12),p);}}\n    int dp(float v){return(int)(v*getResources().getDisplayMetrics().density+.5f);}\n}\n'''
+s=s[:start]+new_faction+'\n'
+p.write_text(s,encoding='utf-8')
+
+p=SRC/'PremiumViews.java'
+s=p.read_text(encoding='utf-8')
+old='else if(n.contains("prizm")||n.contains("crystal")||n.contains("žvaigžd")||n.contains("seed")||n.contains("sėkl")){Path q=new Path();q.moveTo(x,y-r);q.lineTo(x+r*.78f,y-r*.15f);q.lineTo(x+r*.5f,y+r*.85f);q.lineTo(x-r*.5f,y+r*.85f);q.lineTo(x-r*.78f,y-r*.15f);q.close();c.drawPath(q,p);c.drawLine(x,y-r,x,y+r*.85f,p);}'
+new='else if(n.contains("prizm")||n.contains("crystal")){Path q=new Path();q.moveTo(x,y-r);q.lineTo(x+r*.75f,y-r*.18f);q.lineTo(x+r*.42f,y+r*.88f);q.lineTo(x-r*.42f,y+r*.88f);q.lineTo(x-r*.75f,y-r*.18f);q.close();c.drawPath(q,p);c.drawLine(x,y-r,x,y+r*.88f,p);c.drawLine(x-r*.75f,y-r*.18f,x+r*.42f,y+r*.88f,p);}else if(n.contains("seed")||n.contains("sėkl")||n.contains("žvaigžd")){c.drawCircle(x,y+r*.18f,r*.38f,p);Path q=new Path();q.moveTo(x,y-r*.2f);q.cubicTo(x-r*.95f,y-r*.72f,x-r*.95f,y+r*.05f,x,y+r*.05f);q.cubicTo(x+r*.95f,y-r*.72f,x+r*.95f,y+r*.05f,x,y+r*.05f);c.drawPath(q,p);c.drawLine(x,y-r*.15f,x,y-r*.88f,p);}else if(n.contains("relic")||n.contains("relikv")){c.drawCircle(x,y,r*.92f,p);Path q=new Path();q.moveTo(x,y-r*.72f);q.lineTo(x+r*.62f,y+r*.35f);q.lineTo(x-r*.62f,y+r*.35f);q.close();c.drawPath(q,p);c.drawCircle(x,y,r*.22f,p);}'
+if old in s:s=s.replace(old,new)
+p.write_text(s,encoding='utf-8')
+
+checks={'premium hero':'hero_einoras_v083' in (SRC/'PolishedActivity.java').read_text(encoding='utf-8'),'premium scene':'scene_palace_v083' in (SRC/'PremiumViewsV082.java').read_text(encoding='utf-8'),'premium quest':'quest_meridian_v083' in (SRC/'PolishedActivity.java').read_text(encoding='utf-8'),'premium atlas':'world_map_v083' in (SRC/'PremiumViewsV082.java').read_text(encoding='utf-8'),'dynamic factions':'state.asterraInfluence' in (SRC/'PremiumViewsV082.java').read_text(encoding='utf-8'),'faction save compatibility':'o.optInt("asterraInfluence"' in (SRC/'GameState.java').read_text(encoding='utf-8'),'groq faction deltas':'asterra_delta' in (SRC/'GroqClient.java').read_text(encoding='utf-8'),'44dp loadout':'bh=dp(44)' in (SRC/'PremiumViewsV082.java').read_text(encoding='utf-8'),'distinct item glyphs':'n.contains("relic")' in (SRC/'PremiumViews.java').read_text(encoding='utf-8'),'visible version':'v0.8.3' in (SRC/'PolishedActivity.java').read_text(encoding='utf-8')}
+for k,v in checks.items():print(k,'OK' if v else 'FAIL')
+bad=[k for k,v in checks.items() if not v]
+if bad:raise SystemExit('v0.8.3 acceptance failed: '+', '.join(bad))
+print('Vaeloria v0.8.3 implementation complete')
