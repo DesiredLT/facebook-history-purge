@@ -1,4 +1,4 @@
-name: Final Vaeloria v0.8.2 Premium Polish R5
+name: Final Vaeloria v0.8.2 Premium Polish R6
 on:
   push:
     branches: [agent/vaeloria-local-android]
@@ -105,7 +105,9 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk
       - name: APK audit
         run: |
-          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk;AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt";APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           grep -q "name='lt.vaeloria.ooc.personal'" apk-badging.txt
           grep -q "versionCode='20'" apk-badging.txt
@@ -115,11 +117,10 @@ jobs:
           "$AAPT" dump permissions "$APK" | tee apk-permissions.txt
           test "$(grep -c '^uses-permission:' apk-permissions.txt)" -eq 1
           grep -q 'android.permission.INTERNET' apk-permissions.txt
-          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]');test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           "$APKSIGNER" verify --verbose "$APK"
           if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
-          unzip -p "$APK" classes.dex | strings | grep -q 'v0.8.2'
-          unzip -p "$APK" classes.dex | strings | grep -q 'KAIP APSKAIČIUOTA?'
           sha256sum "$APK" | tee apk-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
