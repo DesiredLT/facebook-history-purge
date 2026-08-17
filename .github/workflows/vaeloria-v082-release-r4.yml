@@ -1,7 +1,7 @@
-name: Final Vaeloria v0.8.2 Premium Polish R4
+name: Final Vaeloria v0.8.2 Premium Polish R5
 on:
   push:
-    branches: [agent/vaeloria-v082-release]
+    branches: [agent/vaeloria-local-android]
     paths: ['.github/workflows/vaeloria-v082-release-r4.yml']
   workflow_dispatch:
 permissions:
