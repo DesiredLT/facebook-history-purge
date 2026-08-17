@@ -1,4 +1,4 @@
-name: Final Vaeloria v0.8.2 Premium Polish R6
+name: Final Vaeloria v0.8.2.1 Image Hotfix R7
 on:
   push:
     branches: [agent/vaeloria-local-android]
@@ -59,23 +59,25 @@ jobs:
           cp v070/PolishedActivity.java app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java
           python3 v081/generate_assets_v081.py
           python3 v081/patch_v081_ui.py
-      - name: Apply v0.8.2 premium implementation
+      - name: Apply v0.8.2 premium implementation and image hotfix
         run: |
           python3 v082/patch_v082.py
+          python3 v082/fix_v082_assets.py
           python3 v082/fix_v082_compile.py
           python3 v082/fix_v082_feedback_parser.py
-      - name: Set v0.8.2 identity
+      - name: Set v0.8.2.1 identity
         run: |
           python3 - <<'PY'
           from pathlib import Path
           import re
-          g=Path('app/build.gradle');s=g.read_text();s=re.sub(r'versionCode\s+\d+','versionCode 20',s);s=re.sub(r"versionName\s+'[^']+'","versionName '0.8.2'",s);g.write_text(s)
-          m=Path('app/src/main/AndroidManifest.xml');s=m.read_text();s=re.sub(r'android:label="Vaeloria OOC [^"]+"','android:label="Vaeloria OOC 0.8.2"',s);s=s.replace('android:name="lt.vaeloria.ooc.VaeloriaActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"').replace('android:name="lt.vaeloria.ooc.PremiumActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"');m.write_text(s)
+          g=Path('app/build.gradle');s=g.read_text();s=re.sub(r'versionCode\s+\d+','versionCode 21',s);s=re.sub(r"versionName\s+'[^']+'","versionName '0.8.2.1'",s);g.write_text(s)
+          m=Path('app/src/main/AndroidManifest.xml');s=m.read_text();s=re.sub(r'android:label="Vaeloria OOC [^"]+"','android:label="Vaeloria OOC 0.8.2.1"',s);s=s.replace('android:name="lt.vaeloria.ooc.VaeloriaActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"').replace('android:name="lt.vaeloria.ooc.PremiumActivity"','android:name="lt.vaeloria.ooc.PolishedActivity"');m.write_text(s)
           PY
-      - name: Acceptance audit
+      - name: Acceptance audit including real image decode
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          from PIL import Image
           p=Path('app/src/main/java/lt/vaeloria/ooc/PolishedActivity.java').read_text();v=Path('app/src/main/java/lt/vaeloria/ooc/PremiumViewsV082.java').read_text();a=Path('app/src/main/java/lt/vaeloria/ooc/VaeloriaActivity.java').read_text()
           checks={
             'save resolver':'local(String action,StatEngine.Check check)' in a and 'Manifesto neatitikimas' in a,
@@ -95,24 +97,28 @@ jobs:
           bad=[k for k,x in checks.items() if not x]
           if bad: raise SystemExit('Acceptance failed: '+', '.join(bad))
           for f in ['hero_einoras_v082.webp','scene_palace_v082.webp','quest_meridian_v082.webp','world_map_v082.webp']:
-              q=Path('app/src/main/res/drawable-nodpi')/f;assert q.exists() and q.stat().st_size>10000,(f,q.stat().st_size if q.exists() else 0);print(f,q.stat().st_size)
+              q=Path('app/src/main/res/drawable-nodpi')/f
+              assert q.exists() and q.stat().st_size>10000,(f,q.stat().st_size if q.exists() else 0)
+              with Image.open(q) as im:
+                  im.load(); assert im.format=='WEBP' and im.width>=300 and im.height>=180,(f,im.format,im.size)
+                  print(f,'DECODE OK',im.format,im.size,q.stat().st_size)
           PY
       - name: Unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
       - name: Build release APK
         run: |
           gradle :app:assembleRelease --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.1.apk
       - name: APK audit
         run: |
-          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.1.apk
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$AAPT" dump badging "$APK" | tee apk-badging.txt
           grep -q "name='lt.vaeloria.ooc.personal'" apk-badging.txt
-          grep -q "versionCode='20'" apk-badging.txt
-          grep -q "versionName='0.8.2'" apk-badging.txt
-          grep -q "application-label:'Vaeloria OOC 0.8.2'" apk-badging.txt
+          grep -q "versionCode='21'" apk-badging.txt
+          grep -q "versionName='0.8.2.1'" apk-badging.txt
+          grep -q "application-label:'Vaeloria OOC 0.8.2.1'" apk-badging.txt
           grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging.txt
           "$AAPT" dump permissions "$APK" | tee apk-permissions.txt
           test "$(grep -c '^uses-permission:' apk-permissions.txt)" -eq 1
@@ -121,15 +127,17 @@ jobs:
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           "$APKSIGNER" verify --verbose "$APK"
           if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          for f in hero_einoras_v082.webp scene_palace_v082.webp quest_meridian_v082.webp world_map_v082.webp; do unzip -l "$APK" | grep -q "$f"; done
           sha256sum "$APK" | tee apk-sha256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v0.8.2-apk
-          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk
+          name: vaeloria-ooc-v0.8.2.1-apk
+          path: vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.1.apk
           if-no-files-found: error
-      - name: Publish GitHub release
+      - name: Publish fixed GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          gh release delete vaeloria-ooc-v0.8.2.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
           gh release delete vaeloria-ooc-v0.8.2 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v0.8.2 app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vaeloria OOC v0.8.2 · Premium Dark-Fantasy Polish" --notes "Premium hero key-art, cinematic palace scene, concise gameplay feedback with expandable calculation details, fantasy atlas with typed locations and optional faction overlay, Meridian story key-art, player-readable world threads, differentiated post-cap abilities, faction identity cards, clean header and ŽURNALAS navigation. Existing SQLite saves, local resolver, Groq AI GM, package ID and Android signing identity are preserved."
+          gh release create vaeloria-ooc-v0.8.2.1 app/build/outputs/apk/release/Vaeloria-OOC-v0.8.2.1.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vaeloria OOC v0.8.2.1 · Image Hotfix" --notes "Hotfix for v0.8.2 artwork: replaces four invalid pseudo-WebP blobs with real decodable WebP assets generated from the known-good bundled artwork. Adds CI image decode validation so blank artwork cannot pass release again. Existing SQLite saves, local resolver, Groq AI GM, package ID and Android signing identity are preserved."
