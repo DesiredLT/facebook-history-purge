@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 3;
+    private static final int VERSION = 5;
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
             "weapon","offhand","head","chest","hands","legs","feet","belt","neck",
@@ -29,6 +29,11 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         public boolean equipped, synced;
     }
 
+    public static class Mastery {
+        public final int level,xp,nextXp;
+        public Mastery(int level,int xp,int nextXp){this.level=level;this.xp=xp;this.nextXp=nextXp;}
+    }
+
     public VaeloriaDb(Context c) { super(c, DB, null, VERSION); }
 
     @Override public void onCreate(SQLiteDatabase db) {
@@ -36,7 +41,11 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE items (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, rarity TEXT NOT NULL, description TEXT NOT NULL, slot TEXT, equipped INTEGER NOT NULL DEFAULT 0, synced INTEGER NOT NULL DEFAULT 0, equipped_slot TEXT)");
         db.execSQL("CREATE TABLE abilities (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, type TEXT NOT NULL, description TEXT NOT NULL)");
         db.execSQL("CREATE TABLE checkpoints (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT, state_json TEXT NOT NULL, equipment_json TEXT NOT NULL, created_at INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE stats (name TEXT PRIMARY KEY, group_name TEXT NOT NULL, value INTEGER NOT NULL, cap INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE mastery (name TEXT PRIMARY KEY, level INTEGER NOT NULL, xp INTEGER NOT NULL, next_xp INTEGER NOT NULL)");
         seed(db);
+        seedStats(db);
+        seedMastery(db);
     }
 
     @Override public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
@@ -44,7 +53,9 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             migrateV1(db);
             oldVersion = 2;
         }
-        if (oldVersion < 3) migrateV2toV3(db);
+        if (oldVersion < 3) { migrateV2toV3(db); oldVersion = 3; }
+        if (oldVersion < 4) { migrateV3toV4(db); oldVersion = 4; }
+        if (oldVersion < 5) migrateV4toV5(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -106,6 +117,36 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             v.put("json", s.toJson().toString());
             db.update("state", v, "id=1", null);
         } catch (Exception ignored) {}
+    }
+
+    private void migrateV3toV4(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS stats (name TEXT PRIMARY KEY, group_name TEXT NOT NULL, value INTEGER NOT NULL, cap INTEGER NOT NULL)");
+        seedStats(db);
+    }
+
+    private void seedStats(SQLiteDatabase db) {
+        for (BaseStatCatalog.Group group : BaseStatCatalog.GROUPS) {
+            for (String stat : group.stats) {
+                ContentValues v = new ContentValues();
+                v.put("name", stat); v.put("group_name", group.name); v.put("value", 100); v.put("cap", 100);
+                db.insertWithOnConflict("stats", null, v, SQLiteDatabase.CONFLICT_IGNORE);
+            }
+        }
+    }
+
+    private void migrateV4toV5(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS mastery (name TEXT PRIMARY KEY, level INTEGER NOT NULL, xp INTEGER NOT NULL, next_xp INTEGER NOT NULL)");
+        seedMastery(db);
+    }
+
+    private int masteryNext(int level){ return 300 + Math.max(0,Math.min(99,level))*10; }
+
+    private void seedMastery(SQLiteDatabase db) {
+        for (BaseStatCatalog.Group group : BaseStatCatalog.GROUPS) for (String stat : group.stats) {
+            ContentValues v=new ContentValues();
+            v.put("name",stat);v.put("level",70);v.put("xp",0);v.put("next_xp",masteryNext(70));
+            db.insertWithOnConflict("mastery",null,v,SQLiteDatabase.CONFLICT_IGNORE);
+        }
     }
 
     private static int parseInt(String s, int fallback) { try { return Integer.parseInt(s); } catch (Exception e) { return fallback; } }
@@ -235,6 +276,45 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         } catch (JSONException ignored) {}
     }
 
+    public java.util.Map<String,Integer> getStatValues() {
+        java.util.LinkedHashMap<String,Integer> out = new java.util.LinkedHashMap<>();
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT name,value FROM stats ORDER BY rowid", null)) {
+            while (c.moveToNext()) out.put(c.getString(0), c.getInt(1));
+        }
+        if (out.isEmpty()) {
+            seedStats(getWritableDatabase());
+            try (Cursor c = getReadableDatabase().rawQuery("SELECT name,value FROM stats ORDER BY rowid", null)) {
+                while (c.moveToNext()) out.put(c.getString(0), c.getInt(1));
+            }
+        }
+        return out;
+    }
+
+    public int getStatValue(String name) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT value FROM stats WHERE name=?", new String[]{name})) {
+            if (c.moveToFirst()) return c.getInt(0);
+        }
+        return 100;
+    }
+
+    public boolean setStatValue(String name, int value) {
+        ContentValues v = new ContentValues(); v.put("value", Math.max(0, Math.min(100, value)));
+        return getWritableDatabase().update("stats", v, "name=?", new String[]{name}) > 0;
+    }
+
+    public java.util.Map<String,Mastery> getMasteries() {
+        java.util.LinkedHashMap<String,Mastery> out=new java.util.LinkedHashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT name,level,xp,next_xp FROM mastery ORDER BY rowid",null)){while(c.moveToNext())out.put(c.getString(0),new Mastery(c.getInt(1),c.getInt(2),c.getInt(3)));}
+        if(out.isEmpty()){seedMastery(getWritableDatabase());try(Cursor c=getReadableDatabase().rawQuery("SELECT name,level,xp,next_xp FROM mastery ORDER BY rowid",null)){while(c.moveToNext())out.put(c.getString(0),new Mastery(c.getInt(1),c.getInt(2),c.getInt(3)));}}
+        return out;
+    }
+
+    public java.util.Map<String,Integer> getMasteryLevels(){java.util.LinkedHashMap<String,Integer> out=new java.util.LinkedHashMap<>();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet())out.put(e.getKey(),e.getValue().level);return out;}
+
+    public Mastery awardMastery(String name,int gain){
+        Mastery cur=getMasteries().get(name);if(cur==null)cur=new Mastery(70,0,masteryNext(70));int level=cur.level,xp=cur.xp+Math.max(0,gain),next=cur.nextXp;while(level<100&&xp>=next){xp-=next;level++;next=masteryNext(level);}if(level>=100){level=100;xp=0;next=1;}ContentValues v=new ContentValues();v.put("level",level);v.put("xp",xp);v.put("next_xp",next);getWritableDatabase().update("mastery",v,"name=?",new String[]{name});return new Mastery(level,xp,next);
+    }
+
     public List<Item> getItems() {
         List<Item> out = new ArrayList<>();
         try (Cursor c = getReadableDatabase().rawQuery("SELECT id,name,type,rarity,description,slot,equipped,synced,equipped_slot FROM items ORDER BY equipped DESC, CASE rarity WHEN 'unique' THEN 0 WHEN 'legendary' THEN 1 WHEN 'ancient' THEN 2 WHEN 'epic' THEN 3 WHEN 'rare' THEN 4 ELSE 5 END, name", null)) {
@@ -362,14 +442,14 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",3); root.put("state",loadState().toJson());
-            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);items.put(o);} root.put("items",items); return root.toString();
+            JSONObject root=new JSONObject(); root.put("version",5); root.put("state",loadState().toJson());
+            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);items.put(o);} root.put("items",items); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery); return root.toString();
         } catch(Exception e){return "";}
     }
 
     public boolean importSave(String raw) {
         try {
-            JSONObject root=new JSONObject(raw); GameState state=GameState.fromJson(root.getJSONObject("state")); JSONArray items=root.optJSONArray("items");
+            JSONObject root=new JSONObject(raw); GameState state=GameState.fromJson(root.getJSONObject("state")); JSONArray items=root.optJSONArray("items"); JSONArray stats=root.optJSONArray("stats"); JSONArray mastery=root.optJSONArray("mastery");
             SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
             try {
                 ContentValues st=new ContentValues();st.put("json",state.toJson().toString());db.update("state",st,"id=1",null);
@@ -383,13 +463,15 @@ public class VaeloriaDb extends SQLiteOpenHelper {
                     if(target==null&&o.optBoolean("equipped",false)){String cat=o.optString("category","");target=firstFreeTarget(cat);}
                     if(target!=null){ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",target);db.update("items",on,"id=?",new String[]{id});}
                 }
+                if(stats!=null)for(int si=0;si<stats.length();si++){JSONObject so=stats.optJSONObject(si);if(so==null)continue;ContentValues sv=new ContentValues();sv.put("value",Math.max(0,Math.min(100,so.optInt("value",100))));db.update("stats",sv,"name=?",new String[]{so.optString("name","")});}
+                if(mastery!=null)for(int mi=0;mi<mastery.length();mi++){JSONObject mo=mastery.optJSONObject(mi);if(mo==null)continue;ContentValues mv=new ContentValues();int lv=Math.max(0,Math.min(100,mo.optInt("level",70)));mv.put("level",lv);mv.put("xp",Math.max(0,mo.optInt("xp",0)));mv.put("next_xp",Math.max(1,mo.optInt("next_xp",masteryNext(lv))));db.update("mastery",mv,"name=?",new String[]{mo.optString("name","")});}
                 db.setTransactionSuccessful();return true;
             } finally { db.endTransaction(); }
         } catch(Exception e){return false;}
     }
 
     public void reset() {
-        SQLiteDatabase db=getWritableDatabase(); db.execSQL("DROP TABLE IF EXISTS state");db.execSQL("DROP TABLE IF EXISTS items");db.execSQL("DROP TABLE IF EXISTS abilities");db.execSQL("DROP TABLE IF EXISTS checkpoints");db.execSQL("DROP TABLE IF EXISTS turns");db.execSQL("DROP TABLE IF EXISTS undo");onCreate(db);
+        SQLiteDatabase db=getWritableDatabase(); db.execSQL("DROP TABLE IF EXISTS state");db.execSQL("DROP TABLE IF EXISTS items");db.execSQL("DROP TABLE IF EXISTS abilities");db.execSQL("DROP TABLE IF EXISTS checkpoints");db.execSQL("DROP TABLE IF EXISTS stats");db.execSQL("DROP TABLE IF EXISTS mastery");db.execSQL("DROP TABLE IF EXISTS turns");db.execSQL("DROP TABLE IF EXISTS undo");onCreate(db);
     }
 
     public static String slotLabel(String s){
