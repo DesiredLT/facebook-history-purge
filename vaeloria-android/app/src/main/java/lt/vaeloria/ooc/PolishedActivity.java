@@ -706,25 +706,35 @@ public class PolishedActivity extends PremiumActivity {
 
         LinearLayout progress = panel(true);
         progress.addView(section("TIKSLAI"));
-        progress.addView(step(true, false, "Manifestas pasiekė Luminara prieš karavaną"));
-        progress.addView(step(false, true, state.objective));
-        progress.addView(step(false, false, "Užsitikrinti tris nepriklausomai prižiūrimus kelio atramos taškus"));
-        progress.addView(step(false, false, "Pereiti Meridianą ir grįžti su patikrinamais Orisono kontakto duomenimis"));
-        progress.addView(step(false, false, "Derėtis dėl Pirmosios Meridiano chartijos arba ją atmesti"));
+        for(WorldRepository.QuestStep questStep:db.world().steps("Q-MERIDIAN")){
+            String label=questStep.title+(questStep.target>1?" · "+questStep.progress+"/"+questStep.target:"");
+            progress.addView(step("completed".equals(questStep.status),"active".equals(questStep.status),label));
+        }
         column.addView(progress, sp(dp(9)));
 
         LinearLayout threads = panel(false);
-        threads.addView(section("AKTYVIOS PASAULIO GIJOS"));
-        threads.addView(threadCard("Kelionės vartų poslinkis", "KRITINĖ", "Keičia maršrutų laiką ir įrodymų patikimumą.", Color.rgb(218, 120, 77)));
-        threads.addView(threadCard("Orisono ryšio protokolas", "TYRIMAS", "Reikia nepriklausomai patvirtinti signalo kilmę.", BLUE));
-        threads.addView(threadCard("Santarvės priežiūros valdymas", "POLITINĖ", "Frakcijos varžosi dėl vartų kontrolės.", PURPLE));
-        threads.addView(threadCard("Drakoniškoji įpėdinystė", "STEBIMA", "Kol kas netiesiogiai susieta su anomalija.", GREEN));
+        threads.addView(section("UŽDUOTYS IR GYVI PASAULIO ĮVYKIAI"));
+        for(WorldRepository.Quest quest:db.world().quests())if("side".equals(quest.type))
+            threads.addView(threadCard(quest.title,quest.status.toUpperCase(Locale.forLanguageTag("lt-LT")),db.world().steps(quest.id).get(0).title,BLUE));
+        List<WorldRepository.Event> liveEvents=db.world().activeEvents();
+        if(liveEvents.isEmpty())threads.addView(txt("Šiuo metu nėra aktyvios pasaulinės krizės. Ekonomika palaipsniui grįžta į pusiausvyrą.",9,SUB,false));
+        else for(WorldRepository.Event worldEvent:liveEvents)
+            threads.addView(threadCard(worldEvent.title,"PAVOJUS "+worldEvent.severity,worldEvent.detail+" Kainų pokytis "+(worldEvent.priceModifier>=0?"+":"")+worldEvent.priceModifier+"%.",worldEvent.priceModifier>0?Color.rgb(218,120,77):GREEN));
         column.addView(threads, sp(dp(9)));
+
+        LinearLayout ownership=panel(false);ownership.addView(section("VERSLAI IR PASYVIOS PAJAMOS"));
+        for(WorldRepository.Business business:db.world().businesses())ownership.addView(txt((business.owned?"◆ ":"○ ")+business.name+" · "+(business.owned?"valdoma":"kaina "+business.price)+" · grynoji dienos grąža "+Math.max(0,business.revenue-business.upkeep),10,business.owned?GREEN:SUB,business.owned),sp(dp(4)));
+        Button manageBusinesses=outline("VALDYTI VERSLUS");manageBusinesses.setMinHeight(dp(48));manageBusinesses.setOnClickListener(view->businessesDialog());ownership.addView(manageBusinesses);column.addView(ownership,sp(dp(9)));
 
         column.addView(bestiaryPanel(), sp(dp(9)));
 
         FactionStatusV090View factions = new FactionStatusV090View(this, state);
         column.addView(factions, new LinearLayout.LayoutParams(-1, dp(178)));
+
+        LinearLayout politics=panel(false);politics.addView(section("FRAKCIJOS, TERITORIJOS IR MIESTŲ KONKURENCIJA"));
+        for(WorldRepository.Faction faction:db.world().factions())politics.addView(txt(faction.name.toUpperCase(Locale.forLanguageTag("lt-LT"))+" · "+faction.relation+" · įtaka "+faction.influence+" · teritorija "+faction.territory+" · įtampa "+faction.tension,9,faction.tension>=60?Color.rgb(218,120,77):GREEN,true),sp(dp(4)));
+        for(WorldRepository.Settlement settlement:db.world().settlements())politics.addView(txt("• "+settlement.name+" · gerovė "+settlement.prosperity+" · saugumas "+settlement.security+" · autonomija "+settlement.autonomy,9,SUB,false),sp(dp(3)));
+        column.addView(politics,sp(dp(9)));
 
         LinearLayout log = panel(false);
         log.addView(section("PASKUTINIAI ĖJIMAI"));
@@ -809,6 +819,8 @@ public class PolishedActivity extends PremiumActivity {
         text.setPadding(dp(10), 0, 0, 0);
         text.addView(serif(npc[0], 15, PARCH, true));
         text.addView(txt(npc[1], 9, SUB, false));
+        WorldRepository.Npc stateful=db.world().findNpc(npc[0],state.worldMinute);
+        if(stateful!=null)text.addView(txt((stateful.available?"● PASIEKIAMAS":"○ NEPASIEKIAMAS")+" · santykis "+(stateful.relationship>=0?"+":"")+stateful.relationship,8,stateful.available?GREEN:Color.rgb(196,124,92),true));
         card.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
         card.setOnClickListener(view -> npcDialog(npc));
         return card;
@@ -823,14 +835,15 @@ public class PolishedActivity extends PremiumActivity {
         content.addView(serif(npc[0], 22, PARCH, true), sp(dp(3)));
         content.addView(txt(npc[1].toUpperCase(Locale.ROOT), 8, GOLD2, true), sp(dp(8)));
         content.addView(txt(npc[2], 11, Color.rgb(217, 222, 217), false));
+        WorldRepository.Npc stateful=db.world().findNpc(npc[0],state.worldMinute);
+        if(stateful!=null){content.addView(txt("SANTYKIS "+(stateful.relationship>=0?"+":"")+stateful.relationship+" · PASITIKĖJIMAS "+stateful.trust+" · POKALBIAI "+stateful.interactions,9,stateful.relationship>=0?GREEN:Color.rgb(215,104,84),true),sp(dp(7)));if(!stateful.lastTopic.isEmpty())content.addView(txt("PRISIMENA · "+stateful.lastTopic,9,SUB,false),sp(dp(6)));if(!stateful.available)content.addView(txt("Šiuo paros metu veikėjas nepasiekiamas. Laikas pasaulyje juda po kiekvieno veiksmo.",9,Color.rgb(215,154,91),true),sp(dp(6)));}
         String actionLabel = npc.length > 3 ? npc[3] : "KLAUSTI APIE MERIDIANĄ";
         String action = npc.length > 4 ? npc[4]
                 : "Pasikalbėti su " + npc[0] + " apie Lūžusį Meridianą ir išgirsti tik tai, ką šis žmogus realiai žino.";
-        new AlertDialog.Builder(this)
-                .setView(content)
-                .setNegativeButton("UŽDARYTI", null)
-                .setPositiveButton(actionLabel, (dialog, which) -> act(action))
-                .show();
+        WorldRepository.Shop shop=db.world().shopForNpc(npc[0]);
+        AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(content).setNegativeButton("UŽDARYTI",null);
+        if(stateful==null||stateful.available){if(shop!=null){builder.setPositiveButton("ATVERTI PARDUOTUVĘ",(dialog,which)->shopDialog(shop));builder.setNeutralButton("KALBĖTIS",(dialog,which)->act(action));}else builder.setPositiveButton(actionLabel,(dialog,which)->act(action));}
+        builder.show();
     }
 
     private void cityPeopleDialog() {
@@ -847,6 +860,40 @@ public class PolishedActivity extends PremiumActivity {
         }
         new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI", null).show();
     }
+
+    private void shopDialog(WorldRepository.Shop shop){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);
+        column.addView(serif(shop.name,22,PARCH,true));column.addView(txt("Turimos karūnos · "+state.crowns+" · kainos priklauso nuo pasiūlos, pasaulio įvykių ir santykio su pardavėju.",9,SUB,false),sp(dp(8)));
+        LinearLayout actions=row();Button sell=outline("PARDUOTI");sell.setMinHeight(dp(48));sell.setOnClickListener(view->sellDialog(shop));actions.addView(sell,new LinearLayout.LayoutParams(0,dp(48),1));Space gap=new Space(this);actions.addView(gap,new LinearLayout.LayoutParams(dp(7),1));Button craft=outline("GAMINTI");craft.setMinHeight(dp(48));craft.setOnClickListener(view->craftDialog());actions.addView(craft,new LinearLayout.LayoutParams(0,dp(48),1));column.addView(actions,sp(dp(9)));
+        List<WorldRepository.Stock> stock=db.world().stock(shop,state);if(stock.isEmpty())column.addView(txt("Atsargos išpirktos. Parduotuvė pasipildys kitą pasaulio dieną.",10,SUB,false));
+        for(WorldRepository.Stock entry:stock){LinearLayout item=panel(false);LinearLayout header=row();header.setGravity(Gravity.CENTER_VERTICAL);header.addView(serif(entry.name,13,PARCH,true),new LinearLayout.LayoutParams(0,-2,1));header.addView(chip(rarityLabel(entry.rarity).toUpperCase(Locale.ROOT),rarity(entry.rarity)));item.addView(header);item.addView(txt(ItemCatalogV092.categoryLabel(entry.category)+" · L"+entry.level+" · liko "+entry.quantity,8,SUB,false));Button buy=gold("PIRKTI · "+entry.price+" KARŪNŲ");buy.setMinHeight(dp(46));buy.setEnabled(state.crowns>=entry.price);buy.setOnClickListener(view->new AlertDialog.Builder(this).setTitle(entry.name).setMessage("Pirkti už "+entry.price+" karūnų?").setNegativeButton("NE",null).setPositiveButton("PIRKTI",(dialog,which)->{db.checkpoint("prieš pirkimą",state);WorldRepository.TransactionResult result=db.world().buy(shop,entry.catalogId,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();shopDialog(shop);}).show());item.addView(buy,sp(dp(2)));column.addView(item,sp(dp(6)));}
+        new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();
+    }
+
+    private void sellDialog(WorldRepository.Shop shop){ArrayList<VaeloriaDb.Item> sellable=new ArrayList<>();for(VaeloriaDb.Item item:db.getItems())if(!item.equipped&&!item.synced&&item.value>0&&!"quest".equals(item.type))sellable.add(item);if(sellable.isEmpty()){Toast.makeText(this,"Nėra parduodamų daiktų",Toast.LENGTH_SHORT).show();return;}String[] names=new String[sellable.size()];for(int i=0;i<sellable.size();i++){VaeloriaDb.Item item=sellable.get(i);names[i]=item.name+(item.quantity>1?" ×"+item.quantity:"")+" · bazinė vertė "+item.value;}new AlertDialog.Builder(this).setTitle("Parduoti vieną daiktą").setItems(names,(dialog,which)->{VaeloriaDb.Item item=sellable.get(which);db.checkpoint("prieš pardavimą",state);WorldRepository.TransactionResult result=db.world().sell(shop,item.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");}).setNegativeButton("UŽDARYTI",null).show();}
+
+    private void craftDialog(){ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);column.addView(serif("GAMYBA IR PATOBULINIMAI",21,PARCH,true));column.addView(txt("Receptai sunaudoja tikrus inventoriaus reagentus ir karūnas. Atšaukimas grąžina visą sandorio būseną.",9,SUB,false),sp(dp(8)));for(WorldRepository.Recipe recipe:db.world().recipes()){int owned=db.world().ownedCatalogQuantity(recipe.ingredientCatalogId);Button button=dark(recipe.name+"\n"+recipe.ingredientName+" "+owned+"/"+recipe.ingredientQty+" · "+recipe.fee+" karūnų");button.setAllCaps(false);button.setMinHeight(dp(58));button.setEnabled(recipe.unlocked&&owned>=recipe.ingredientQty&&state.crowns>=recipe.fee);button.setOnClickListener(view->{db.checkpoint("prieš gamybą",state);WorldRepository.TransactionResult result=db.world().craft(recipe.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");});column.addView(button,sp(dp(5)));}new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();}
+
+    private void businessesDialog(){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);
+        column.addView(serif("VERSLAI",22,PARCH,true));
+        column.addView(txt("Valdomas verslas kartą per pasaulio dieną išmoka pajamas po išlaikymo sąnaudų. Ekonomikos indeksas keičia realią grąžą.",9,SUB,false),sp(dp(9)));
+        for(WorldRepository.Business business:db.world().businesses()){
+            LinearLayout card=panel(business.owned);card.addView(serif(business.name,15,PARCH,true));
+            card.addView(txt("Lygis "+business.level+" · pajamos "+business.revenue+" · sąnaudos "+business.upkeep+" · grynoji bazė "+Math.max(0,business.revenue-business.upkeep),9,SUB,false));
+            if(business.owned)card.addView(txt("VALDOMA · kita išmoka pasaulio minutę "+business.nextPayout,9,GREEN,true));
+            else{Button buy=gold("PIRKTI · "+business.price+" KARŪNŲ");buy.setMinHeight(dp(46));buy.setEnabled(state.crowns>=business.price);buy.setOnClickListener(view->{db.checkpoint("prieš verslo pirkimą",state);WorldRepository.TransactionResult result=db.world().buyBusiness(business.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("journal");});card.addView(buy,sp(dp(3)));}
+            column.addView(card,sp(dp(6)));
+        }
+        column.addView(section("SAMDOMI DARBUOTOJAI"),sp(dp(4)));
+        List<WorldRepository.Hire> hires=db.world().hires();
+        if(hires.isEmpty())column.addView(txt("Dar neturi samdomų darbuotojų.",9,SUB,false),sp(dp(5)));
+        else for(WorldRepository.Hire hire:hires)column.addView(txt((hire.active?"◆ ":"○ ")+hire.name+" · "+hire.job+" · alga "+hire.wage+" · lojalumas "+hire.loyalty,10,hire.active?GREEN:SUB,true),sp(dp(4)));
+        Button hire=outline("SAMDYTI NPC");hire.setMinHeight(dp(48));hire.setOnClickListener(view->hireDialog());column.addView(hire,sp(dp(5)));
+        new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();
+    }
+
+    private void hireDialog(){List<WorldRepository.Npc> candidates=db.world().hireCandidates(state.worldMinute);if(candidates.isEmpty()){Toast.makeText(this,"Šiuo metu nėra pasiekiamų kandidatų",Toast.LENGTH_SHORT).show();return;}String[] names=new String[candidates.size()];for(int i=0;i<candidates.size();i++){WorldRepository.Npc npc=candidates.get(i);int wage=60+Math.max(0,npc.trust);names[i]=npc.name+" · "+npc.role+" · "+wage+" karūnų per dieną";}new AlertDialog.Builder(this).setTitle("Samdyti darbuotoją").setItems(names,(dialog,which)->{WorldRepository.Npc npc=candidates.get(which);int wage=60+Math.max(0,npc.trust);db.checkpoint("prieš NPC samdymą",state);WorldRepository.TransactionResult result=db.world().hire(npc.id,npc.role,wage,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("journal");}).setNegativeButton("UŽDARYTI",null).show();}
 
     private View bestiaryPanel() {
         LinearLayout panel = panel(false);

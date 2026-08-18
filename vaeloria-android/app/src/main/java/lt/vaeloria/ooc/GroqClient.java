@@ -14,11 +14,15 @@ public final class GroqClient {
     private GroqClient(){}
 
     public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{
+        return resolveTurn(apiKey,s,action,equipped,abilities,check,"");
+    }
+
+    public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check,String worldContext)throws Exception{
         JSONObject req=new JSONObject();
         req.put("model",MODEL);
         req.put("reasoning_effort","low");
         req.put("max_completion_tokens",MAX_COMPLETION_TOKENS);
-        req.put("messages",messages(s,action,equipped,abilities,check));
+        req.put("messages",messages(s,action,equipped,abilities,check,worldContext));
         req.put("response_format",responseFormat());
 
         Exception last=null;
@@ -48,13 +52,13 @@ public final class GroqClient {
         return resolveTurn(apiKey,s,action,equipped,abilities,null);
     }
 
-    private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{
+    private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check,String worldContext)throws Exception{
         JSONArray m=new JSONArray();
         JSONObject sys=new JSONObject();sys.put("role","system");
         sys.put("content",systemPrompt());
         m.put(sys);
         JSONObject user=new JSONObject();user.put("role","user");
-        user.put("content",userPrompt(s,action,equipped,abilities,check));
+        user.put("content",userPrompt(s,action,equipped,abilities,check,worldContext));
         m.put(user);return m;
     }
 
@@ -65,12 +69,13 @@ public final class GroqClient {
                 +"SCENA. Tęsk ankstesnės scenos priežastis ir pasekmes. scene lauką sudaryk iš 2–4 trumpų, tarpusavyje logiškai susietų sakinių. Pirmu sakiniu aiškiai įvardyk atliktą veiksmą arba tiesioginį jo rezultatą, kitu – pasaulio reakciją ar naują informaciją. quest_note rašyk vienu glaustu sakiniu tik tada, kai užduoties tikslas iš tikrųjų pasikeičia; kitu atveju pakartok esamą tikslą.\n"
                 +"PASIRINKIMAI. Pateik lygiai 3 materialiai skirtingus pasirinkimus. Kiekvieną pradėk aiškiu veiksmažodžiu, suformuluok glaustai ir nekartok tos pačios prasmės kitais žodžiais.\n"
                 +"PASAULIO TAISYKLĖS. Žaidėjas deklaruoja bandymą, o ne rezultatą. Pasaulis, jo veikėjai ir frakcijos turi savarankiškus interesus bei realias pasekmes. Aukštos savybės automatiškai neišsprendžia nežinomų taisyklių, politikos ar kito veikėjo valios. Nekurk nemokamų daiktų ar nepagrįstų pergalių. Jei nėra pagrindo išteklių, pinigų ar frakcijos įtakos pokyčiui, atitinkama delta turi būti 0.\n"
+                +"AUTORITETINGA BŪSENA. Struktūrizuotos užduotys, NPC atmintis, parduotuvių atsargos, ekonomika, frakcijų santykiai, kompanionai, daiktų efektai ir kovos matematika priklauso telefono varikliui. Jų neperrašyk ir neprieštarauk WORLD STATE santraukai. Tu pateiki natūralų pasakojimą apie patvirtintą būseną.\n"
                 +"PATIKRA. Kai pateikta PRIVALOMA SAVYBĖS PATIKRA, jos skaitinį rezultatą, įskaitant veikėjo kilmės, archetipo, bruožų ir meistriškumo poveikį, laikyk nekintamu telefono variklio sprendimu. Negali nesėkmės paversti sėkme ar sėkmės nesėkme. Pasekmės mastą ir kainą derink prie nurodyto rezultato.\n"
                 +"KOVA. Kova turi trukti kelis ėjimus ir aiškiai rodyti priešo ketinimą. Kai combat_active=true, užpildyk visus kovos laukus; kai false, kovos tekstiniai laukai turi būti tušti. Pasaulio bosą rink tik siužetiškai pagrįstai. Iliustruotas bestiarijus: "+EnemyCatalogV091.promptRoster()+". Kovos grobį autoritetingai apskaičiuoja telefono v0.9.3 iškritimo lentelė, todėl jo nedėk į loot masyvą. Pergalei naudok event_tag=combat_victory ir combat_active=false; sąmoningam atsitraukimui – combat_escape. Aktyvioje kovoje išlaikyk nuoseklias enemy_hp, enemy_hp_max ir combat_round reikšmes.\n"
                 +"DAIKTAI. Ne kovos loot leidžiamas tik kai scena aiškiai pagrindžia radinį ar atlygį. Dėvimos įrangos kategorijos: weapon, offhand, head, chest, hands, legs, feet, belt, neck, ring, utility, relic; artefaktui naudok artifact. Retumai apima common, uncommon, rare, epic, legendary, mythic, ancient ir unique.";
     }
 
-    private static String userPrompt(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check){
+    private static String userPrompt(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check,String worldContext){
         StringBuilder abilityNames=new StringBuilder();
         if(abilities!=null)for(String[] ability:abilities){if(ability==null||ability.length==0)continue;if(abilityNames.length()>0)abilityNames.append("; ");abilityNames.append(ability[0]);}
         String recent=s.recentTurns.isEmpty()?"nėra":String.join(" | ",s.recentTurns.subList(Math.max(0,s.recentTurns.size()-6),s.recentTurns.size()));
@@ -82,12 +87,13 @@ public final class GroqClient {
                 +"Siužetas: "+s.questTitle+". Dabartinis tikslas: "+s.objective+"\n"
                 +"Frakcijos: Asterra "+s.asterraInfluence+" ("+s.asterraRelation+"), Dravenn "+s.dravennInfluence+" ("+s.dravennRelation+"), Lysara "+s.lysaraInfluence+" ("+s.lysaraRelation+").\n"
                 +"Dėvima įranga: "+(equipped==null?"nėra":equipped)+"\nGebėjimai: "+(abilityNames.length()==0?"nėra":abilityNames)+"\n"
+                +"Struktūrizuota pasaulio atmintis: "+(worldContext==null||worldContext.isEmpty()?"nėra papildomų įrašų":worldContext)+"\n"
                 +"Dabartinė scena: "+s.scene+"\nPaskutiniai ėjimai: "+recent+"\n\n"
                 +"ŽAIDĖJO VEIKSMAS: "+(action==null?"":action)+"\n\n"+(check==null?"":check.prompt());
     }
 
     static String systemPromptForTest(){return systemPrompt();}
-    static String userPromptForTest(GameState state){return userPrompt(state,"Ištirti Meridiano poslinkį","nėra",java.util.Collections.emptyList(),null);}
+    static String userPromptForTest(GameState state){return userPrompt(state,"Ištirti Meridiano poslinkį","nėra",java.util.Collections.emptyList(),null,"");}
 
     private static JSONObject responseFormat()throws Exception{
         JSONObject schema=new JSONObject().put("type","object").put("additionalProperties",false);
