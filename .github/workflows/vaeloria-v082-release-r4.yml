@@ -1,8 +1,5 @@
 name: Final Vaeloria v0.8.2.1 Image Hotfix R8
 on:
-  push:
-    branches: [agent/vaeloria-local-android]
-    paths: ['.github/workflows/vaeloria-v082-release-r4.yml']
   workflow_dispatch:
 permissions:
   contents: write

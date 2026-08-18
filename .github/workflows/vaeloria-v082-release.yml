@@ -1,11 +1,6 @@
 name: Release Vaeloria v0.8.2 Premium Polish
 
 on:
-  push:
-    branches:
-      - agent/vaeloria-v082-release
-    paths:
-      - '.github/workflows/vaeloria-v082-release.yml'
   workflow_dispatch:
 
 permissions:
