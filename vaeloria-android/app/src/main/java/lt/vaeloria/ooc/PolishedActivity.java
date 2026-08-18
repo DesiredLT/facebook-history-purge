@@ -153,7 +153,7 @@ public class PolishedActivity extends PremiumActivity {
         tab("journal", "◆", "ŽURNALAS");
     }
 
-    private void tab(String id, String glyph, String label) {
+    @Override void tab(String id, String glyph, String label) {
         LinearLayout item = col();
         item.setGravity(Gravity.CENTER);
         item.setContentDescription(label);
@@ -749,7 +749,7 @@ public class PolishedActivity extends PremiumActivity {
         return row;
     }
 
-    private View abilityCard(String[] ability) {
+    @Override View abilityCard(String[] ability) {
         String rawType = ability.length > 1 ? ability[1] : "";
         String type = rawType.toLowerCase(Locale.ROOT);
         String label;
