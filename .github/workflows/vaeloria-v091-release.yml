@@ -75,8 +75,7 @@ jobs:
           script: |
             adb shell wm size 360x800
             adb shell wm density 160
-            cd vaeloria-android
-            gradle :app:connectedDebugAndroidTest --stacktrace
+            gradle -p vaeloria-android :app:connectedDebugAndroidTest --stacktrace
 
       - name: Build release APK
         run: |
