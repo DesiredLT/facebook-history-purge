@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,7 +34,7 @@ public class V083DatabaseMigrationDeviceTest {
         context.deleteDatabase("vaeloria.db");
     }
 
-    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionSix() throws Exception {
+    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionSeven() throws Exception {
         File path = context.getDatabasePath("vaeloria.db");
         File parent = path.getParentFile();
         assertNotNull(parent);
@@ -51,7 +52,9 @@ public class V083DatabaseMigrationDeviceTest {
         oldState.crowns = 12345;
         ContentValues state = new ContentValues();
         state.put("id", 1);
-        state.put("json", oldState.toJson().toString());
+        JSONObject legacyJson=oldState.toJson();
+        for(String field:new String[]{"characterCreated","characterIdentity","characterOriginId","characterArchetypeId","characterAppearance","characterTraitIds"})legacyJson.remove(field);
+        state.put("json", legacyJson.toString());
         legacy.insertOrThrow("state", null, state);
 
         ContentValues item = new ContentValues();
@@ -70,11 +73,12 @@ public class V083DatabaseMigrationDeviceTest {
 
         VaeloriaDb upgraded = new VaeloriaDb(context);
         SQLiteDatabase database = upgraded.getWritableDatabase();
-        assertEquals(6, database.getVersion());
+        assertEquals(7, database.getVersion());
         GameState restored = upgraded.loadState();
         assertEquals("Veyrhold", restored.location);
         assertEquals(73, restored.hp);
         assertEquals(12345L, restored.crowns);
+        assertTrue(restored.characterCreated);
         assertFalse(upgraded.getStatValues().isEmpty());
         assertFalse(upgraded.getMasteryLevels().isEmpty());
         assertEquals("Senasis žiedas", upgraded.getEquippedAt("ring_left").name);

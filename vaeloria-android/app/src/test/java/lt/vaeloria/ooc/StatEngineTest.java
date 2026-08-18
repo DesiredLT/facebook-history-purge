@@ -200,4 +200,10 @@ public class StatEngineTest {
         assertEquals("Sprendimų greitis",ordinary.primary);
         assertEquals(125,ordinary.difficulty);
     }
+
+    @Test public void characterProfileModifierIsIncludedInResolvedCheck(){
+        GameState state=new GameState();state.characterCreated=true;state.characterOriginId="akademija";state.characterArchetypeId="arkanistas";state.characterTraitIds.addAll(java.util.Arrays.asList("smalsumas","drausme","atjauta"));
+        StatEngine.Check check=StatEngine.resolve(state,"naudoti magiją tiksliai valdant maną","",Collections.emptyList(),null);
+        assertEquals("Manos kontrolė",check.primary);assertEquals(13,check.profileModifier);assertTrue(check.compact().contains("+13 profilis"));assertTrue(check.prompt().contains("Veikėjo profilio modifikatorius: +13"));
+    }
 }

@@ -12,6 +12,12 @@ public class GameState {
     public int chronologicalAge = 201;
     public int biologicalAge = 20;
     public boolean ageless = true;
+    public boolean characterCreated = false;
+    public String characterIdentity = "nenurodyta";
+    public String characterOriginId = "";
+    public String characterArchetypeId = "";
+    public String characterAppearance = "";
+    public final List<String> characterTraitIds = new ArrayList<>();
     public String location = "Luminara";
     public int worldYear = 923;
     public long worldMinute = 95358680L;
@@ -50,6 +56,14 @@ public class GameState {
         o.put("chronologicalAge", chronologicalAge);
         o.put("biologicalAge", biologicalAge);
         o.put("ageless", ageless);
+        o.put("characterCreated", characterCreated);
+        o.put("characterIdentity", characterIdentity);
+        o.put("characterOriginId", characterOriginId);
+        o.put("characterArchetypeId", characterArchetypeId);
+        o.put("characterAppearance", characterAppearance);
+        JSONArray traits = new JSONArray();
+        for (String id : characterTraitIds) traits.put(id);
+        o.put("characterTraitIds", traits);
         o.put("location", location);
         o.put("worldYear", worldYear);
         o.put("worldMinute", worldMinute);
@@ -84,10 +98,28 @@ public class GameState {
 
     public static GameState fromJson(JSONObject o) throws JSONException {
         GameState s = new GameState();
+        boolean legacyProfile = !o.has("characterCreated");
         s.characterName = o.optString("characterName", s.characterName);
-        s.chronologicalAge = o.optInt("chronologicalAge", s.chronologicalAge);
-        s.biologicalAge = o.optInt("biologicalAge", s.biologicalAge);
+        s.chronologicalAge = clamp(o.optInt("chronologicalAge", s.chronologicalAge), 16, 999);
+        s.biologicalAge = clamp(o.optInt("biologicalAge", s.biologicalAge), 16, 999);
         s.ageless = o.optBoolean("ageless", s.ageless);
+        s.characterCreated = legacyProfile ? o.has("characterName") : o.optBoolean("characterCreated", false);
+        s.characterIdentity = o.optString("characterIdentity", "nenurodyta");
+        s.characterOriginId = o.optString("characterOriginId", "");
+        s.characterArchetypeId = o.optString("characterArchetypeId", "");
+        s.characterAppearance = o.optString("characterAppearance", "");
+        s.characterTraitIds.clear();
+        JSONArray traits = o.optJSONArray("characterTraitIds");
+        if (traits != null) for (int i=0;i<traits.length();i++) s.characterTraitIds.add(traits.optString(i));
+        if (legacyProfile && s.characterCreated) {
+            if (s.characterOriginId.isEmpty()) s.characterOriginId = "luminara";
+            if (s.characterArchetypeId.isEmpty()) s.characterArchetypeId = "sargybinis";
+            if (s.characterTraitIds.isEmpty()) {
+                s.characterTraitIds.add("ryztas");
+                s.characterTraitIds.add("pastabumas");
+                s.characterTraitIds.add("drausme");
+            }
+        }
         s.location = o.optString("location", s.location);
         s.worldYear = o.optInt("worldYear", s.worldYear);
         s.worldMinute = o.optLong("worldMinute", s.worldMinute);

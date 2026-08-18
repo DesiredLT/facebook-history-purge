@@ -31,6 +31,19 @@ public class GameStateCompatibilityTest {
         assertEquals(24, state.lysaraInfluence);
         assertEquals(3, state.choices.size());
         assertFalse(state.combatActive);
+        assertTrue(state.characterCreated);
+        assertEquals("luminara",state.characterOriginId);
+        assertEquals(3,state.characterTraitIds.size());
+    }
+
+    @Test public void freshStateWaitsForCharacterCreation(){
+        GameState state=new GameState();assertFalse(state.characterCreated);assertTrue(state.characterTraitIds.isEmpty());
+    }
+
+    @Test public void roundTripPreservesCreatedCharacterProfile() throws Exception {
+        GameState original=new GameState();original.characterCreated=true;original.characterName="Austėja";original.characterIdentity="moteris";original.characterOriginId="akademija";original.characterArchetypeId="arkanistas";original.characterAppearance="Sidabriniai plaukai ir mėlynas apsiaustas";original.characterTraitIds.add("smalsumas");original.characterTraitIds.add("drausme");original.characterTraitIds.add("atjauta");
+        GameState restored=GameState.fromJson(original.toJson());
+        assertTrue(restored.characterCreated);assertEquals("Austėja",restored.characterName);assertEquals("akademija",restored.characterOriginId);assertEquals("arkanistas",restored.characterArchetypeId);assertEquals(3,restored.characterTraitIds.size());assertEquals("Sidabriniai plaukai ir mėlynas apsiaustas",restored.characterAppearance);
     }
 
     @Test public void roundTripPreservesDynamicFactionAndCombatState() throws Exception {

@@ -32,7 +32,7 @@ public final class GroqClient {
                 int code=c.getResponseCode();InputStream stream=code>=200&&code<300?c.getInputStream():c.getErrorStream();String body=read(stream);
                 if(code>=200&&code<300){
                     String content=new JSONObject(body).getJSONArray("choices").getJSONObject(0).getJSONObject("message").getString("content");
-                    return new JSONObject(content);
+                    return LithuanianNarrative.polish(new JSONObject(content),s);
                 }
                 String msg="Groq HTTP "+code+": "+apiError(body);
                 if((code==429||code>=500)&&attempt==0){last=new IllegalStateException(msg);Thread.sleep(1200);continue;}
@@ -51,18 +51,43 @@ public final class GroqClient {
     private static JSONArray messages(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{
         JSONArray m=new JSONArray();
         JSONObject sys=new JSONObject();sys.put("role","system");
-        sys.put("content","Tu esi Vaeloria žaidimo meistras. Visą žaidėjui matomą tekstą rašyk lietuviškai. Venk anglicizmų: jei yra aiškus lietuviškas žodis, vartok jį. Išimtis tik tikriniams pasaulio vardams, prekių ženklams ir techniniams modelių pavadinimams. Vartok „kelionės vartai“, ne waygate; „įranga“, ne gear; „grobis“ arba „atlygis“, ne loot; „kova“, ne combat; „atradimas“, ne discovery; „siužeto gija“, ne thread. Žaidėjas deklaruoja bandymą, ne rezultatą. Pasaulis turi savarankiškas taisykles, veikėjų interesus ir realias pasekmes. Aukštos statistikos automatiškai neišsprendžia nežinomų taisyklių, politikos ar nepriklausomų veikėjų valios. Nekurk nemokamų daiktų ar pergalių. Scena 2–4 trumpi sakiniai. Pateik 3 materialiai skirtingus pasirinkimus. Kova turi trukti kelis ėjimus ir aiškiai parodyti priešo ketinimą. Kai pradedi kovą su būtybe, enemy_name parink iš iliustruoto bestiarijaus, jei tinka scena: Meridiano vilkas, Pelkių trolis, Nuodų perų motina, Kristalų golemas, Nakties harpija, Maitėdis drake'as, Nuskendęs riteris, Pelenų revenantas, Kaulų orakulas, Tuštumos parazitas, Maro kiautas, Kapų kolosas, Meridiano wyrmas, Bekarūnis titanas, Kraujšaknė Matriarchė, Stiklo lichas, Audros kolosas arba Bedugnės šauklys. Pasaulio bosą rink tik pagrįstai, ne atsitiktiniam susidūrimui. Kai combat_active=true užpildyk visus kovos laukus; kai false kovos tekstiniai laukai turi būti tušti. Jei nėra pagrindo resurso, pinigų ar frakcijos įtakos pokyčiui, delta=0. Frakcijų deltas keisk tik kai scena realiai paveikia jų interesus. Grobį pateik tik tada, kai scena logiškai pagrindžia jo gavimą; kitu atveju loot turi būti tuščias masyvas. Nauja dėvima įranga gali būti šių kategorijų: weapon, offhand, head, chest, hands, legs, feet, belt, neck, ring, utility, relic. Artefaktams naudok artifact. Kai vartotojo žinutėje pateikta PRIVALOMA SAVYBĖS PATIKRA, jos skaitinį rezultatą, įskaitant virš bazinės ribos meistriškumo poveikį, laikyk nekintamu žaidimo variklio sprendimu. Negali nesėkmės paversti sėkme ar sėkmės nesėkme. Interpretacijos mastą, kainą ir pasaulio reakciją parink pagal nurodytą rezultatą.");
-        sys.put("content", sys.getString("content")
-                + "\nPapildomas v0.9.1 iliustruotas bestiarijus (rinkis tik scenai tinkamą vardą): "
-                + EnemyCatalogV091.promptRoster() + "."
-                + "\nKovos grobis yra autoritetingai apskaičiuojamas telefono v0.9.2 iškritimo lentelėje pagal būtybės pavojų ir regioną. Jo nekurk loot masyve. Pergalės ėjimui naudok event_tag=combat_victory ir combat_active=false; sąmoningam atsitraukimui naudok combat_escape. Aktyvioje kovoje grąžink nuoseklią enemy_hp, enemy_hp_max ir combat_round būseną. Ne kovos atlygiui loot leidžiamas tik kai scena jį realiai pagrindžia. Galimi retumai apima mythic tarp legendary ir ancient.");
+        sys.put("content",systemPrompt());
         m.put(sys);
-        StringBuilder a=new StringBuilder();for(String[] ab:abilities){if(a.length()>0)a.append("; ");a.append(ab[0]);}
-        String recent=s.recentTurns.isEmpty()?"nėra":String.join(" | ",s.recentTurns.subList(Math.max(0,s.recentTurns.size()-6),s.recentTurns.size()));
         JSONObject user=new JSONObject();user.put("role","user");
-        user.put("content","KANONAS\nEinoras: 201 m. chronologinis / 20 m. biologinis, biologinis senėjimas sustabdytas. 92 bazinės statistikos 100/100; pažanga virš ribos yra kokybinė.\nVieta: "+s.location+". Metai: "+s.worldYear+". Minutė: "+s.worldMinute+".\nGyvybė "+s.hp+"/"+s.hpMax+", Mana "+s.mana+"/"+s.manaMax+", Ištvermė "+s.stamina+"/"+s.staminaMax+", Eoninė energija "+s.aeonic+"/"+s.aeonicMax+", Karūnos "+s.crowns+".\nKova: "+(s.combatActive?(s.enemyName+" · gyvybė "+s.enemyHp+"/"+s.enemyHpMax+" · ėjimas "+s.combatRound):"neaktyvi")+".\nSiužetas: "+s.questTitle+". Tikslas: "+s.objective+"\nFrakcijos: Asterra "+s.asterraInfluence+" ("+s.asterraRelation+"), Dravenn "+s.dravennInfluence+" ("+s.dravennRelation+"), Lysara "+s.lysaraInfluence+" ("+s.lysaraRelation+").\nDėvima įranga: "+equipped+"\nGebėjimai: "+a+"\nScena: "+s.scene+"\nPaskutiniai ėjimai: "+recent+"\n\nVEIKSMAS: "+action+"\n\n"+(check==null?"":check.prompt()));
+        user.put("content",userPrompt(s,action,equipped,abilities,check));
         m.put(user);return m;
     }
+
+    private static String systemPrompt(){
+        return "Tu esi Vaeloria žaidimo meistras.\n"
+                +"KALBA IR RIŠLUMAS. Visą žaidėjui matomą tekstą rašyk taisyklinga, natūralia ir rišlia lietuvių kalba. Vartok pilnus sakinius, natūralią žodžių tvarką ir aiškias įvardžių nuorodas. Viename sakinyje dėstyk vieną pagrindinę mintį. Rašyk antruoju asmeniu ir esamuoju laiku („tu“), kad nereikėtų linksniuoti veikėjo vardo ar spėti jo giminės. Nekartok tos pačios informacijos ir nepalik neaiškių „jis“, „tai“ ar „ten“ be aiškaus atitikmens. Nenaudok Markdown antraščių, sąrašų ar paryškinimo žaidimo teksto laukuose.\n"
+                +"LIETUVIŠKI TERMINAI. Venk pažodinių vertinių ir anglicizmų. Vartok „kelionės vartai“, ne waygate; „įranga“, ne gear; „grobis“ arba „atlygis“, ne loot; „kova“, ne combat; „atradimas“, ne discovery; „siužeto gija“, ne thread. Išimtis taikoma tik Vaelorios tikriniams vardams ir vidiniams JSON laukų pavadinimams.\n"
+                +"SCENA. Tęsk ankstesnės scenos priežastis ir pasekmes. scene lauką sudaryk iš 2–4 trumpų, tarpusavyje logiškai susietų sakinių. Pirmu sakiniu aiškiai įvardyk atliktą veiksmą arba tiesioginį jo rezultatą, kitu – pasaulio reakciją ar naują informaciją. quest_note rašyk vienu glaustu sakiniu tik tada, kai užduoties tikslas iš tikrųjų pasikeičia; kitu atveju pakartok esamą tikslą.\n"
+                +"PASIRINKIMAI. Pateik lygiai 3 materialiai skirtingus pasirinkimus. Kiekvieną pradėk aiškiu veiksmažodžiu, suformuluok glaustai ir nekartok tos pačios prasmės kitais žodžiais.\n"
+                +"PASAULIO TAISYKLĖS. Žaidėjas deklaruoja bandymą, o ne rezultatą. Pasaulis, jo veikėjai ir frakcijos turi savarankiškus interesus bei realias pasekmes. Aukštos savybės automatiškai neišsprendžia nežinomų taisyklių, politikos ar kito veikėjo valios. Nekurk nemokamų daiktų ar nepagrįstų pergalių. Jei nėra pagrindo išteklių, pinigų ar frakcijos įtakos pokyčiui, atitinkama delta turi būti 0.\n"
+                +"PATIKRA. Kai pateikta PRIVALOMA SAVYBĖS PATIKRA, jos skaitinį rezultatą, įskaitant veikėjo kilmės, archetipo, bruožų ir meistriškumo poveikį, laikyk nekintamu telefono variklio sprendimu. Negali nesėkmės paversti sėkme ar sėkmės nesėkme. Pasekmės mastą ir kainą derink prie nurodyto rezultato.\n"
+                +"KOVA. Kova turi trukti kelis ėjimus ir aiškiai rodyti priešo ketinimą. Kai combat_active=true, užpildyk visus kovos laukus; kai false, kovos tekstiniai laukai turi būti tušti. Pasaulio bosą rink tik siužetiškai pagrįstai. Iliustruotas bestiarijus: "+EnemyCatalogV091.promptRoster()+". Kovos grobį autoritetingai apskaičiuoja telefono v0.9.3 iškritimo lentelė, todėl jo nedėk į loot masyvą. Pergalei naudok event_tag=combat_victory ir combat_active=false; sąmoningam atsitraukimui – combat_escape. Aktyvioje kovoje išlaikyk nuoseklias enemy_hp, enemy_hp_max ir combat_round reikšmes.\n"
+                +"DAIKTAI. Ne kovos loot leidžiamas tik kai scena aiškiai pagrindžia radinį ar atlygį. Dėvimos įrangos kategorijos: weapon, offhand, head, chest, hands, legs, feet, belt, neck, ring, utility, relic; artefaktui naudok artifact. Retumai apima common, uncommon, rare, epic, legendary, mythic, ancient ir unique.";
+    }
+
+    private static String userPrompt(GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check){
+        StringBuilder abilityNames=new StringBuilder();
+        if(abilities!=null)for(String[] ability:abilities){if(ability==null||ability.length==0)continue;if(abilityNames.length()>0)abilityNames.append("; ");abilityNames.append(ability[0]);}
+        String recent=s.recentTurns.isEmpty()?"nėra":String.join(" | ",s.recentTurns.subList(Math.max(0,s.recentTurns.size()-6),s.recentTurns.size()));
+        return "ŽAIDIMO BŪSENA\n"
+                +"Veikėjas. "+CharacterCatalogV093.profilePrompt(s)+" Amžius: "+CharacterCatalogV093.ageLine(s)+". 92 bazinės savybės vertinamos skalėje iki 100; pažanga virš bazinės ribos yra atskiras meistriškumas.\n"
+                +"Vieta: "+s.location+". Metai: "+s.worldYear+". Pasaulio minutė: "+s.worldMinute+".\n"
+                +"Ištekliai: gyvybė "+s.hp+"/"+s.hpMax+", mana "+s.mana+"/"+s.manaMax+", ištvermė "+s.stamina+"/"+s.staminaMax+", eoninė energija "+s.aeonic+"/"+s.aeonicMax+", karūnos "+s.crowns+".\n"
+                +"Kova: "+(s.combatActive?(s.enemyName+" · gyvybė "+s.enemyHp+"/"+s.enemyHpMax+" · ėjimas "+s.combatRound):"neaktyvi")+".\n"
+                +"Siužetas: "+s.questTitle+". Dabartinis tikslas: "+s.objective+"\n"
+                +"Frakcijos: Asterra "+s.asterraInfluence+" ("+s.asterraRelation+"), Dravenn "+s.dravennInfluence+" ("+s.dravennRelation+"), Lysara "+s.lysaraInfluence+" ("+s.lysaraRelation+").\n"
+                +"Dėvima įranga: "+(equipped==null?"nėra":equipped)+"\nGebėjimai: "+(abilityNames.length()==0?"nėra":abilityNames)+"\n"
+                +"Dabartinė scena: "+s.scene+"\nPaskutiniai ėjimai: "+recent+"\n\n"
+                +"ŽAIDĖJO VEIKSMAS: "+(action==null?"":action)+"\n\n"+(check==null?"":check.prompt());
+    }
+
+    static String systemPromptForTest(){return systemPrompt();}
+    static String userPromptForTest(GameState state){return userPrompt(state,"Ištirti Meridiano poslinkį","nėra",java.util.Collections.emptyList(),null);}
 
     private static JSONObject responseFormat()throws Exception{
         JSONObject schema=new JSONObject().put("type","object").put("additionalProperties",false);

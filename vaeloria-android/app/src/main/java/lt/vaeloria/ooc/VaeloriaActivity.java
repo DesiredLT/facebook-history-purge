@@ -23,7 +23,7 @@ public class VaeloriaActivity extends Activity {
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
-        db=new VaeloriaDb(this);state=db.loadState();shell();show("game");
+        db=new VaeloriaDb(this);state=db.loadState();shell();show(state.characterCreated?"game":"character");
     }
     @Override public void onDestroy(){pool.shutdownNow();if(db!=null)db.close();super.onDestroy();}
 
@@ -45,7 +45,9 @@ public class VaeloriaActivity extends Activity {
 
     void nav(){nav.removeAllViews();tab("game","✦","ŽAISTI");tab("hero","♜","VEIKĖJAS");tab("map","⌖","ŽEMĖLAPIS");tab("journal","≡","ŽURNALAS");tab("settings","⚙","NUSTAT.");}
     void tab(String id,String icon,String label){LinearLayout x=col();x.setGravity(Gravity.CENTER);boolean a=id.equals(screen);x.setBackground(round(a?SUR2:Color.TRANSPARENT,15,a?Color.argb(90,214,182,107):Color.TRANSPARENT));TextView i=t(icon,19,a?GOLD:MUT,true);i.setGravity(Gravity.CENTER);x.addView(i);TextView l=t(label,9,a?TEXT:MUT,true);l.setGravity(Gravity.CENTER);x.addView(l);x.setOnClickListener(v->show(id));nav.addView(x,new LinearLayout.LayoutParams(0,-1,1));}
-    void show(String id){screen=id;nav();content.removeAllViews();try{content.addView("game".equals(id)?game():"hero".equals(id)?hero():"map".equals(id)?map():"journal".equals(id)?journal():settings());}catch(Throwable e){content.addView(errorView(e));}}
+    void show(String id){screen=id;nav();content.removeAllViews();try{content.addView("character".equals(id)?character():"game".equals(id)?game():"hero".equals(id)?hero():"map".equals(id)?map():"journal".equals(id)?journal():settings());}catch(Throwable e){content.addView(errorView(e));}}
+
+    View character(){return hero();}
 
     View game(){
         ScrollView sv=new ScrollView(this);LinearLayout c=col();c.setPadding(dp(14),dp(6),dp(14),dp(22));sv.addView(c);
@@ -65,7 +67,7 @@ public class VaeloriaActivity extends Activity {
 
     View hero(){
         ScrollView sv=new ScrollView(this);LinearLayout c=col();c.setPadding(dp(14),dp(6),dp(14),dp(22));sv.addView(c);
-        LinearLayout top=strong();top.addView(label("VEIKĖJAS"));top.addView(t("EINORAS",26,TEXT,true));top.addView(t("201 m. chronologinis · 20 m. biologinis · biologinis amžius nekinta",11,MUT,false));LinearLayout tags=row();tags.addView(chip("LEGENDINĖ BAZĖ"));Space gap=new Space(this);tags.addView(gap,new LinearLayout.LayoutParams(dp(7),1));tags.addView(chip("92 / 92 · 100/100"));top.addView(tags,m(dp(4)));c.addView(top,m(dp(10)));
+        LinearLayout top=strong();top.addView(label("VEIKĖJAS"));top.addView(t(state.characterName.toUpperCase(Locale.forLanguageTag("lt-LT")),26,TEXT,true));top.addView(t(CharacterCatalogV093.ageLine(state),11,MUT,false));top.addView(t(CharacterCatalogV093.originName(state.characterOriginId)+" · "+CharacterCatalogV093.archetypeName(state.characterArchetypeId),11,GOLD,true));top.addView(t("Bruožai: "+CharacterCatalogV093.traitNames(state.characterTraitIds),11,MUT,false));LinearLayout tags=row();tags.addView(chip("LEGENDINĖ BAZĖ"));Space gap=new Space(this);tags.addView(gap,new LinearLayout.LayoutParams(dp(7),1));tags.addView(chip("92 / 92 · 100/100"));top.addView(tags,m(dp(4)));c.addView(top,m(dp(10)));
 
         Map<String,Integer> mastery=db.getMasteryLevels();int sum=0;for(String stat:mastery.keySet())sum+=mastery.get(stat);int avg=mastery.isEmpty()?70:Math.round(sum/(float)mastery.size());
         LinearLayout stats=card();stats.addView(label("PAŽANGA"));stats.addView(t("Bazinės savybės užbaigtos · meistriškumas virš bazinės ribos "+avg+"/100",15,TEXT,true));stats.addView(bar("VIDUTINIS MEISTRIŠKUMAS",avg,100,GOLD));stats.addView(t("Kiekviena naudojama savybė gauna atskirą patirtį. Meistriškumas realiai keičia patikros rezultatą, bet nekelia bazinės savybės virš 100/100.",11,MUT,false));Button allStats=outline("PERŽIŪRĖTI VISAS 92 SAVYBES IR PATIRTĮ");allStats.setOnClickListener(v->startActivity(new Intent(this,StatsActivity.class)));stats.addView(allStats,m(dp(7)));c.addView(stats,m(dp(9)));
@@ -120,13 +122,14 @@ public class VaeloriaActivity extends Activity {
     View settings(){
         ScrollView sv=new ScrollView(this);LinearLayout c=col();c.setPadding(dp(14),dp(6),dp(14),dp(22));sv.addView(c);
         LinearLayout ai=strong();ai.addView(label("DI ŽAIDIMO MEISTRAS"));boolean has=!SecureKeyStore.load(this).isEmpty();ai.addView(t(has?"Groq raktas saugomas Android raktų saugykloje":"Groq raktas nenustatytas",14,has?TEAL:MUT,true));Button key=accent(has?"PAKEISTI API RAKTĄ":"ĮVESTI API RAKTĄ");key.setOnClickListener(v->key());ai.addView(key,m(dp(5)));c.addView(ai,m(dp(9)));
-        LinearLayout sav=card();sav.addView(label("IŠSAUGOJIMAS IR ATKŪRIMAS"));Button undo=outline("↶ ATŠAUKTI PASKUTINĮ ĖJIMĄ");undo.setOnClickListener(v->{if(db.undo()){state=db.loadState();feedback="↶ Atkurtas ankstesnis kontrolinis taškas";show("game");}else Toast.makeText(this,"Nėra ankstesnio kontrolinio taško",Toast.LENGTH_SHORT).show();});sav.addView(undo,m(dp(5)));Button ex=outline("KOPIJUOTI IŠSAUGOJIMĄ");ex.setOnClickListener(v->export());sav.addView(ex,m(dp(5)));Button im=outline("IMPORTUOTI IŠSAUGOJIMĄ");im.setOnClickListener(v->importSave());sav.addView(im,m(dp(5)));Button reset=outline("ATKURTI PRADINĘ BŪSENĄ");reset.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Atkurti pradinę būseną?").setMessage("Vietiniai ėjimai ir įrangos pakeitimai bus panaikinti. API raktas liks telefone.").setNegativeButton("Ne",null).setPositiveButton("Atkurti",(d,w)->{db.reset();state=db.loadState();feedback="Atkurta kanoninė Luminara pradžia";show("game");}).show());sav.addView(reset);c.addView(sav,m(dp(9)));
+        LinearLayout sav=card();sav.addView(label("IŠSAUGOJIMAS IR ATKŪRIMAS"));Button profile=outline("KEISTI VEIKĖJO PROFILĮ IR BRUOŽUS");profile.setOnClickListener(v->show("character"));sav.addView(profile,m(dp(5)));Button undo=outline("↶ ATŠAUKTI PASKUTINĮ ĖJIMĄ");undo.setOnClickListener(v->{if(db.undo()){state=db.loadState();feedback="↶ Atkurtas ankstesnis kontrolinis taškas";show("game");}else Toast.makeText(this,"Nėra ankstesnio kontrolinio taško",Toast.LENGTH_SHORT).show();});sav.addView(undo,m(dp(5)));Button ex=outline("KOPIJUOTI IŠSAUGOJIMĄ");ex.setOnClickListener(v->export());sav.addView(ex,m(dp(5)));Button im=outline("IMPORTUOTI IŠSAUGOJIMĄ");im.setOnClickListener(v->importSave());sav.addView(im,m(dp(5)));Button reset=outline("ATKURTI PRADINĘ BŪSENĄ");reset.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("Atkurti pradinę būseną?").setMessage("Vietiniai ėjimai, veikėjo profilis ir įrangos pakeitimai bus panaikinti. API raktas liks telefone.").setNegativeButton("Ne",null).setPositiveButton("Atkurti",(d,w)->{db.reset();state=db.loadState();feedback="";show("character");}).show());sav.addView(reset);c.addView(sav,m(dp(9)));
         LinearLayout tech=card();tech.addView(label("VEIKIMO PRINCIPAS"));tech.addView(t("Telefonas → vietinė SQLite duomenų bazė → Groq tik naujai scenai",13,TEXT,true));tech.addView(t("Žaidimo būsena, įranga, žemėlapis ir ėjimų istorija lieka telefone. Be Groq rakto pagrindinės vietinės funkcijos ir atsarginis scenos sprendimas veikia toliau.",11,MUT,false));c.addView(tech,m(dp(8)));return sv;
     }
 
-    void act(String action){if(busy)return;db.checkpoint("prieš veiksmą",state);String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;pool.execute(()->{JSONObject r;String warn=null;try{r=key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check);}catch(Exception e){r=local(action,check);warn="Groq nepasiekiamas · panaudotas vietinis sprendimas";}JSONObject rr=r;String ww=warn;runOnUiThread(()->finish(action,rr,ww));});}
+    void act(String action){if(busy)return;if(!state.characterCreated){show("character");return;}db.checkpoint("prieš veiksmą",state);String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;pool.execute(()->{JSONObject r;String warn=null;try{r=key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check);}catch(Exception e){r=local(action,check);warn="Groq nepasiekiamas · panaudotas vietinis sprendimas";}JSONObject rr=r;String ww=warn;runOnUiThread(()->finish(action,rr,ww));});}
 
     void finish(String action,JSONObject r,String warn){
+        r=LithuanianNarrative.polish(r,state);
         int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;
         state.applyTurn(r);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory="combat_victory".equals(event)||(wasCombat&&!state.combatActive&&!"combat_escape".equals(event)&&!"combat_end".equals(event));if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;String name=o.optString("name","Nežinomas radinys");db.addLoot(name,o.optString("category","artifact"),o.optString("rarity","common"),o.optString("description",""));gained.add(name);}}
         state.recentTurns.add(action+" → "+state.sceneTitle+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>12)state.recentTurns.remove(0);db.saveState(state);
@@ -140,7 +143,7 @@ public class VaeloriaActivity extends Activity {
             JSONObject o=new JSONObject();
             JSONArray c=new JSONArray();
             String title="Veiksmas įvykdytas";
-            String scene="Einoras imasi veiksmo: „"+a+"“. Aplinka sureaguoja, laikas juda pirmyn, o rezultatas įrašomas į vietinę pasaulio būseną.";
+            String scene="Atlieki veiksmą: „"+a+"“. Aplinka sureaguoja, laikas juda pirmyn, o rezultatas įrašomas į vietinę pasaulio būseną.";
             String location=state.location;
             String questNote=state.objective;
             String event="action";
@@ -247,14 +250,46 @@ public class VaeloriaActivity extends Activity {
             o.put("enemy_hp_max",combat?enemyHpMax:0);
             o.put("combat_round",combat?combatRound:0);
             o.put("loot",new JSONArray());
-            return o;
+            return LithuanianNarrative.polish(o,state);
         }catch(Exception e){return new JSONObject();}
+    }
+
+    boolean applyCharacterProfile(String name,int age,boolean ageless,String identity,String appearance,
+                                  String originId,String archetypeId,List<String> traitIds){
+        String cleanName=name==null?"":name.trim().replaceAll("\\s+"," ");
+        ArrayList<String> traits=CharacterCatalogV093.normalizedTraits(traitIds);
+        if(!cleanName.matches("[\\p{L}\\p{M}'’ -]{2,32}")||age<16||age>999
+                ||!CharacterCatalogV093.validProfile(cleanName,identity,originId,archetypeId,traits))return false;
+        String cleanAppearance=appearance==null?"":appearance.trim().replaceAll("\\s+"," ");
+        if(cleanAppearance.length()>140)cleanAppearance=cleanAppearance.substring(0,140).trim();
+        boolean first=!state.characterCreated;
+        state.characterName=cleanName;
+        state.chronologicalAge=age;
+        state.ageless=ageless;
+        state.biologicalAge=ageless?Math.min(age,25):age;
+        state.characterIdentity=identity;
+        state.characterAppearance=cleanAppearance;
+        state.characterOriginId=originId;
+        state.characterArchetypeId=archetypeId;
+        state.characterTraitIds.clear();state.characterTraitIds.addAll(traits);
+        state.characterCreated=true;
+        if(first){
+            state.sceneTitle="Kelionės pradžia";
+            state.scene="Luminara tave pasitinka kelionės vartų gaudesiu ir neramiomis žiniomis. Tavo kilmė, archetipas ir pasirinkti bruožai nuo šiol keis kiekvieną svarbią savybės patikrą. Karavano manifesto laiko neatitikimas tampa pirmuoju tikru išbandymu.";
+            state.choices.clear();
+            state.choices.add("Ištirti karavano manifestą");
+            state.choices.add("Susipažinti su Luminara gyventojais");
+            state.choices.add("Patikrinti įrangą ir pasiruošti kelionei");
+        }
+        db.saveState(state);
+        feedback="Veikėjo profilis išsaugotas · "+CharacterCatalogV093.archetypeName(archetypeId)+" · "+CharacterCatalogV093.traitNames(traits);
+        return true;
     }
 
     void key(){EditText i=new EditText(this);i.setHint("gsk_…");i.setSingleLine(true);i.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);new AlertDialog.Builder(this).setTitle("Groq API raktas").setMessage("Raktas šifruojamas Android raktų saugykloje ir lieka šiame telefone.").setView(i).setNegativeButton("Atšaukti",null).setPositiveButton("Išsaugoti",(d,w)->{try{String k=i.getText().toString().trim();if(!k.startsWith("gsk_")||k.length()<20)throw new Exception();if(!k.startsWith("gsk_")||k.length()<20)throw new Exception();SecureKeyStore.save(this,k);show("settings");}catch(Exception e){Toast.makeText(this,"Nepavyko išsaugoti rakto",Toast.LENGTH_SHORT).show();}}).show();}
     void export(){Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/json").putExtra(Intent.EXTRA_TITLE,"vaeloria-save.json");startActivityForResult(i,EXPORT_REQ);}
     void importSave(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,IMPORT_REQ);}
-    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;try{android.net.Uri u=data.getData();if(req==EXPORT_REQ){try(OutputStream os=getContentResolver().openOutputStream(u)){os.write(db.exportSave().getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Išsaugojimas eksportuotas",Toast.LENGTH_SHORT).show();}else if(req==IMPORT_REQ){StringBuilder b=new StringBuilder();try(BufferedReader r=new BufferedReader(new InputStreamReader(getContentResolver().openInputStream(u),StandardCharsets.UTF_8))){String line;while((line=r.readLine())!=null)b.append(line);}if(db.importSave(b.toString())){state=db.loadState();feedback="Išsaugojimas importuotas";show("game");}else Toast.makeText(this,"Netinkamas Vaeloria išsaugojimas",Toast.LENGTH_SHORT).show();}}catch(Exception e){Toast.makeText(this,"Failo klaida: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;try{android.net.Uri u=data.getData();if(req==EXPORT_REQ){try(OutputStream os=getContentResolver().openOutputStream(u)){os.write(db.exportSave().getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Išsaugojimas eksportuotas",Toast.LENGTH_SHORT).show();}else if(req==IMPORT_REQ){StringBuilder b=new StringBuilder();try(BufferedReader r=new BufferedReader(new InputStreamReader(getContentResolver().openInputStream(u),StandardCharsets.UTF_8))){String line;while((line=r.readLine())!=null)b.append(line);}if(db.importSave(b.toString())){state=db.loadState();feedback="Išsaugojimas importuotas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Netinkamas Vaeloria išsaugojimas",Toast.LENGTH_SHORT).show();}}catch(Exception e){Toast.makeText(this,"Failo klaida: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
 
     View errorView(Throwable e){ScrollView sv=new ScrollView(this);LinearLayout c=col();c.setPadding(dp(18),dp(18),dp(18),dp(18));sv.addView(c);c.addView(t("Ekrano klaida",20,RED,true));c.addView(t(e.getClass().getSimpleName()+"\n"+safe(e.getMessage(),"be papildomo aprašymo"),12,TEXT,false));Button b=accent("GRĮŽTI Į ŽAIDIMĄ");b.setOnClickListener(v->show("game"));c.addView(b,m(dp(12)));return sv;}
 

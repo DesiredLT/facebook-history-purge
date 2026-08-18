@@ -18,6 +18,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.Arrays;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -42,7 +43,8 @@ public class V091MobileDeviceTest {
     }
 
     @Test public void allPrimaryScreensFitAReal360DpPhone() {
-        for (String screen : new String[]{"game", "hero", "items", "map", "journal", "settings"}) {
+        scenario.onActivity(this::createProfile);
+        for (String screen : new String[]{"character", "game", "hero", "items", "map", "journal", "settings"}) {
             scenario.onActivity(activity -> {
                 DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
                 float widthDp = metrics.widthPixels / metrics.density;
@@ -55,6 +57,16 @@ public class V091MobileDeviceTest {
                 assertTextLayoutsAreNotEllipsized(root, screen);
             });
         }
+    }
+
+    @Test public void freshInstallStartsWithCharacterCreatorAndProfilePersists() {
+        scenario.onActivity(activity -> {
+            assertEquals("character",activity.screen);
+            assertTrue(containsText(activity.getWindow().getDecorView(),"Sukurk savo veikėją"));
+            createProfile(activity);
+            GameState restored=activity.db.loadState();
+            assertTrue(restored.characterCreated);assertEquals("Austėja",restored.characterName);assertEquals("akademija",restored.characterOriginId);assertEquals("arkanistas",restored.characterArchetypeId);assertEquals(3,restored.characterTraitIds.size());
+        });
     }
 
     @Test public void localResolverStartsIllustratedEnemyAndPersistsCombat() {
@@ -88,6 +100,7 @@ public class V091MobileDeviceTest {
         AtomicReference<Throwable> failure = new AtomicReference<>();
         scenario.onActivity(activity -> {
             try {
+                createProfile(activity);
                 activity.show("items");
                 assertTrue(containsText(activity.getWindow().getDecorView(),"DAIKTŲ KODEKSAS · 325"));
                 VaeloriaDb.Item potion=null;for(VaeloriaDb.Item item:activity.db.getItems())if("I092-201".equals(item.catalogId)){potion=item;break;}
@@ -101,6 +114,12 @@ public class V091MobileDeviceTest {
     }
 
     private int units(java.util.List<VaeloriaDb.Item> items){int total=0;for(VaeloriaDb.Item item:items)total+=item.quantity;return total;}
+
+    private void createProfile(PolishedActivity activity){
+        if(activity.state.characterCreated)return;
+        assertTrue(activity.applyCharacterProfile("Austėja",27,false,"moteris","Sidabrinis apsiaustas","akademija","arkanistas",Arrays.asList("smalsumas","drausme","atjauta")));
+        activity.show("game");
+    }
 
     private boolean containsText(View view,String text){if(view instanceof TextView&&((TextView)view).getText().toString().contains(text))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int index=0;index<group.getChildCount();index++)if(containsText(group.getChildAt(index),text))return true;}return false;}
 

@@ -18,6 +18,8 @@ public final class StatEngine {
         public int conditionModifier;
         public int equipmentModifier;
         public int abilityModifier;
+        public int profileModifier;
+        public String profileReason = "";
         public int difficulty;
         public int total;
         public String outcome;
@@ -29,7 +31,7 @@ public final class StatEngine {
                     "Pagalbinė savybė: "+secondary+" = "+secondaryValue+"/100.\n"+
                     "Savybių pagrindas (75% pagrindinė + 25% pagalbinė): "+base+".\n"+
                     "Patikros metimas: "+roll+"/100.\n"+
-                    "Būsenos modifikatorius: "+signed(conditionModifier)+". Įrangos modifikatorius: "+signed(equipmentModifier)+". Gebėjimų modifikatorius: "+signed(abilityModifier)+".\n"+
+                    "Būsenos modifikatorius: "+signed(conditionModifier)+". Įrangos modifikatorius: "+signed(equipmentModifier)+". Gebėjimų modifikatorius: "+signed(abilityModifier)+". Veikėjo profilio modifikatorius: "+signed(profileModifier)+(profileReason.isEmpty()?"":" ("+profileReason+")")+".\n"+
                     "Galutinis balas: "+total+". Sunkumas: "+difficulty+".\n"+
                     "Rezultatas: "+outcome+". Priežastis: "+reason+".\n"+
                     "Scenos pasekmės PRIVALO atitikti šį rezultatą. Sėkmė nereiškia, kad pasaulio veikėjai praranda valią ar kad gaunamas nepagrįstas atlygis.";
@@ -42,6 +44,7 @@ public final class StatEngine {
             if(conditionModifier!=0)b.append(" ").append(signed(conditionModifier)).append(" būsena");
             if(equipmentModifier!=0)b.append(" ").append(signed(equipmentModifier)).append(" įranga");
             if(abilityModifier!=0)b.append(" ").append(signed(abilityModifier)).append(" gebėjimai");
+            if(profileModifier!=0)b.append(" ").append(signed(profileModifier)).append(" profilis");
             b.append(" = ").append(total).append(" prieš ").append(difficulty).append(" → ").append(outcome);
             return b.toString();
         }
@@ -59,7 +62,9 @@ public final class StatEngine {
         c.conditionModifier = conditionModifier(c.primary,s);
         c.equipmentModifier = equipmentModifier(c.primary,a,equipped);
         c.abilityModifier = abilityModifier(c.primary,a,abilities);
-        c.total = c.base + c.roll + c.conditionModifier + c.equipmentModifier + c.abilityModifier;
+        CharacterCatalogV093.Effect profile=CharacterCatalogV093.effect(s,c.primary);
+        c.profileModifier=profile.value;c.profileReason=profile.explanation;
+        c.total = c.base + c.roll + c.conditionModifier + c.equipmentModifier + c.abilityModifier + c.profileModifier;
         int margin = c.total - c.difficulty;
         if(c.roll==100 || margin>=45)c.outcome="išskirtinė sėkmė";
         else if(margin>=0)c.outcome="sėkmė";

@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 6;
+    private static final int VERSION = 7;
     private static final String ITEM_COLUMNS = "id,name,type,rarity,description,slot,equipped,synced,equipped_slot,catalog_id,item_level,power,set_id,quantity,value,effect";
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
@@ -58,7 +58,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         if (oldVersion < 3) { migrateV2toV3(db); oldVersion = 3; }
         if (oldVersion < 4) { migrateV3toV4(db); oldVersion = 4; }
         if (oldVersion < 5) { migrateV4toV5(db); oldVersion = 5; }
-        if (oldVersion < 6) migrateV5toV6(db);
+        if (oldVersion < 6) { migrateV5toV6(db); oldVersion = 6; }
+        if (oldVersion < 7) migrateV6toV7(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -153,6 +154,17 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         seedStarterConsumables(db);
     }
 
+    private void migrateV6toV7(SQLiteDatabase db) {
+        try {
+            GameState state=loadStateFrom(db);
+            LithuanianNarrative.polishState(state);
+            ContentValues values=new ContentValues();values.put("json",state.toJson().toString());
+            db.update("state",values,"id=1",null);
+        } catch (Exception ignored) {}
+        updateItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","Su veikėju susietas pagrindinis ginklas.");
+        updateItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","Su veikėju susieta daugiasluoksnė krūtinės apsauga.");
+    }
+
     private void addColumn(SQLiteDatabase db, String sql) {
         try { db.execSQL(sql); } catch (Exception ignored) {}
     }
@@ -179,8 +191,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             db.insert("state", null, st);
         } catch (JSONException ignored) {}
 
-        addItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","weapon","legendary","Su Einoru susietas pagrindinis ginklas.","weapon","weapon",true,true);
-        addItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","armor_system","legendary","Su Einoru susieta daugiasluoksnė krūtinės apsauga.","chest","chest",true,true);
+        addItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","weapon","legendary","Su veikėju susietas pagrindinis ginklas.","weapon","weapon",true,true);
+        addItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","armor_system","legendary","Su veikėju susieta daugiasluoksnė krūtinės apsauga.","chest","chest",true,true);
         addItem(db,"66d2a35a-a00c-4566-bb34-0819af559e32","Kelių Klostės Krepšys","utility_item","rare","Erdvę lankstantis kelioninis krepšys.","utility","utility",true,false);
         addItem(db,"3b1de6bc-4198-4e4a-9d0d-631891c644e5","Rezonanso Signetas","major_relic","legendary","Relikvija, stiprinanti rezonanso kontrolę.","relic","relic_1",true,true);
         addItem(db,"0ea61c33-cbe9-4417-9b2b-6575baf1e38d","Nulinio Stiklo Prizmė","major_relic","legendary","Relikvija nulinėms sąveikoms tirti ir analizuoti.","relic","relic_2",true,true);
@@ -232,8 +244,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     }
 
     private void localizeSeededContent(SQLiteDatabase db) {
-        updateItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","Su Einoru susietas pagrindinis ginklas.");
-        updateItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","Su Einoru susieta daugiasluoksnė krūtinės apsauga.");
+        updateItem(db,"6deb2206-413c-4ef4-bc75-876edeee91c2","Asteriono Ašmenys","Su veikėju susietas pagrindinis ginklas.");
+        updateItem(db,"4d04d2de-11f3-4e14-8dd2-295224ee998e","Septynsluoksnė Mantija","Su veikėju susieta daugiasluoksnė krūtinės apsauga.");
         updateItem(db,"66d2a35a-a00c-4566-bb34-0819af559e32","Kelių Klostės Krepšys","Erdvę lankstantis kelioninis krepšys.");
         updateItem(db,"3b1de6bc-4198-4e4a-9d0d-631891c644e5","Rezonanso Signetas","Relikvija, stiprinanti rezonanso kontrolę.");
         updateItem(db,"0ea61c33-cbe9-4417-9b2b-6575baf1e38d","Nulinio Stiklo Prizmė","Relikvija nulinėms sąveikoms tirti ir analizuoti.");
@@ -282,12 +294,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     }
 
     private void localizeState(GameState s){
-        s.questTitle=replaceKnown(s.questTitle);
-        s.objective=replaceKnown(s.objective);
-        s.sceneTitle=replaceKnown(s.sceneTitle);
-        s.scene=replaceKnown(s.scene);
-        for(int i=0;i<s.choices.size();i++)s.choices.set(i,replaceKnown(s.choices.get(i)));
-        for(int i=0;i<s.recentTurns.size();i++)s.recentTurns.set(i,replaceKnown(s.recentTurns.get(i)));
+        LithuanianNarrative.polishState(s);
     }
 
     private String replaceKnown(String v){
@@ -528,7 +535,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",6); root.put("state",loadState().toJson());
+            JSONObject root=new JSONObject(); root.put("version",7); root.put("state",loadState().toJson());
             JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery); return root.toString();
         } catch(Exception e){return "";}
     }

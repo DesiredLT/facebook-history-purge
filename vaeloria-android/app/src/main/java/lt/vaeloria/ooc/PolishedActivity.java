@@ -6,24 +6,31 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.text.InputFilter;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.ScrollView;
 import android.widget.Space;
+import android.widget.Switch;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Vaeloria v0.9.2 premium mobile presentation over the existing game and save systems. */
+/** Vaeloria v0.9.3 premium mobile presentation over the existing game and save systems. */
 public class PolishedActivity extends PremiumActivity {
     private static final int LINE = Color.rgb(43, 59, 68);
     private static final int PANEL = Color.rgb(9, 19, 27);
@@ -183,12 +190,14 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     @Override void show(String id) {
+        if (!state.characterCreated && !"character".equals(id)) id = "character";
         screen = id;
         nav();
         content.removeAllViews();
         View view;
         try {
-            if ("game".equals(id)) view = game();
+            if ("character".equals(id)) view = character();
+            else if ("game".equals(id)) view = game();
             else if ("hero".equals(id)) view = hero();
             else if ("items".equals(id)) view = items();
             else if ("map".equals(id)) view = map();
@@ -206,6 +215,103 @@ public class PolishedActivity extends PremiumActivity {
             view.animate().alpha(1).translationY(0).scaleX(1f).scaleY(1f).setDuration(190).start();
         }
     }
+
+    @Override View character() {
+        final boolean editing = state.characterCreated;
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout column = col();
+        column.setPadding(dp(10), dp(7), dp(10), dp(24));
+        scroll.addView(column);
+
+        LinearLayout intro = panel(true);
+        intro.addView(section(editing ? "VEIKĖJO PROFILIS" : "NAUJAS VEIKĖJAS"));
+        intro.addView(serif(editing ? "Keisk profilį ir bruožus" : "Sukurk savo veikėją", 24, PARCH, true));
+        intro.addView(txt("Pasirinkimai išsaugomi telefone. Kilmė, archetipas ir lygiai trys bruožai realiai keičia savybių patikras; kiekvienas bruožas turi naudą ir kainą.", 10, SUB, false));
+        column.addView(intro, sp(dp(9)));
+
+        LinearLayout basics = panel(false);
+        basics.addView(section("PAGRINDINIAI DUOMENYS"));
+        EditText name = profileInput("Veikėjo vardas", editing ? state.characterName : "", false, 32);
+        basics.addView(name, sp(dp(7)));
+        EditText age = profileInput("Amžius (16–999)", String.valueOf(editing ? state.chronologicalAge : 25), false, 3);
+        age.setInputType(InputType.TYPE_CLASS_NUMBER);
+        basics.addView(age, sp(dp(5)));
+        Switch ageless = new Switch(this);
+        ageless.setText("Biologinis amžius nekinta");ageless.setTextColor(PARCH);ageless.setTextSize(11);ageless.setMinHeight(dp(48));
+        ageless.setChecked(editing && state.ageless);basics.addView(ageless);
+        column.addView(basics, sp(dp(9)));
+
+        LinearLayout identityPanel = panel(false);
+        identityPanel.addView(section("TAPATYBĖ"));
+        identityPanel.addView(txt("Atsakymuose žaidimo meistras kreipsis „tu“, todėl sakiniai išliks natūralūs nepriklausomai nuo pasirinkimo.", 9, SUB, false), sp(dp(5)));
+        RadioGroup identities = new RadioGroup(this);identities.setOrientation(RadioGroup.VERTICAL);
+        String currentIdentity = editing ? state.characterIdentity : "nenurodyta";
+        identities.addView(profileRadio("vyras", "Vyras", "", "vyras".equals(currentIdentity)));
+        identities.addView(profileRadio("moteris", "Moteris", "", "moteris".equals(currentIdentity)));
+        identities.addView(profileRadio("nenurodyta", "Nenurodyta", "", "nenurodyta".equals(currentIdentity)));
+        identityPanel.addView(identities);column.addView(identityPanel, sp(dp(9)));
+
+        LinearLayout originPanel = panel(false);originPanel.addView(section("KILMĖ · PASIRINK VIENĄ"));
+        RadioGroup origins = new RadioGroup(this);origins.setOrientation(RadioGroup.VERTICAL);
+        String currentOrigin = CharacterCatalogV093.origin(state.characterOriginId)==null ? "luminara" : state.characterOriginId;
+        for(CharacterCatalogV093.Origin origin:CharacterCatalogV093.ORIGINS)
+            origins.addView(profileRadio(origin.id,origin.name,origin.description+" "+origin.benefit,origin.id.equals(currentOrigin)));
+        originPanel.addView(origins);column.addView(originPanel, sp(dp(9)));
+
+        LinearLayout archetypePanel = panel(false);archetypePanel.addView(section("ARCHETIPAS · PASIRINK VIENĄ"));
+        RadioGroup archetypes = new RadioGroup(this);archetypes.setOrientation(RadioGroup.VERTICAL);
+        String currentArchetype = CharacterCatalogV093.archetype(state.characterArchetypeId)==null ? "sargybinis" : state.characterArchetypeId;
+        for(CharacterCatalogV093.Archetype archetype:CharacterCatalogV093.ARCHETYPES)
+            archetypes.addView(profileRadio(archetype.id,archetype.name,archetype.description+" "+archetype.benefit,archetype.id.equals(currentArchetype)));
+        archetypePanel.addView(archetypes);column.addView(archetypePanel, sp(dp(9)));
+
+        LinearLayout appearancePanel = panel(false);appearancePanel.addView(section("IŠVAIZDA · NEPRIVALOMA"));
+        EditText appearance = profileInput("Trumpai aprašyk išvaizdą, aprangą ar išskirtinį ženklą…", editing ? state.characterAppearance : "", true, 140);
+        appearance.setMinLines(2);appearance.setMaxLines(4);appearancePanel.addView(appearance);column.addView(appearancePanel, sp(dp(9)));
+
+        LinearLayout traitPanel = panel(true);traitPanel.addView(section("CHARAKTERIO BRUOŽAI · PASIRINK LYGIAI 3"));
+        TextView traitCount = txt("Pasirinkta 0 iš 3", 10, GOLD2, true);traitPanel.addView(traitCount, sp(dp(5)));
+        ArrayList<CheckBox> traitBoxes = new ArrayList<>();
+        for(CharacterCatalogV093.Trait trait:CharacterCatalogV093.TRAITS){
+            CheckBox box=new CheckBox(this);box.setTag(trait.id);box.setText(trait.name+"\n"+trait.description+"\nNauda: "+trait.benefit+" Kaina: "+trait.drawback);
+            box.setTextColor(PARCH);box.setTextSize(10);box.setMinHeight(dp(82));box.setPadding(dp(4),dp(4),dp(4),dp(4));
+            box.setChecked(editing&&state.characterTraitIds.contains(trait.id));traitBoxes.add(box);traitPanel.addView(box);
+        }
+        Runnable updateCount=()->traitCount.setText("Pasirinkta "+checkedTraits(traitBoxes).size()+" iš 3");
+        for(CheckBox box:traitBoxes)box.setOnCheckedChangeListener((button,checked)->{
+            if(checked&&checkedTraits(traitBoxes).size()>3){button.setChecked(false);Toast.makeText(this,"Galima pasirinkti lygiai tris bruožus",Toast.LENGTH_SHORT).show();return;}
+            updateCount.run();
+        });
+        updateCount.run();column.addView(traitPanel, sp(dp(9)));
+
+        Button save = gold(editing ? "IŠSAUGOTI PAKEITIMUS" : "SUKURTI VEIKĖJĄ IR PRADĖTI");save.setMinHeight(dp(52));
+        save.setOnClickListener(view->{
+            int parsedAge;try{parsedAge=Integer.parseInt(age.getText().toString().trim());}catch(Exception error){parsedAge=-1;}
+            ArrayList<String> selected=checkedTraits(traitBoxes);
+            if(selected.size()!=3){Toast.makeText(this,"Pasirink lygiai tris charakterio bruožus",Toast.LENGTH_LONG).show();return;}
+            boolean ok=applyCharacterProfile(name.getText().toString(),parsedAge,ageless.isChecked(),selectedTag(identities),appearance.getText().toString(),selectedTag(origins),selectedTag(archetypes),selected);
+            if(!ok){Toast.makeText(this,"Patikrink vardą, amžių ir visus profilio pasirinkimus",Toast.LENGTH_LONG).show();return;}
+            haptic();show("game");
+        });
+        column.addView(save, sp(dp(7)));
+        if(editing){Button cancel=dark("GRĮŽTI NEIŠSAUGOJUS");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->show("hero"));column.addView(cancel);}
+        return scroll;
+    }
+
+    private EditText profileInput(String hint,String value,boolean multiline,int maxLength){
+        EditText input=new EditText(this);input.setHint(hint);input.setText(value);input.setHintTextColor(Color.rgb(102,124,132));input.setTextColor(PARCH);input.setTextSize(12);
+        input.setSingleLine(!multiline);input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(maxLength)});input.setPadding(dp(11),dp(9),dp(11),dp(9));
+        input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES|(multiline?InputType.TYPE_TEXT_FLAG_MULTI_LINE:0));
+        input.setBackground(round(Color.rgb(6,15,22),12,Color.rgb(42,60,70)));input.setMinHeight(dp(48));return input;
+    }
+
+    private RadioButton profileRadio(String id,String title,String details,boolean checked){
+        RadioButton button=new RadioButton(this);button.setId(View.generateViewId());button.setTag(id);button.setText(details.isEmpty()?title:title+"\n"+details);
+        button.setTextColor(PARCH);button.setTextSize(10);button.setMinHeight(dp(details.isEmpty()?48:68));button.setPadding(dp(4),dp(4),dp(4),dp(4));button.setChecked(checked);return button;
+    }
+
+    private String selectedTag(RadioGroup group){View selected=group.findViewById(group.getCheckedRadioButtonId());return selected==null?"":String.valueOf(selected.getTag());}
+    private ArrayList<String> checkedTraits(List<CheckBox> boxes){ArrayList<String> selected=new ArrayList<>();for(CheckBox box:boxes)if(box.isChecked())selected.add(String.valueOf(box.getTag()));return selected;}
 
     @Override View game() {
         ScrollView scroll = new ScrollView(this);
@@ -300,7 +406,7 @@ public class PolishedActivity extends PremiumActivity {
         hero.setBackgroundColor(Color.rgb(2, 7, 11));
         ImageView artwork = image(R.drawable.hero_einoras_v090);
         artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        artwork.setContentDescription("Einoras su Asteriono Ašmenimis");
+        artwork.setContentDescription("Vaelorios veikėjo foninė iliustracija");
         hero.addView(artwork, new FrameLayout.LayoutParams(-1, dp(510)));
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
@@ -309,21 +415,33 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout overlay = col();
         overlay.setPadding(dp(16), 0, dp(16), dp(16));
         overlay.addView(section("VEIKĖJAS"));
-        overlay.addView(serif("EINORAS", 30, PARCH, true));
-        overlay.addView(txt("201 m. chronologinis · 20 m. biologinis · amžius nekinta", 9, SUB, false));
+        overlay.addView(serif(state.characterName.toUpperCase(Locale.forLanguageTag("lt-LT")), 30, PARCH, true));
+        overlay.addView(txt(CharacterCatalogV093.ageLine(state), 9, SUB, false));
         LinearLayout tags = row();
         tags.setPadding(0, dp(7), 0, 0);
         tags.addView(chip("92/92 · 100/100", GOLD2));
-        tags.addView(chip("POST-CAP", PURPLE));
+        tags.addView(chip("3 BRUOŽAI", PURPLE));
         overlay.addView(tags);
         hero.addView(overlay, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
         column.addView(hero, new LinearLayout.LayoutParams(-1, dp(510)));
         column.addView(resources(), sp(dp(8)));
 
+        LinearLayout profile = panel(true);
+        profile.addView(section("KILMĖ, ARCHETIPAS IR BRUOŽAI"));
+        profile.addView(serif(CharacterCatalogV093.originName(state.characterOriginId)+" · "+CharacterCatalogV093.archetypeName(state.characterArchetypeId), 17, PARCH, true));
+        profile.addView(txt("Tapatybė: "+CharacterCatalogV093.identityName(state.characterIdentity), 9, GOLD2, true), sp(dp(4)));
+        if(state.characterAppearance!=null&&!state.characterAppearance.trim().isEmpty())profile.addView(txt("Išvaizda: "+state.characterAppearance, 10, SUB, false), sp(dp(5)));
+        for(String traitId:CharacterCatalogV093.normalizedTraits(state.characterTraitIds)){
+            CharacterCatalogV093.Trait trait=CharacterCatalogV093.trait(traitId);if(trait==null)continue;
+            profile.addView(txt("◆ "+trait.name+" · "+trait.benefit+" "+trait.drawback, 9, Color.rgb(218,223,218), false), sp(dp(4)));
+        }
+        Button editProfile=outline("KEISTI PROFILĮ IR BRUOŽUS");editProfile.setMinHeight(dp(48));editProfile.setOnClickListener(view->show("character"));profile.addView(editProfile,sp(dp(2)));
+        column.addView(profile,sp(dp(9)));
+
         LinearLayout mastery = panel(false);
         mastery.addView(section("MEISTRIŠKUMAS"));
-        mastery.addView(serif("Legendary bazė · kokybinis progresas", 17, PARCH, true));
-        mastery.addView(txt("Skaitinis cap pasiektas. Toliau augama per principus, technikas, nežinomų taisyklių kalibraciją ir lygiaverčių meistrų praktiką.", 10, SUB, false));
+        mastery.addView(serif("Legendinė bazė · pažanga virš ribos", 17, PARCH, true));
+        mastery.addView(txt("Skaitinė bazinė riba pasiekta. Toliau augama per principus, technikas, nežinomų taisyklių kalibraciją ir lygiaverčių meistrų praktiką.", 10, SUB, false));
         column.addView(mastery, sp(dp(9)));
 
         LoadoutV090View loadout = new LoadoutV090View(this);
@@ -526,7 +644,8 @@ public class PolishedActivity extends PremiumActivity {
         current.setMaxLines(2);
         title.addView(current);
         topRow.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
-        topRow.addView(chip("◆ EINORAS", GOLD2));
+        String mapName=state.characterName.length()>12?state.characterName.substring(0,11)+"…":state.characterName;
+        topRow.addView(chip("◆ "+mapName.toUpperCase(Locale.forLanguageTag("lt-LT")), GOLD2));
         top.addView(topRow);
         top.addView(txt("Žnybk · tempk · dukart bakstelėk · paliesk lokaciją", 8, SUB, false));
         FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
@@ -618,6 +737,32 @@ public class PolishedActivity extends PremiumActivity {
         }
         column.addView(log);
         return scroll;
+    }
+
+    @Override View settings(){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(10),dp(7),dp(10),dp(20));scroll.addView(column);
+        LinearLayout profile=panel(true);profile.addView(section("VEIKĖJO PROFILIS"));
+        profile.addView(serif(state.characterName,18,PARCH,true));
+        profile.addView(txt(CharacterCatalogV093.originName(state.characterOriginId)+" · "+CharacterCatalogV093.archetypeName(state.characterArchetypeId),10,SUB,false));
+        profile.addView(txt("Bruožai: "+CharacterCatalogV093.traitNames(state.characterTraitIds),9,GOLD2,true),sp(dp(6)));
+        Button edit=gold("KEISTI PROFILĮ IR BRUOŽUS");edit.setMinHeight(dp(48));edit.setOnClickListener(view->show("character"));profile.addView(edit);column.addView(profile,sp(dp(9)));
+
+        LinearLayout ai=panel(false);ai.addView(section("DI ŽAIDIMO MEISTRAS"));boolean has=!SecureKeyStore.load(this).isEmpty();
+        ai.addView(txt(has?"Groq raktas saugomas Android raktų saugykloje":"Groq raktas nenustatytas",12,has?GREEN:SUB,true));
+        ai.addView(txt("Atsakymai prašomi taisyklinga, aiškia ir rišlia lietuvių kalba, o prieš rodymą papildomai sutvarkomi telefone.",9,SUB,false),sp(dp(6)));
+        Button key=gold(has?"PAKEISTI API RAKTĄ":"ĮVESTI API RAKTĄ");key.setMinHeight(dp(48));key.setOnClickListener(view->key());ai.addView(key);column.addView(ai,sp(dp(9)));
+
+        LinearLayout presentation=panel(false);presentation.addView(section("PATEIKIMAS"));presentation.addView(toggle("Sklandūs ekranų perėjimai","animations",true));presentation.addView(toggle("Haptinis grįžtamasis ryšys","haptics",true));presentation.addView(toggle("Subtilūs sąsajos garsai","sounds",false));column.addView(presentation,sp(dp(9)));
+
+        LinearLayout saves=panel(false);saves.addView(section("IŠSAUGOJIMAS"));
+        Button undo=dark("ATŠAUKTI PASKUTINĮ ĖJIMĄ");undo.setMinHeight(dp(48));undo.setOnClickListener(view->{if(db.undo()){state=db.loadState();feedback="Atkurtas ankstesnis kontrolinis taškas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Nėra ankstesnio kontrolinio taško",Toast.LENGTH_SHORT).show();});saves.addView(undo,sp(dp(5)));
+        Button export=dark("EKSPORTUOTI IŠSAUGOJIMĄ");export.setMinHeight(dp(48));export.setOnClickListener(view->export());saves.addView(export,sp(dp(5)));
+        Button importButton=dark("IMPORTUOTI IŠSAUGOJIMĄ");importButton.setMinHeight(dp(48));importButton.setOnClickListener(view->importSave());saves.addView(importButton,sp(dp(5)));
+        Button reset=dark("ATKURTI PRADINĘ BŪSENĄ");reset.setMinHeight(dp(48));reset.setOnClickListener(view->new AlertDialog.Builder(this).setTitle("Atkurti pradinę būseną?").setMessage("Bus pašalintas veikėjo profilis, vietiniai ėjimai ir įrangos pakeitimai. Groq raktas liks telefone.").setNegativeButton("NE",null).setPositiveButton("ATKURTI",(dialog,which)->{db.reset();state=db.loadState();feedback="";show("character");}).show());saves.addView(reset);column.addView(saves,sp(dp(9)));
+
+        LinearLayout about=panel(false);about.addView(section("APIE VERSIJĄ"));about.addView(serif("Vaeloria OOC · "+BuildConfig.VERSION_NAME,17,PARCH,true));
+        about.addView(txt("Vietinė SQLite būsena · veikėjo kūrimas · mechaniniai bruožai · lietuviškų atsakymų kontrolė",10,SUB,false));
+        about.addView(txt("Atsarginės sistemos kopijos išjungtos · ryšys tik per HTTPS",9,GREEN,true));column.addView(about);return scroll;
     }
 
     @Override void locationHub() {
@@ -1048,6 +1193,14 @@ public class PolishedActivity extends PremiumActivity {
                 .setMessage(feedback)
                 .setPositiveButton("UŽDARYTI", null)
                 .show();
+    }
+
+    @Override public void onBackPressed(){
+        if("character".equals(screen)){
+            if(state.characterCreated)show("hero");else finish();
+            return;
+        }
+        super.onBackPressed();
     }
 
     private String itemDescriptor(VaeloriaDb.Item item) {

@@ -351,7 +351,8 @@ class CombatV090View extends View {
         paint.setTypeface(Typeface.create(Typeface.SERIF, Typeface.BOLD));
         paint.setTextSize(dp(13));
         paint.setColor(Color.rgb(229, 194, 112));
-        canvas.drawText("EINORAS", dp(14), dp(25), paint);
+        String player=safe(state.characterName,"Veikėjas").toUpperCase(Locale.forLanguageTag("lt-LT"));
+        drawAdaptiveLine(canvas,player,dp(14),dp(25),width*.38f,13f,7f);
 
         String enemyName = safe(state.enemyName, "Priešas").toUpperCase(Locale.forLanguageTag("lt-LT"));
         paint.setColor(Color.rgb(229, 104, 89));
