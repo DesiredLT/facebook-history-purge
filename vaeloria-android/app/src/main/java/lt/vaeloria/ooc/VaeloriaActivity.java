@@ -127,8 +127,8 @@ public class VaeloriaActivity extends Activity {
     void act(String action){if(busy)return;db.checkpoint("prieš veiksmą",state);String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;pool.execute(()->{JSONObject r;String warn=null;try{r=key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check);}catch(Exception e){r=local(action,check);warn="Groq nepasiekiamas · panaudotas vietinis sprendimas";}JSONObject rr=r;String ww=warn;runOnUiThread(()->finish(action,rr,ww));});}
 
     void finish(String action,JSONObject r,String warn){
-        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");
-        state.applyTurn(r);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;String name=o.optString("name","Nežinomas radinys");db.addLoot(name,o.optString("category","artifact"),o.optString("rarity","common"),o.optString("description",""));gained.add(name);}
+        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;
+        state.applyTurn(r);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory="combat_victory".equals(event)||(wasCombat&&!state.combatActive&&!"combat_escape".equals(event)&&!"combat_end".equals(event));if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;String name=o.optString("name","Nežinomas radinys");db.addLoot(name,o.optString("category","artifact"),o.optString("rarity","common"),o.optString("description",""));gained.add(name);}}
         state.recentTurns.add(action+" → "+state.sceneTitle+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>12)state.recentTurns.remove(0);db.saveState(state);
         StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();busy=false;pendingCheck=null;pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;show("game");
     }
@@ -153,6 +153,9 @@ public class VaeloriaActivity extends Activity {
             String telegraph=combat?state.enemyTelegraph:"";
             String distance=combat?state.combatDistance:"mid";
             String hazard=combat?state.combatHazard:"";
+            int enemyHp=combat?state.enemyHp:0;
+            int enemyHpMax=combat?state.enemyHpMax:0;
+            int combatRound=combat?state.combatRound:0;
 
             if(q.contains("manifest")){
                 title="Manifesto neatitikimas";minutes=12;stamina=0;event="discovery";
@@ -177,16 +180,22 @@ public class VaeloriaActivity extends Activity {
                     EnemyCatalogV091.Enemy requested=EnemyCatalogV091.find(a);
                     EnemyCatalogV091.Enemy encounter=requested!=null?requested:EnemyCatalogV091.encounterFor(state.location,state.worldMinute+a.hashCode());
                     enemy=encounter.name;
-                    enemyStatus="Budrus · pavojus "+encounter.danger+"/10 · gyvybė "+encounter.hp;
-                }else enemyStatus="Budrus · spaudžiamas";
+                    enemyHp=encounter.hp;enemyHpMax=encounter.hp;combatRound=1;
+                    enemyStatus="Budrus · pavojus "+encounter.danger+"/10 · gyvybė "+enemyHp+"/"+enemyHpMax;
+                }else{
+                    int damage=check==null?52:(check.outcome.contains("išskirtinė")?96:check.outcome.equals("sėkmė")?72:check.outcome.contains("dalinė")?48:26);
+                    enemyHp=Math.max(0,enemyHp-damage);combatRound++;
+                    if(enemyHp==0){title="Priešas nugalėtas";event="combat_victory";combat=false;hp=0;stamina=-4;scene="Tavo veiksmas pralaužia paskutinę priešininko gynybą. Kova baigta, o patvirtinta būtybės iškritimo lentelė pritaikoma vietiniame žaidimo variklyje.";c.put("Apžiūrėti gautą grobį").put("Atsigauti po kovos").put("Tęsti kelionę");}
+                    else{enemyStatus="Spaudžiamas · gyvybė "+enemyHp+"/"+enemyHpMax;title="Kovos "+combatRound+" ėjimas";scene="Ataka pasiekia tikslą, tačiau priešininkas dar laikosi. Jo laikysena keičiasi pagal likusią gyvybę, todėl kitas veiksmas vis dar turi kainą ir riziką.";}
+                }
                 telegraph="Žemas žingsnis į šoną ir pasiruošimas kontratakai";
                 distance="close";
                 hazard="Slidus akmuo ir siauras praėjimas";
-                scene="Tu inicijuoji kontaktą. Priešininkas atsitraukia tik pusę žingsnio ir iškart persitvarko kontratakai; erdvė ankšta, todėl pozicija tampa svarbesnė už gryną jėgą.";
-                c.put("Spausti ir neleisti atkurti distancijos").put("Išprovokuoti kontrataką ir bausti ją").put("Atsitraukti į saugesnę poziciją");
+                if(combatRound==1){scene="Tu inicijuoji kontaktą. Priešininkas atsitraukia tik pusę žingsnio ir iškart persitvarko kontratakai; erdvė ankšta, todėl pozicija tampa svarbesnė už gryną jėgą.";}
+                if(c.length()==0)c.put("Spausti ir neleisti atkurti distancijos").put("Išprovokuoti kontrataką ir bausti ją").put("Atsitraukti į saugesnę poziciją");
             }else if(q.contains("bėg")||q.contains("beg")||q.contains("trauktis")||q.contains("atsitrauk")){
-                title="Atsitraukimas";minutes=4;stamina=-4;event="combat_end";combat=false;
-                enemy="";enemyStatus="";telegraph="";distance="mid";hazard="";
+                title="Atsitraukimas";minutes=4;stamina=-4;event="combat_escape";combat=false;
+                enemy="";enemyStatus="";telegraph="";distance="mid";hazard="";enemyHp=0;enemyHpMax=0;combatRound=0;
                 scene="Nutrauki kontaktą ir pasirenki erdvę, kurioje gali vėl vertinti situaciją. Priešininkas tavęs iškart nesiveja — kova baigiasi be aiškios pergalės, bet iniciatyva grįžta tau.";
                 c.put("Stebėti, ar kas nors seka").put("Grįžti prie pagrindinės užduoties").put("Atsigauti prieš tęsiant kelią");
             }else if(q.contains("vykti")||q.contains("keliaut")||q.contains("keliauti")||q.contains("eiti į")||q.contains("eiti i")||q.contains("važiuoti")||q.contains("vaziuoti")){
@@ -234,6 +243,9 @@ public class VaeloriaActivity extends Activity {
             o.put("enemy_telegraph",combat?telegraph:"");
             o.put("combat_distance",combat?distance:"mid");
             o.put("combat_hazard",combat?hazard:"");
+            o.put("enemy_hp",combat?enemyHp:0);
+            o.put("enemy_hp_max",combat?enemyHpMax:0);
+            o.put("combat_round",combat?combatRound:0);
             o.put("loot",new JSONArray());
             return o;
         }catch(Exception e){return new JSONObject();}
@@ -251,11 +263,11 @@ public class VaeloriaActivity extends Activity {
     Button choice(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(12);b.setTextColor(TEXT);b.setGravity(Gravity.START|Gravity.CENTER_VERTICAL);b.setPadding(dp(18),dp(8),dp(14),dp(8));b.setMinHeight(dp(64));b.setBackground(round(SUR2,15,Color.rgb(47,70,81)));return b;} Button accent(String s){Button b=new Button(this);b.setText(s);b.setTextSize(11);b.setTextColor(BG);b.setTypeface(Typeface.DEFAULT_BOLD);b.setBackground(round(GOLD,13,GOLD));return b;} Button outline(String s){Button b=new Button(this);b.setText(s);b.setTextSize(10);b.setTextColor(TEXT);b.setBackground(round(Color.TRANSPARENT,13,Color.rgb(55,80,91)));return b;}
     LinearLayout res(String name,int v,int max,int color){LinearLayout x=col();x.setPadding(dp(2),0,dp(2),0);TextView a=center(name,8,MUT);x.addView(a);TextView n=center(v+"/"+max,12,TEXT);n.setTypeface(Typeface.DEFAULT_BOLD);x.addView(n);ProgressBar b=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);b.setMax(max);b.setProgress(v);b.setProgressTintList(android.content.res.ColorStateList.valueOf(color));b.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(34,49,57)));x.addView(b,new LinearLayout.LayoutParams(-1,dp(6)));return x;} View bar(String name,int v,int max,int color){LinearLayout x=col();x.addView(t(name+"  "+v+"/"+max,10,MUT,true));ProgressBar b=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);b.setMax(max);b.setProgress(v);b.setProgressTintList(android.content.res.ColorStateList.valueOf(color));x.addView(b,new LinearLayout.LayoutParams(-1,dp(7)));return x;} View obj(String icon,String s,boolean a){LinearLayout x=row();x.setPadding(0,dp(6),0,dp(6));x.addView(t(icon,14,a?GOLD:MUT,true),new LinearLayout.LayoutParams(dp(26),-2));x.addView(t(s,11,a?TEXT:MUT,a),new LinearLayout.LayoutParams(0,-2,1));return x;}
     GradientDrawable round(int fill,int r,int stroke){GradientDrawable g=new GradientDrawable();g.setColor(fill);g.setCornerRadius(dp(r));if(Color.alpha(stroke)>0)g.setStroke(dp(1),stroke);return g;} LinearLayout.LayoutParams m(int bottom){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,0,0,bottom);return p;} LinearLayout.LayoutParams w1(){return new LinearLayout.LayoutParams(0,dp(55),1);} int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
-    int rarity(String r){return "unique".equals(r)?Color.rgb(229,118,210):"legendary".equals(r)?GOLD:"ancient".equals(r)?Color.rgb(188,115,224):"epic".equals(r)?Color.rgb(196,92,220):"rare".equals(r)?Color.rgb(88,157,225):"uncommon".equals(r)?GREEN:TEXT;}
-    String rarityLabel(String r){if(r==null)return"paprastas";switch(r){case"unique":return"unikalus";case"legendary":return"legendinis";case"ancient":return"senovinis";case"epic":return"epinis";case"rare":return"retas";case"uncommon":return"neįprastas";default:return"paprastas";}}
+    int rarity(String r){return "unique".equals(r)?Color.rgb(86,224,221):"ancient".equals(r)?Color.rgb(188,115,224):"mythic".equals(r)?Color.rgb(238,94,144):"legendary".equals(r)?GOLD:"epic".equals(r)?Color.rgb(196,92,220):"rare".equals(r)?Color.rgb(88,157,225):"uncommon".equals(r)?GREEN:TEXT;}
+    String rarityLabel(String r){if(r==null)return"paprastas";switch(r){case"unique":return"unikalus";case"ancient":return"senovinis";case"mythic":return"mitinis";case"legendary":return"legendinis";case"epic":return"epinis";case"rare":return"retas";case"uncommon":return"neįprastas";default:return"paprastas";}}
     String categoryLabel(String s){if(s==null)return"Artefaktas";if("ring".equals(s))return"Žiedas";if("relic".equals(s))return"Relikvija";for(String x:VaeloriaDb.EQUIPMENT_SLOTS)if(x.equals(s))return VaeloriaDb.slotLabel(x);return s;}
     String abilityType(String t){if(t==null)return"Gebėjimas";return t.replace("gebėjimas_virš_ribos","Gebėjimas virš ribos").replace("tobulinimas_virš_ribos","Tobulinimas virš ribos").replace("principas_virš_ribos","Principas virš ribos").replace("technika_virš_ribos","Technika virš ribos").replace('_',' ');}
-    String eventLabel(String e){if(e==null)return"";switch(e){case"combat":return"KOVA";case"discovery":return"ATRADIMAS";case"social":return"BENDRAVIMAS";case"travel":return"KELIONĖ";case"reward":return"ATLYGIS";case"setback":return"NESĖKMĖ";default:return"";}}
+    String eventLabel(String e){if(e==null)return"";switch(e){case"combat":return"KOVA";case"combat_victory":return"PERGALĖ";case"combat_escape":case"combat_end":return"ATSIJUNGTA NUO KOVOS";case"discovery":return"ATRADIMAS";case"social":return"BENDRAVIMAS";case"travel":return"KELIONĖ";case"reward":return"ATLYGIS";case"setback":return"NESĖKMĖ";default:return"";}}
     String safe(String s,String d){return s==null||s.isEmpty()?d:s;} String clock(){long day=state.worldMinute/1440,mn=state.worldMinute%1440;return "Diena "+day+" · "+String.format(Locale.ROOT,"%02d:%02d",mn/60,mn%60);} 
     String lore(String n){if("Luminara".equals(n))return"Septynių plaukiojančių maginių žiedų metropolis.";if(n.contains("Drakono Pabudimo"))return"Drakonų teritorija ir itin pavojingi kalnai.";if(n.contains("Kharad"))return"Kalvystės miestas ir nuliui atsparaus amato centras.";if(n.contains("Tuščiavidur"))return"Erdvinės ir nulinės anomalijos čia persidengia.";if(n.contains("Žaliasis")||n.contains("Šventųjų")||n.contains("Šaltinio"))return"Gyvybės, senųjų kelių ir nestabilių gamtos jėgų regionas.";return"Kanoninė Vaeloria vieta, susieta su gyvu kelionių tinklu.";}
     void delta(StringBuilder b,String n,long d){if(d!=0){if(b.length()>0)b.append("  ");b.append(d>0?"+":"").append(d).append(" ").append(n);}}

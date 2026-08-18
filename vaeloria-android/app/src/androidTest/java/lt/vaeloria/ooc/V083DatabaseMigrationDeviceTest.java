@@ -33,7 +33,7 @@ public class V083DatabaseMigrationDeviceTest {
         context.deleteDatabase("vaeloria.db");
     }
 
-    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionFive() throws Exception {
+    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionSix() throws Exception {
         File path = context.getDatabasePath("vaeloria.db");
         File parent = path.getParentFile();
         assertNotNull(parent);
@@ -70,7 +70,7 @@ public class V083DatabaseMigrationDeviceTest {
 
         VaeloriaDb upgraded = new VaeloriaDb(context);
         SQLiteDatabase database = upgraded.getWritableDatabase();
-        assertEquals(5, database.getVersion());
+        assertEquals(6, database.getVersion());
         GameState restored = upgraded.loadState();
         assertEquals("Veyrhold", restored.location);
         assertEquals(73, restored.hp);
@@ -78,8 +78,12 @@ public class V083DatabaseMigrationDeviceTest {
         assertFalse(upgraded.getStatValues().isEmpty());
         assertFalse(upgraded.getMasteryLevels().isEmpty());
         assertEquals("Senasis žiedas", upgraded.getEquippedAt("ring_left").name);
+        VaeloriaDb.Item legacyItem=upgraded.getItem("legacy-v083-item");
+        assertNotNull(legacyItem);assertEquals(1,legacyItem.itemLevel);assertEquals(1,legacyItem.quantity);
+        assertTrue(upgraded.getItems().stream().anyMatch(item -> "I092-201".equals(item.catalogId) && item.quantity == 3));
         assertTrue(tableExists(database, "stats"));
         assertTrue(tableExists(database, "mastery"));
+        for(String column:new String[]{"catalog_id","item_level","power","set_id","quantity","value","effect"})assertTrue(columnExists(database,"items",column));
         upgraded.close();
     }
 
@@ -89,4 +93,6 @@ public class V083DatabaseMigrationDeviceTest {
             return cursor.moveToFirst();
         }
     }
+
+    private boolean columnExists(SQLiteDatabase database,String table,String column){try(Cursor cursor=database.rawQuery("PRAGMA table_info("+table+")",null)){while(cursor.moveToNext())if(column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name"))))return true;}return false;}
 }

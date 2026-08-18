@@ -100,6 +100,8 @@ final class VisualAssetCatalog {
     }
 
     static int itemFor(String name, String category) {
+        int catalogArtwork = ItemCatalogV092.artFor(name);
+        if (catalogArtwork != 0) return catalogArtwork;
         String query = normalize(name + " " + category);
         if (containsAny(query, "asteriono", "ašmen", "asmen", "kard", "sword", "weapon")) {
             return R.drawable.item_asterion_blade_v090;

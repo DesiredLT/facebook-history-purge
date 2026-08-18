@@ -32,6 +32,9 @@ public class GameState {
     public String enemyTelegraph = "";
     public String combatDistance = "mid";
     public String combatHazard = "";
+    public int enemyHp = 0;
+    public int enemyHpMax = 0;
+    public int combatRound = 0;
     public final List<String> choices = new ArrayList<>();
     public final List<String> recentTurns = new ArrayList<>();
 
@@ -67,6 +70,9 @@ public class GameState {
         o.put("enemyTelegraph", enemyTelegraph);
         o.put("combatDistance", combatDistance);
         o.put("combatHazard", combatHazard);
+        o.put("enemyHp", enemyHp);
+        o.put("enemyHpMax", enemyHpMax);
+        o.put("combatRound", combatRound);
         JSONArray c = new JSONArray();
         for (String s : choices) c.put(s);
         o.put("choices", c);
@@ -106,6 +112,9 @@ public class GameState {
         s.enemyTelegraph = o.optString("enemyTelegraph", "");
         s.combatDistance = o.optString("combatDistance", "mid");
         s.combatHazard = o.optString("combatHazard", "");
+        s.enemyHp = Math.max(0, o.optInt("enemyHp", 0));
+        s.enemyHpMax = Math.max(s.enemyHp, o.optInt("enemyHpMax", s.enemyHp));
+        s.combatRound = Math.max(0, o.optInt("combatRound", 0));
         s.choices.clear();
         JSONArray c = o.optJSONArray("choices");
         if (c != null) for (int i=0;i<c.length();i++) s.choices.add(c.optString(i));
@@ -139,13 +148,21 @@ public class GameState {
         enemyTelegraph = result.optString("enemy_telegraph", combatActive ? enemyTelegraph : "");
         combatDistance = result.optString("combat_distance", combatActive ? combatDistance : "mid");
         combatHazard = result.optString("combat_hazard", combatActive ? combatHazard : "");
-        if (!combatActive) { enemyName=""; enemyStatus=""; enemyTelegraph=""; combatHazard=""; combatDistance="mid"; }
+        enemyHp = Math.max(0, result.optInt("enemy_hp", combatActive ? enemyHp : 0));
+        enemyHpMax = Math.max(enemyHp, result.optInt("enemy_hp_max", combatActive ? enemyHpMax : 0));
+        combatRound = Math.max(0, result.optInt("combat_round", combatActive ? combatRound : 0));
+        if (!combatActive) endCombat();
         String note = result.optString("quest_note", "").trim();
         if (!note.isEmpty()) objective = note;
         choices.clear();
         JSONArray c = result.optJSONArray("choices");
         if (c != null) for (int i=0;i<c.length() && i<3;i++) choices.add(c.optString(i));
         while (choices.size() < 3) choices.add("Stebėti situaciją ir rinkti įrodymus");
+    }
+
+    public void endCombat() {
+        combatActive=false;enemyName="";enemyStatus="";enemyTelegraph="";combatHazard="";
+        combatDistance="mid";enemyHp=0;enemyHpMax=0;combatRound=0;
     }
 
     private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }

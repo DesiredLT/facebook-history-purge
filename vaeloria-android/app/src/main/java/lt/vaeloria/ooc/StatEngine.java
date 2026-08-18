@@ -268,6 +268,7 @@ public final class StatEngine {
 
     private static int equipmentModifier(String stat,String a,String equipped){
         String e=norm(equipped);int m=0;
+        String marker="bendras įrangos modifikatorius +";int markerAt=e.indexOf(marker);if(markerAt>=0){int start=markerAt+marker.length(),end=start;while(end<e.length()&&Character.isDigit(e.charAt(end)))end++;if(end>start)try{m+=Integer.parseInt(e.substring(start,end));}catch(Exception ignored){}}
         if((stat.contains("Kardo")||stat.contains("Atakos")||stat.contains("Kovinė"))&&has(e,"asteriono"))m+=10;
         if((stat.equals("Gynyba")||isPhysical(stat))&&has(e,"septynsluoksn"))m+=6;
         if((stat.equals("Erdvinė magija")||has(a,"keliauti"))&&has(e,"kelių klostės"))m+=8;

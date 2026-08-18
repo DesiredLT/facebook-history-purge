@@ -29,6 +29,7 @@ public class V091MobileDeviceTest {
     private ActivityScenario<PolishedActivity> scenario;
 
     @Before public void setUp() {
+        InstrumentationRegistry.getInstrumentation().getTargetContext().deleteDatabase("vaeloria.db");
         InstrumentationRegistry.getInstrumentation().getTargetContext()
                 .getSharedPreferences("vaeloria_visual", 0)
                 .edit().putBoolean("animations", false).commit();
@@ -74,12 +75,34 @@ public class V091MobileDeviceTest {
                 assertTrue(restored.combatActive);
                 assertEquals(enemyName, restored.enemyName);
                 assertFalse(restored.enemyTelegraph.isEmpty());
+                assertTrue(restored.enemyHp > 0);
+                assertEquals(restored.enemyHp, restored.enemyHpMax);
             } catch (Throwable throwable) {
                 failure.set(throwable);
             }
         });
         if (failure.get() != null) throw new AssertionError(failure.get());
     }
+
+    @Test public void itemCodexPotionsAndAuthoritativeWorldBossDropsWork() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        scenario.onActivity(activity -> {
+            try {
+                activity.show("items");
+                assertTrue(containsText(activity.getWindow().getDecorView(),"DAIKTŲ KODEKSAS · 325"));
+                VaeloriaDb.Item potion=null;for(VaeloriaDb.Item item:activity.db.getItems())if("I092-201".equals(item.catalogId)){potion=item;break;}
+                assertNotNull(potion);activity.state.hp=50;String used=activity.db.consumeItem(potion.id,activity.state);assertNotNull(used);assertEquals(75,activity.state.hp);assertEquals(2,activity.db.getItem(potion.id).quantity);
+
+                activity.state.combatActive=true;activity.state.enemyName="Užtemimo drakonas";activity.state.enemyHp=1;activity.state.enemyHpMax=559;activity.state.combatRound=3;
+                int before=units(activity.db.getItems());JSONObject result=activity.local("Atakuoti Užtemimo drakoną",null);assertEquals("combat_victory",result.getString("event_tag"));activity.finish("Atakuoti Užtemimo drakoną",result,null);int after=units(activity.db.getItems());assertEquals(before+3,after);assertFalse(activity.state.combatActive);
+            } catch (Throwable throwable) { failure.set(throwable); }
+        });
+        if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    private int units(java.util.List<VaeloriaDb.Item> items){int total=0;for(VaeloriaDb.Item item:items)total+=item.quantity;return total;}
+
+    private boolean containsText(View view,String text){if(view instanceof TextView&&((TextView)view).getText().toString().contains(text))return true;if(view instanceof ViewGroup){ViewGroup group=(ViewGroup)view;for(int index=0;index<group.getChildCount();index++)if(containsText(group.getChildAt(index),text))return true;}return false;}
 
     private void assertNoHorizontalScroll(View view, String screen) {
         assertFalse(screen + " contains forbidden horizontal scrolling: " + view.getClass().getName(),

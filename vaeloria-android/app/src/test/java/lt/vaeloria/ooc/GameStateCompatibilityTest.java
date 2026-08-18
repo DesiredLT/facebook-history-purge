@@ -47,6 +47,9 @@ public class GameStateCompatibilityTest {
         original.enemyTelegraph = "Ruošia kontrataką";
         original.combatDistance = "close";
         original.combatHazard = "Slidus akmuo";
+        original.enemyHp = 217;
+        original.enemyHpMax = 480;
+        original.combatRound = 4;
 
         GameState restored = GameState.fromJson(original.toJson());
 
@@ -59,6 +62,9 @@ public class GameStateCompatibilityTest {
         assertTrue(restored.combatActive);
         assertEquals("Pelenų revenantas", restored.enemyName);
         assertEquals("Slidus akmuo", restored.combatHazard);
+        assertEquals(217, restored.enemyHp);
+        assertEquals(480, restored.enemyHpMax);
+        assertEquals(4, restored.combatRound);
     }
 
     @Test public void turnConsequencesClampFactionInfluence() throws Exception {

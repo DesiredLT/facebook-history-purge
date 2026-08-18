@@ -183,9 +183,10 @@ class ItemArtView extends View {
 
     private int rarityColor(String rarity) {
         String value = rarity == null ? "" : rarity.toLowerCase(Locale.ROOT);
+        if (value.contains("mythic")) return Color.rgb(238, 94, 144);
         if (value.contains("legend")) return Color.rgb(225, 190, 94);
         if (value.contains("ancient")) return Color.rgb(175, 116, 218);
-        if (value.contains("unique")) return Color.rgb(83, 184, 189);
+        if (value.contains("unique")) return Color.rgb(86, 224, 221);
         if (value.contains("rare")) return Color.rgb(87, 147, 211);
         return Color.rgb(111, 137, 148);
     }
