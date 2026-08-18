@@ -174,7 +174,7 @@ public class VaeloriaActivity extends Activity {
                 title="Pokalbis Luminara";minutes=10;stamina=0;event="dialogue";
                 scene="Pokalbis neduoda tobulo atsakymo, bet atskiria faktus nuo nuomonių. Vietiniai sutaria dėl vieno: pastaruoju metu vartų anomalijos kartojasi dažniau, tačiau skirtingi žmonės jas aiškina skirtingai.";
                 c.put("Paprašyti konkretaus liudijimo").put("Paklausti, kas galėtų žinoti daugiau").put("Užrašyti informaciją ir tęsti tyrimą");
-            }else if(q.contains("puol")||q.contains("kov")||q.contains("smūg")||q.contains("smug")||q.contains("ataka")||q.contains("pulti")){
+            }else if(q.contains("puol")||q.contains("kov")||q.contains("smūg")||q.contains("smug")||q.contains("ataka")||q.contains("ataku")||q.contains("pulti")){
                 title="Kova prasideda";minutes=2;stamina=-8;hp=-2;event="combat";combat=true;
                 if(enemy==null||enemy.isEmpty()){
                     EnemyCatalogV091.Enemy requested=EnemyCatalogV091.find(a);
