@@ -80,7 +80,7 @@ public class V083DatabaseMigrationDeviceTest {
         assertEquals("Senasis žiedas", upgraded.getEquippedAt("ring_left").name);
         VaeloriaDb.Item legacyItem=upgraded.getItem("legacy-v083-item");
         assertNotNull(legacyItem);assertEquals(1,legacyItem.itemLevel);assertEquals(1,legacyItem.quantity);
-        assertTrue(upgraded.getItems().stream().anyMatch(item -> "I092-201".equals(item.catalogId) && item.quantity == 3));
+        assertTrue(upgraded.getItems().stream().anyMatch(owned -> "I092-201".equals(owned.catalogId) && owned.quantity == 3));
         assertTrue(tableExists(database, "stats"));
         assertTrue(tableExists(database, "mastery"));
         for(String column:new String[]{"catalog_id","item_level","power","set_id","quantity","value","effect"})assertTrue(columnExists(database,"items",column));
