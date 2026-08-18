@@ -4,28 +4,36 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.test.InstrumentationTestCase;
 
-import org.json.JSONObject;
+import androidx.test.core.app.ApplicationProvider;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 
-@SuppressWarnings("deprecation")
-public class V083DatabaseMigrationDeviceTest extends InstrumentationTestCase {
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+@RunWith(AndroidJUnit4.class)
+public class V083DatabaseMigrationDeviceTest {
     private Context context;
 
-    @Override protected void setUp() throws Exception {
-        super.setUp();
-        context = getInstrumentation().getTargetContext();
+    @Before public void setUp() {
+        context = ApplicationProvider.getApplicationContext();
         context.deleteDatabase("vaeloria.db");
     }
 
-    @Override protected void tearDown() throws Exception {
+    @After public void tearDown() {
         context.deleteDatabase("vaeloria.db");
-        super.tearDown();
     }
 
-    public void testRealVersionThreeDatabaseUpgradesInPlaceToVersionFive() throws Exception {
+    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionFive() throws Exception {
         File path = context.getDatabasePath("vaeloria.db");
         File parent = path.getParentFile();
         assertNotNull(parent);

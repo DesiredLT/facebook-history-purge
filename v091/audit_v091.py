@@ -50,7 +50,10 @@ def main() -> None:
 
     require("applicationId 'lt.vaeloria.ooc.personal'" in gradle, "package ID preserved")
     require("versionCode 31" in gradle and "versionName '0.9.1'" in gradle, "real upgrade build identity")
-    require("testInstrumentationRunner 'android.test.InstrumentationTestRunner'" in gradle, "device test runner configured")
+    require("testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'" in gradle,
+            "supported AndroidX device test runner configured")
+    require("androidx.test:runner:1.6.2" in gradle and "androidx.test.ext:junit:1.2.1" in gradle,
+            "instrumented JUnit4 dependencies configured")
     require('android:label="Vaeloria OOC 0.9.1"' in manifest, "manifest label updated")
     require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest,
             "backup and cleartext protections remain enabled")

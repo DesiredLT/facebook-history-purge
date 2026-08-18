@@ -1,6 +1,5 @@
 package lt.vaeloria.ooc;
 
-import android.test.ActivityInstrumentationTestCase2;
 import android.text.Layout;
 import android.util.DisplayMetrics;
 import android.view.View;
@@ -8,59 +7,78 @@ import android.view.ViewGroup;
 import android.widget.HorizontalScrollView;
 import android.widget.TextView;
 
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
 import org.json.JSONObject;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
-@SuppressWarnings("deprecation")
-public class V091MobileDeviceTest extends ActivityInstrumentationTestCase2<PolishedActivity> {
-    private PolishedActivity activity;
+import java.util.concurrent.atomic.AtomicReference;
 
-    public V091MobileDeviceTest() {
-        super(PolishedActivity.class);
-    }
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-    @Override protected void setUp() throws Exception {
-        super.setUp();
-        getInstrumentation().getTargetContext().getSharedPreferences("vaeloria_visual", 0)
+@RunWith(AndroidJUnit4.class)
+public class V091MobileDeviceTest {
+    private ActivityScenario<PolishedActivity> scenario;
+
+    @Before public void setUp() {
+        InstrumentationRegistry.getInstrumentation().getTargetContext()
+                .getSharedPreferences("vaeloria_visual", 0)
                 .edit().putBoolean("animations", false).commit();
-        activity = getActivity();
-        getInstrumentation().waitForIdleSync();
+        scenario = ActivityScenario.launch(PolishedActivity.class);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
-    public void testAllPrimaryScreensFitAReal360DpPhone() throws Exception {
-        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        float widthDp = metrics.widthPixels / metrics.density;
-        assertTrue("Emulator must exercise a 360dp viewport, got " + widthDp,
-                widthDp >= 355f && widthDp <= 365f);
+    @After public void tearDown() {
+        if (scenario != null) scenario.close();
+    }
 
+    @Test public void allPrimaryScreensFitAReal360DpPhone() {
         for (String screen : new String[]{"game", "hero", "items", "map", "journal", "settings"}) {
-            show(screen);
-            View root = activity.getWindow().getDecorView();
-            assertNoHorizontalScroll(root, screen);
-            assertCriticalTapTargets(root, metrics.density, screen);
-            assertTextLayoutsAreNotEllipsized(root, screen);
+            scenario.onActivity(activity -> {
+                DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+                float widthDp = metrics.widthPixels / metrics.density;
+                assertTrue("Emulator must exercise a 360dp viewport, got " + widthDp,
+                        widthDp >= 355f && widthDp <= 365f);
+                activity.show(screen);
+                View root = activity.getWindow().getDecorView();
+                assertNoHorizontalScroll(root, screen);
+                assertCriticalTapTargets(root, metrics.density, screen);
+                assertTextLayoutsAreNotEllipsized(root, screen);
+            });
         }
     }
 
-    public void testLocalResolverStartsIllustratedEnemyAndPersistsCombat() throws Exception {
-        activity.state.location = "Luminara";
-        JSONObject result = activity.local("Kovoti su Pašvaistės drakonu", null);
-        assertTrue(result.getBoolean("combat_active"));
-        String enemyName = result.getString("enemy_name");
-        EnemyCatalogV091.Enemy enemy = EnemyCatalogV091.find(enemyName);
-        assertNotNull("Local resolver must select one of the 200 new illustrated enemies", enemy);
-        assertEquals(enemy.artwork, VisualAssetCatalog.monsterFor(enemyName));
+    @Test public void localResolverStartsIllustratedEnemyAndPersistsCombat() {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        scenario.onActivity(activity -> {
+            try {
+                activity.state.location = "Luminara";
+                JSONObject result = activity.local("Kovoti su Pašvaistės drakonu", null);
+                assertTrue(result.getBoolean("combat_active"));
+                String enemyName = result.getString("enemy_name");
+                EnemyCatalogV091.Enemy enemy = EnemyCatalogV091.find(enemyName);
+                assertNotNull("Local resolver must select one of the 200 new illustrated enemies", enemy);
+                assertEquals(enemy.artwork, VisualAssetCatalog.monsterFor(enemyName));
 
-        activity.state.applyTurn(result);
-        activity.db.saveState(activity.state);
-        GameState restored = activity.db.loadState();
-        assertTrue(restored.combatActive);
-        assertEquals(enemyName, restored.enemyName);
-        assertFalse(restored.enemyTelegraph.isEmpty());
-    }
-
-    private void show(String screen) {
-        getInstrumentation().runOnMainSync(() -> activity.show(screen));
-        getInstrumentation().waitForIdleSync();
+                activity.state.applyTurn(result);
+                activity.db.saveState(activity.state);
+                GameState restored = activity.db.loadState();
+                assertTrue(restored.combatActive);
+                assertEquals(enemyName, restored.enemyName);
+                assertFalse(restored.enemyTelegraph.isEmpty());
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        });
+        if (failure.get() != null) throw new AssertionError(failure.get());
     }
 
     private void assertNoHorizontalScroll(View view, String screen) {
