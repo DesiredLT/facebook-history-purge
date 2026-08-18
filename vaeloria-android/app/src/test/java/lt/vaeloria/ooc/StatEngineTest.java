@@ -187,6 +187,7 @@ public class StatEngineTest {
 
     @Test public void resourcePenaltiesFollowCatalogGroupsNotWordFragments(){
         GameState s=new GameState();
+        s.progressionMode="legendary";
         s.hp=10;s.hpMax=100;s.stamina=10;s.staminaMax=100;s.mana=10;s.manaMax=100;
         StatEngine.Check spatial=StatEngine.resolve(s,"Erdvinė orientacija","",Collections.emptyList(),null);
         assertEquals("Erdvinė orientacija",spatial.primary);
@@ -205,5 +206,12 @@ public class StatEngineTest {
         GameState state=new GameState();state.characterCreated=true;state.characterOriginId="akademija";state.characterArchetypeId="arkanistas";state.characterTraitIds.addAll(java.util.Arrays.asList("smalsumas","drausme","atjauta"));
         StatEngine.Check check=StatEngine.resolve(state,"naudoti magiją tiksliai valdant maną","",Collections.emptyList(),null);
         assertEquals("Manos kontrolė",check.primary);assertEquals(13,check.profileModifier);assertTrue(check.compact().contains("+13 profilis"));assertTrue(check.prompt().contains("Veikėjo profilio modifikatorius: +13"));
+    }
+
+    @Test public void balancedProgressionUsesReachableStartingDifficulties(){
+        GameState state=new GameState();
+        assertEquals(92,StatEngine.resolve(state,"Erdvinė orientacija","",Collections.emptyList(),null).difficulty);
+        assertEquals(108,StatEngine.resolve(state,"Erdvinė magija","",Collections.emptyList(),null).difficulty);
+        assertEquals(88,StatEngine.resolve(state,"laikau duris","",Collections.emptyList(),null).difficulty);
     }
 }
