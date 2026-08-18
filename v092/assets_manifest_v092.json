@@ -1,0 +1,1360 @@
+{
+  "version": "0.9.2",
+  "source_sheets": [
+    {
+      "file": "generated-v092/sheet_01.png",
+      "sha256": "fce3439a2e2811bdbb6ef36597d1a273776a070a754b55f6f66de08af84c81ed"
+    },
+    {
+      "file": "generated-v092/sheet_02.png",
+      "sha256": "1ac4ce5c9707e1f7d1fe065e6c0783f25dfcd86379e95e6bab3b9e5bdb8b5900"
+    },
+    {
+      "file": "generated-v092/sheet_03.png",
+      "sha256": "f376b814f3932b612b4e0ee2b24ef5128a6727b7a86ff0831fe04f4b1ef2b0ae"
+    },
+    {
+      "file": "generated-v092/sheet_04.png",
+      "sha256": "229d3f3e995cba477ccd796f2e06a6df66319be8d0093ed232da2223819bc6a1"
+    },
+    {
+      "file": "generated-v092/sheet_05.png",
+      "sha256": "2d0597f9ff16874fbb330aaa3ee6e11464ee105def9383e13648e9a2ccd17e94"
+    },
+    {
+      "file": "generated-v092/sheet_06.png",
+      "sha256": "aa5cdbfcfee62371cfa89313f4236a9a275d8c676138f68bbb26f705d1b8d80b"
+    },
+    {
+      "file": "generated-v092/sheet_07.png",
+      "sha256": "e7d2e97c0abd3582bef8dc173f4487ab655e63c11c77ce0e730f58ff34d183c9"
+    },
+    {
+      "file": "generated-v092/sheet_08.png",
+      "sha256": "700f2674362c44301968854f9af383af52fa4fea026a755337a1366ff41e3edc"
+    },
+    {
+      "file": "generated-v092/sheet_09.png",
+      "sha256": "622f3eb0ee916e3bdf00882c86ae52fbcad8913a43f58afd236161e95555e253"
+    },
+    {
+      "file": "generated-v092/sheet_10.png",
+      "sha256": "f238841dd18c3d6f06f01d47e46583c0d82a3e7ad6c2cb1afda3b8011b05c2c3"
+    },
+    {
+      "file": "generated-v092/sheet_11.png",
+      "sha256": "e26a83226037d4fdf947810c0ad019b75f3d66bdd3bea73dae0678978fbd1d46"
+    },
+    {
+      "file": "generated-v092/sheet_12.png",
+      "sha256": "8c7071960e82928bea4a09e766d02461a285c0fdb51aacca2c2ad44f7111e451"
+    },
+    {
+      "file": "generated-v092/sheet_13.png",
+      "sha256": "11f536f71d867aff034568d3af7883e46d22841844fd50c87cfadc4526767df1"
+    }
+  ],
+  "output_count": 325,
+  "outputs": [
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_001.webp",
+      "sha256": "0db01d685f577e26f00690230f950f9f5bab80f4ac99f7ad87ed428fca97f65b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_002.webp",
+      "sha256": "2bf8a4fce23755231fcdbfd5974503ae97ce53deed0e610251a222a2ef9b76b2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_003.webp",
+      "sha256": "a9b874a15dde51cbad3b325ceb0de1509a8d16410e4167c8a4df5a52b5b16470"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_004.webp",
+      "sha256": "5d14d32846528c8e897d82e2c66ad1b9903b60b842dbbaff8c9ae0ca46009f10"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_005.webp",
+      "sha256": "4a12dfc9900fc55e5ff3c0e670e8401c553096f3929fef02f3df286fb56558bc"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_006.webp",
+      "sha256": "bad14dad8127fc903c9feb4c101c5e1313cda2cc50445fd5d465fa772046d1eb"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_007.webp",
+      "sha256": "b52c5824b62df1c4ba0e90f1961d2f61b6ed15db78eaaed3f72d38e5c7323b86"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_008.webp",
+      "sha256": "8a07592288a5cdb343f6a70c9c7c6c965ea21f8a5100c35a5200df4fd07cd5e4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_009.webp",
+      "sha256": "fd6a8452fb523fae2b424e5eb100f9dcd6830c692caad6200fd9d8fa5f50fde4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_010.webp",
+      "sha256": "9de0467b1939f22757b07e675d06540c2699bbb6f85f9927098fa2b85ceef24e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_011.webp",
+      "sha256": "779a6f35b82f6d2383d69f2d126c61c0d855e946beada8ef9b2d6eafc296d0a8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_012.webp",
+      "sha256": "4ae301759963900fdeb6d435b5d029fa55f39e578599fbcbe54f233ccd9336a1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_013.webp",
+      "sha256": "8ee6e4a53c92a1089f6d39dbe3e0e35be40b59185003068d9521e6da228da474"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_014.webp",
+      "sha256": "fa676164ffa62541f7272f05e61d083ae17a45a6e3d38157bbe4929642623d01"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_015.webp",
+      "sha256": "8ea6e34c9ffe60148705a67fde0eb274675873d8ebf6d3f7bea6088b14002277"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_016.webp",
+      "sha256": "a01fdd3d2378cabdbfd69dc3dcd91bffc905d14a7f26cb7c3157ae0aef3c6ee2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_017.webp",
+      "sha256": "c21ac0b3f76347da7c71a886f4f27ec68cf9bfe74ef1e21b42c034edabb43a90"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_018.webp",
+      "sha256": "4f785a115ac979fa15740888108dd8c81c80da99e2a000e7d4a6bf787969bd34"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_019.webp",
+      "sha256": "60d13a66b0387e65425444cdebe63368d2f146fac5585467fe05c84ff2ee6f5d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_020.webp",
+      "sha256": "3b041e700a21d8a63b1573b22bcd27426f73c3c4fedb63be7cdd9e12eb9a1c2f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_021.webp",
+      "sha256": "956f72e6b9dbe6e8e2a798b59f01abb9ab77c410becd06759169027e9c8e61e4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_022.webp",
+      "sha256": "b458660879b511f7a5b70521a31fc9c6ad5a575460b25c8751d8e921de98a362"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_023.webp",
+      "sha256": "117ca7e0c98807029b3a815f274a8272c8fa3ce0d3ba8cb0b69673b4bc47ec01"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_024.webp",
+      "sha256": "58b344d3e868a312c3f8387a426d1fb2c81541a3a200e29fb4b6a86213629ab8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_025.webp",
+      "sha256": "f5976bf9bf31242c162d9305ae93e109ddfcd16d913a8be200e0f4191aa17efc"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_026.webp",
+      "sha256": "3afab12fa6d60d85d6eb7f4263bfa57c218fe18b00a0e9ebe29f22926a5f9251"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_027.webp",
+      "sha256": "00dca9c19034010fcfad78678c1004ec4c23a61f73bc13dc5a671b5e1de8ecb6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_028.webp",
+      "sha256": "2338ae0369613d1a57398b6ab8313d898d5e68e4f83c3d9f752d3e2177a8ebd7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_029.webp",
+      "sha256": "d38b050e1ef93554cd06693dc8c5113198e8248643942a8b98e5bd12dc56ccaa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_030.webp",
+      "sha256": "ef18448a8310ec4f55cd4bd4d7e338973f1d0cf0396e6aa813656d9fb2043978"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_031.webp",
+      "sha256": "5fd310dbc18029d037bdf92ca24795ce4d152e697029d375041d6d2231f16b3e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_032.webp",
+      "sha256": "d29b8aff22669f0dc304c9c0990568abfea5a8ab6d2625eb8b2ffc8294ea93f2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_033.webp",
+      "sha256": "e6df38aadc7395a8b1dd9e0e6bf7560d93757ab211421401adee4361e3700782"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_034.webp",
+      "sha256": "07be767002cf62dc2bbd5cf2bbd434f03088421148ee73fe0d880f87cefb4157"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_035.webp",
+      "sha256": "00b0ba497d04cd606ce0da75f39e10308c97383d554b531cc7f5be3d9728039b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_036.webp",
+      "sha256": "069e1174156f1a92a2170d72d6f937f34d8d114cdaa8d9a948277150d1ab155c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_037.webp",
+      "sha256": "44b6a53c85359cbc99f09121b4bb49aff4dfef71dc4980c9c201fde3ee10d64d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_038.webp",
+      "sha256": "18ab317eb1eff437a14317d678a952719ad92c2027e04860a7da363cad158458"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_039.webp",
+      "sha256": "4e61cc3db645c64fee8e38efb7e48bc4eb4500e9814d8a52c5e2c69d0a99ba8d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_040.webp",
+      "sha256": "8b076545e058da0c16b0f4b1cfb62557c42f954664b2b6cabe8f46bbf697e2bd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_041.webp",
+      "sha256": "40f3216fc139cec0e1abccbb42a766bf89b78e38c74627fc16ed15b96b4b55de"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_042.webp",
+      "sha256": "73e840eeffcde1129efc8c09e9ee2fd6680bbdfc4958465c229a101b94920b6e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_043.webp",
+      "sha256": "b724671536c9a3713adb19f5412b219cbe86635144235842e09646e5af2e6682"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_044.webp",
+      "sha256": "08977cbd42677cb6c966c9953b0b9b22e4c13b314239eaef067a388eaea37dd3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_045.webp",
+      "sha256": "e041ef8d876853ca8852b9457cf063a0f1a2f532f0bda8b4576c908e29660efb"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_046.webp",
+      "sha256": "5ee8701e90c3227234c2b7ab9a1be5fd8f4bfea6b3ca41662417286228b46d8b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_047.webp",
+      "sha256": "c0a8afe995ffadf526d735768271055ca1e538c6b28f208b6bcf3232334336b7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_048.webp",
+      "sha256": "c33773e517477601b30ce4df3099bcb35527969b0a73905ec52c102c6caf9a90"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_049.webp",
+      "sha256": "eea044386e0b1f0b107dca98703e30c4fa235bf7baba3a74e688882756e86335"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_050.webp",
+      "sha256": "f0d0d4e16b8e15cf1c67695da1c88d9b3305df06a72fd1a145e17def97d7881c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_051.webp",
+      "sha256": "8da87fa70f7a7b0c6a4471a0a717ea04f2f2207f84dab9cae05961b1f98ba93f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_052.webp",
+      "sha256": "677672aa4700cf2ee1d4d9ceb3339f58b6171f90ea9d6ee8f03cea728b2f27f6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_053.webp",
+      "sha256": "732fae0c0e920f6732ebf5c92fe18ce9452c80f1317c4ea8ede256ad99cb6b0f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_054.webp",
+      "sha256": "dcd126f8c2818606508fde3c86f27d32894de805fc8bbfc89de584d493a6fda6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_055.webp",
+      "sha256": "8d82d65383c60af444c92413bc6577c67e141d0731e84be6bc2e590c4004cee3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_056.webp",
+      "sha256": "b423b643cff03af5d34091a6d5f6b9349cb5741f016f4c3cf67b475369090b2e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_057.webp",
+      "sha256": "048171e59a705ef6240d8089bca5b4c2de35af7f776418dff63ddfae8b390d75"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_058.webp",
+      "sha256": "9b686854e73add891aca9152428518c788d04fa880baeff4db46364eeba60ec4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_059.webp",
+      "sha256": "114b526c8a8f141da663ee0ba7672c4bb2cf5e054cde54c6a4ea750e5b5c7d3b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_060.webp",
+      "sha256": "3c79cf8cba8150e81721e612db8b2d73dd18f1720b54cb9ad0b3098b4bfd4cab"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_061.webp",
+      "sha256": "d2110ea0f7254af56f36be75ddba97c089dcb42efc49c574ca0d2addb9b37399"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_062.webp",
+      "sha256": "237419ade35d816683ab3387f13995a402518b9d65f94c01858d6917a19637c2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_063.webp",
+      "sha256": "807f20d081846a17773726cba4b320a4f7157a3abed8948343ea3461cc9001a9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_064.webp",
+      "sha256": "c6f61be93203900ab59278832210f4e814df1865ee712ea282d241207a110cb0"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_065.webp",
+      "sha256": "9a9c5e117a0459da3a0f99504cee93f072e53478a5ad7962c7ec43949b9e8733"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_066.webp",
+      "sha256": "5e6a62d03eba30396bab39b9da103ebe7efa3b8aa9ad639ad7a036968319916d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_067.webp",
+      "sha256": "b88e71d318df7844a0214dccded4d6cdfbebcdc6b416c5c6aaeb14370048ad9d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_068.webp",
+      "sha256": "ca1836600e3e80fd927b396a073240285e1d15808eff3af685d4eb8c5b798ad1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_069.webp",
+      "sha256": "2724039f0237c3eb60a98734d991002efb361742689558b18f93457cbc2faf92"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_070.webp",
+      "sha256": "67376d995237ee2977820a6eacaa484a368c56f1f010bcd1272c693d78f3beed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_071.webp",
+      "sha256": "5d03914b8462659cf2a9432b5745eee5f8c170c2219dd906f837605ee53b0471"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_072.webp",
+      "sha256": "b83e61d525d38af55b927951d6a762b4bc073b9f1a2d19e7ff0e3c5aaa6a9112"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_073.webp",
+      "sha256": "b7e90cc0f35b529bb732cfa2c3bcbfe97e57e9a34d7cd750a03ebc28253c757d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_074.webp",
+      "sha256": "200557b576ccff35a89629fba44846cd35b357eb5dbc42a3cf6a1c6fbd74a23c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_075.webp",
+      "sha256": "d5caccaf669eb41031f9e0fedb95c4cf4ce69eb1735581d32874ebeb2d2567e0"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_076.webp",
+      "sha256": "af22a722d71362a43acaa7d84c6267ec093f93b2ad68ebe9cd3e2dd996a21bbf"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_077.webp",
+      "sha256": "d8edcaa0c0cf8b04971db79fd32cdaf156346bd78494a22c19641e730fb4b92e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_078.webp",
+      "sha256": "89bf99a5bb1f707b1421ae77424771e1892145db6ddb3eca87621b14fc3160ea"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_079.webp",
+      "sha256": "73a2e45f077acd3a7b4f9e41c45ea3e87f825be76ac1e5d3e46b8df864bda3ac"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_080.webp",
+      "sha256": "d4f31f43acfe97ea577bfcc7fe22e63cda69c913b594ea484d1405d152744910"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_081.webp",
+      "sha256": "36f0a04f8507f923d1c22338dbb6dc0bf557c3aec26226c8177291bc1762f5af"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_082.webp",
+      "sha256": "9c0d6aeabb519beac36ea0d77639c202a6cdcf62a3aca52aaec844771b5ccbe3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_083.webp",
+      "sha256": "cde2864f2b67addea8574a04964ffcce624befdf2c4ab300ad595381af0789ed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_084.webp",
+      "sha256": "1f4e3c31904d90fee046f067a789023a403c4282a56c9547314e3d947703e187"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_085.webp",
+      "sha256": "da791279f9ecf5f1d507705c3f673158dbf8e15d99c5e3ba214c4501f74ae386"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_086.webp",
+      "sha256": "474c87898048a0d5a49ecfd9d11a7db8e10436d4c45d735b17ddc88f75269467"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_087.webp",
+      "sha256": "c495d6ee645eae5b42c41d50a000309f8a492cc169670ba98afb60d765e28b91"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_088.webp",
+      "sha256": "f91d5294b624f9d847b9d2e61fbd809ed89c25dc1f25474d8104316cf183d876"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_089.webp",
+      "sha256": "169039dbd6cd21f3919c55994f1b56bad4ca1f2d93880f3bdac893ba0abea77d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_090.webp",
+      "sha256": "a445109ba9534612e8538ffa841692c9ee8bf49d537eecf840b9be7ad52f9190"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_091.webp",
+      "sha256": "af406c4365731d21c3e3ed16fad33b6fe80624248bf8349684f52d886bda1302"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_092.webp",
+      "sha256": "293ce7ea32308408aeae073b7ef7951ec9e09b8ce8a35cd20ce36fb08c9a87b3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_093.webp",
+      "sha256": "ceb2f1022795300cae82abef96900ee2e8ccccf15cb8f2e21a62c54f8020e208"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_094.webp",
+      "sha256": "3bca62ebb49bc6e91685d81aa1a46aaf068caf3571d5ea5aa9d321cdddf66920"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_095.webp",
+      "sha256": "a26cae95978da51162bdb55bbd75033d8d14cc24d9989daebc5207f3ab3cbb03"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_096.webp",
+      "sha256": "7f5786d82e7fa2ae368548cdb7555d22bc575cca088251f251359cdfa34f651a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_097.webp",
+      "sha256": "a5e05f9e9be1c9dc6d114d7e9a0c6a21ad954ad10e23f3204539a4e527e00f73"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_098.webp",
+      "sha256": "5b2c07be6a92a424322f3fbd9c4ab76a7c99622f8f65941f5cda8232ef902906"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_099.webp",
+      "sha256": "d8222747cb52643bcc330cdc89e0e882342c3b3bca1ab2500cfde84b63fada6e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_100.webp",
+      "sha256": "74e74675ae3ca039fb25668ba868cb26866b7289cdfda0add10eab3d5b9164f5"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_101.webp",
+      "sha256": "6471c04436b2be4eea4847c1a5ae12d1c968503450f03e934695bb65ce52331c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_102.webp",
+      "sha256": "6d50a42d3f65890b476064e6cc094cf4b1a6ae1627a01131930f1a55e23dcdaf"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_103.webp",
+      "sha256": "56dc658dc83ab025549943d9518048a55424dbbbe57ab6da082827319190ed7d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_104.webp",
+      "sha256": "6551f8c554455f568e1ab54c6b5f25e4ce753b51bada6eda3f0baf1d95e33848"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_105.webp",
+      "sha256": "e8e945280c9469f67a0540d14d070caa16f72e1efc0cf65ce297afabbc9c4b44"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_106.webp",
+      "sha256": "242c0790072574521f2909d069640ef198206bc036f85bd8f1434b4245af9dcf"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_107.webp",
+      "sha256": "bdb2589900dfa9d9736ec90d1e05a3eec279228e625459da18067a76b06e3b4f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_108.webp",
+      "sha256": "f8d6d65acacb6072b76951f039c02c84a4289ca01a04bc0d37cb98b497d9df65"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_109.webp",
+      "sha256": "570a8c17fffdbda043377e76ba877ddb61746770488adb23dacec19987bcf6cd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_110.webp",
+      "sha256": "71525e30a1b497a69545031d742903aa259527ccb12079c8948b391f5d78cdca"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_111.webp",
+      "sha256": "1951ddc9c2a49913597fef4937188a4383c149681bba07ab8c0e12483908c7ab"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_112.webp",
+      "sha256": "e060e427c257a49a466151796b7f70f8c7fc23fd26cebd87587d5193897c5ae1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_113.webp",
+      "sha256": "805ba354921b875fc7f9f0144f3742c6da6101a6f357acbad333c57ba5509ff8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_114.webp",
+      "sha256": "9514f62dd7a811480b1bc7eb2628d9c918b2dc6a7c20c8a368883495955c2177"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_115.webp",
+      "sha256": "4d110e8e374249406830a423ef0572d481c789a137e43209223fea8872afd87a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_116.webp",
+      "sha256": "cafc9ca9ba30e85b854878eb442fefe4c585a533e2687635762da9510407937f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_117.webp",
+      "sha256": "c3c563c80cf25a2b6f71f09ea6eda8b3133023d897716f74955f001a863d980c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_118.webp",
+      "sha256": "8c3788aaf2924b4c2d1e054f5e44026aa80e4a10ba920ca6a69503aa3b7733c8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_119.webp",
+      "sha256": "6b06b3f6eda2331662243170bec520d12657ccf603ed35d623b4338c22614c3d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_120.webp",
+      "sha256": "ab3b5855a727b8c6dc3ef7d97d4e095f3d72abf5586cc9fb813a1d33b60a07d2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_121.webp",
+      "sha256": "16974bd4470af08f725a4a368fe3c19d4064dd7e02a0a4a6988b3c2d4cf8aac8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_122.webp",
+      "sha256": "0dcac30d4efe45d8c53699cae8eecdb8b847fbd6ea0f467cdc11df6fc603ef12"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_123.webp",
+      "sha256": "0a897c6ee2486b00e7d657f9ca97fe41317add8d95d7bbc64fcec84557031877"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_124.webp",
+      "sha256": "8445988ce5bd266715c80bb1ae4a58d2fdb8d4eff53b5bb3e0da187a50540ea1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_125.webp",
+      "sha256": "988b299606e6d0242390f7a999935db60b56a2fff14735c5936cf66cc8c5816e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_126.webp",
+      "sha256": "51cf0c2641c8910c20d90eb2916dcb03bdcd7e98711aa6d0480f7165d358eb1c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_127.webp",
+      "sha256": "18993791c181f6bc3223b6562d8331d382c4e53d95cfbc7a2ffffda4857c0db2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_128.webp",
+      "sha256": "10ec3cae8eb4633f9ad7e56acba8d2f95a510712f66a394051b756a56453da5d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_129.webp",
+      "sha256": "ea5e212297282ba9b4eb6a0f606872389f463468e59d775df9d3ed12cf054220"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_130.webp",
+      "sha256": "92f32b516e065f252598eeff79444cc2d0e6e084fa541c07e78b8481ca1a49a7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_131.webp",
+      "sha256": "1733dbe9c6982e2fee3e46868166be799dbcc652029d894a852a6fb45ab685e2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_132.webp",
+      "sha256": "ed4b80e37fa127fbd34fea9a8f20ab1122f789ab1da495f081ea219b27a071a3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_133.webp",
+      "sha256": "3aa955ea6f1dbb4d4e11a712134d080706de35dff7ea1f81ed0a5c619d3c9ed7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_134.webp",
+      "sha256": "7b8eed2ffe17366c7c639199735e0fa692d45cb29f4894c3c316f844c4b400ee"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_135.webp",
+      "sha256": "49ff393afdc653e2a1ff7391c0fe34267018f06e4402505fd9608c6eba32c574"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_136.webp",
+      "sha256": "f522a79ad91ebb19a28cf136c13b91262ddc938e73694dbde8d94f3d51eba8ed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_137.webp",
+      "sha256": "76e0e519098c587080f79229269410a6d6988030c015ae4b7b92c9d493c11d98"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_138.webp",
+      "sha256": "c62097909a13fffdd6f52ce232f42ec9b7534dcad650f3911992f3c5b3c50e6d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_139.webp",
+      "sha256": "4a30c392ab5bc9d9a5b8843722e94f98fe08976f001471a432ea428a11e38560"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_140.webp",
+      "sha256": "ec9cfa050700463375449a810d2d5b2ea76c2af9cd94feb8e38036d4c03b745c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_141.webp",
+      "sha256": "99c68557d64d79ea008e84a1f20e3905d61bacbe68c7ff583d3716ffc4073b5c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_142.webp",
+      "sha256": "3a53209361f9a17c430280e0d38459c66ef0113cc04dbf3e49f5f61e902f6e1e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_143.webp",
+      "sha256": "cba1aaf168b9fca386c11ca8d02d1e6b2d0f1ee2282ef5330033265f31abd540"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_144.webp",
+      "sha256": "d2bb8cd51388f98cb79ba5a2232840b1fa14b21f8552d95139494f0305a351f3"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_145.webp",
+      "sha256": "1bccc42ee20d0353b32aa2be6daefa6040c8c991f20c89182d828bced99c6aee"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_146.webp",
+      "sha256": "fc2cdeb1b6c37f071c92378c6c4960e343e11e1893eb528ac0e8aed8eae9929f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_147.webp",
+      "sha256": "0eab0a34c04552d0a55fa83885e27ad3072810746721adb05e1e4c3385f56d40"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_148.webp",
+      "sha256": "4762749512ed4290ae5e9053c37f8a482bf1dd10c3c49ad4fa2160f64cf1ea2b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_149.webp",
+      "sha256": "56015c0d2189c9d1165af9719719fd9e8f465ac6b3584582c1ceed1a878ed6fd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_150.webp",
+      "sha256": "cd4b978f473a58c2dbc81d51d2db38c199c7f17b9207b62caacaa9875c10bec5"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_151.webp",
+      "sha256": "42bc9ab56e8f8a9a67f4222f3c6deccbd86b9c1edd2aac10855dc1351861b802"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_152.webp",
+      "sha256": "7a48f693dc58b44adc1d9bbe55bad40a83468c26db6ff65364bbd269dedfd844"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_153.webp",
+      "sha256": "c86b3859d29b4d6d023d66a38c01a3e1e19c0fb0c46bcd0c3a5ab0d943ab78ed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_154.webp",
+      "sha256": "6b321eb3496a6a002f06462b65044cb9ab440318330d9a69e7524742bf9e975a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_155.webp",
+      "sha256": "c423b3694a85f216a5f37dc1db85487044c947e0142d7689112b2f0ef05bddc1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_156.webp",
+      "sha256": "37e9dc1bab2a987ae73b9400352cf4ab7f4439b12d7c9f307d077af1994c0faa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_157.webp",
+      "sha256": "7e9733eb46de8ca771e338bc4616de136035d9af3080538ed38c525193186328"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_158.webp",
+      "sha256": "216578abc0b57c3e4c837efef2258427f2efa738d2eb8c3cdf8e1c7fc1b054b7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_159.webp",
+      "sha256": "5b0c20a31802fb336b03d5598d840a70b7ce44b0e9e820c6533cb040b130af49"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_160.webp",
+      "sha256": "dd22c46bc5ac00ccfec05bf36fac8b8b7e7b65372db3890f17a2984312487421"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_161.webp",
+      "sha256": "8e3ae29273ba548af972afeb28d0c5e65180fb6c12c654c95c15abb261f8211d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_162.webp",
+      "sha256": "83962a11cd1f0bcbb03b6d36e2992f3ea18a17e42f9e019b7ead1f8ee28e3d1a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_163.webp",
+      "sha256": "88800a6da66e75b8c68c9476ba2ac5ef4d5ef337f4be5b249b0b27d3c72d72f9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_164.webp",
+      "sha256": "4bd02d8041ec02740a19f92e19943349679b7d3fce1e3334e4db292e30d6df7f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_165.webp",
+      "sha256": "5e4ec3d205d29f28a061e6bee2a4ce1572a08b760b537484324802f1177fcf60"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_166.webp",
+      "sha256": "f53a794d13ceb5616f4394b40ebb2d8e1db1b818074a8e0cbe22c173b984809d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_167.webp",
+      "sha256": "ada245df0829ebd97c05f2eb349cf8a22d281bb028fa32f3e5268edc401c6f8d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_168.webp",
+      "sha256": "33e43ea84200711383d844fec5466389f83a7fb09975dbba0a675cfbbf386989"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_169.webp",
+      "sha256": "8023d361b5cb1550a8463c1523fbc96f36a694401dba806cd5a21b8def0298d5"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_170.webp",
+      "sha256": "c0c62ef5e68daae06e298590c90dd50b99022eabbb04c69e692680d193aae96d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_171.webp",
+      "sha256": "3a6468a3bbf5533234700880081791fc824154c4bebee23fcad6a2eb3f5cc69c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_172.webp",
+      "sha256": "318be8d847da13d8d27fb73d2dcd571840d4657a15d0a9e1f2d36e80fe3e7419"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_173.webp",
+      "sha256": "893d0a87aad31e05777c1f350691a5e4ad3f19e8f32b1a67efaff9dbc85d5888"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_174.webp",
+      "sha256": "81fe5ad2d640e31a796d57e9caf4fb8faf02e4a4b91981e88b7c1e51ceff5eb7"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_175.webp",
+      "sha256": "149762daf494b8360fc913f923780ef26d1393a889afc791b76c65170c4c933c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_176.webp",
+      "sha256": "dff442661717966b1282f84b919d67566682a8b0c98a135e365adef3c4060d3c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_177.webp",
+      "sha256": "71e4ca1ce595fdc31ba003168e8f58ee5f15748929c30cc852a84fa5b57df7cd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_178.webp",
+      "sha256": "d943ed0fba1fe763c308e25322560b04baed1ce47d1fe6595060b3feaf023eb5"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_179.webp",
+      "sha256": "dd7da454e9b2991d95e5382351db9739d102cab14785860112c04f4c43eaf42b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_180.webp",
+      "sha256": "935677da4881c52b9ef73be9469f64396b50b8c0cdd297c52a562bd0f2950d4c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_181.webp",
+      "sha256": "4dbd2efaa994fd12c644e51a1b75bab04b9b15cb4815debb345bfd1a542991f4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_182.webp",
+      "sha256": "7bd40dbb4fdc54b63efb7498597efb1bc89d1b26bfc4dc86a5c19a41dae04a45"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_183.webp",
+      "sha256": "57392ac364bb316ea0b96c5ef5b5972c7a48a9615d054990793f6e97fd5c0adf"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_184.webp",
+      "sha256": "4fa894474072ea96b6766d12d449cef6f1b8f872a303e89c7e013a989efbd342"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_185.webp",
+      "sha256": "5bab65dabcb02ce1dd87af959314d05a09a7592a9562b9e0df68b2608a311461"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_186.webp",
+      "sha256": "b05cab80334fbf04cfe3c9999febf78f4f3744db8cbb1c1c956fc5e2468e9756"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_187.webp",
+      "sha256": "7c30273997ed35fc8ad66ee40e7fbf3c76f99f06c62dd55dbe1aef961410970b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_188.webp",
+      "sha256": "8d5e215652dad469a9c521229498e516c4e8c226a4caf8eef7ceb8dc896ce024"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_189.webp",
+      "sha256": "8dd21f9d74a78cbea9d3da51fabafba1b26dadca60e8179d02a813cd610097c9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_190.webp",
+      "sha256": "032635be96eb6887ce81169705547d9c3951c1cca4d3ef533c4337f3d0af1277"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_191.webp",
+      "sha256": "ae0e75889ba5b048fdac2cf783fcc20878db5a17c21ac7f3d8ce87389a12e490"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_192.webp",
+      "sha256": "5c015c89665d27a8bc6b83694068fce66eb0a732e2fe38cd98ce06779392f038"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_193.webp",
+      "sha256": "7d1210f98fbcc4b7405d69f5814a171e144226a899a86c576ae17067effd0dfa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_194.webp",
+      "sha256": "d9c8ca8279ecb25d4087da1a8862a554f89dcf75a97dc70ca5376e793c3925aa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_195.webp",
+      "sha256": "754e1016293f956eabe8b999bf341821e2088089b8c43b7c70945723e7130d5c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_196.webp",
+      "sha256": "ab53584247caafb723aa25ba8d7c5b276dbbf8fa9de5bef3642e26ad37e4d450"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_197.webp",
+      "sha256": "339dccee54ab9ad4aff362397acced4355b378e0243b1ea31966255772a4f590"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_198.webp",
+      "sha256": "7571b37be9b3dde3a9aa96166308931af742aa2a45c486c3746d111b7dc0cba4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_199.webp",
+      "sha256": "d88ff84a08a89f73cb8b568f8a4ff454c70234bfdef5b33da61b9520cc4d47cf"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_200.webp",
+      "sha256": "b31f0592cd35f9409d523bcdd225df430f35f8cc6b2a4166923beb463d2102ed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_201.webp",
+      "sha256": "93ab782af5a764e5770ca4623f28f117d6e57f958088f852c5ed164e3b0c0b11"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_202.webp",
+      "sha256": "b59f75f9c82ae883d70504f8263a321338aa113f61f2068a6a54b94d706e226e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_203.webp",
+      "sha256": "62a47cd4137e7cfa96d109fa0b4f61cc122a919523c76adf267ba8faeced74ad"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_204.webp",
+      "sha256": "01ffe3859c3586716b96a1cdc85b57fd276559e82731c6877980909856ff3697"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_205.webp",
+      "sha256": "39150d2e284a9830036d2fbf153a4b2d66ea7ca273b95154de5283ae289be83c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_206.webp",
+      "sha256": "118efba1b3471d32baf3949bfd2dadfb728a926378993dee959fa915ecfbf44d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_207.webp",
+      "sha256": "4bd19d4e6f37d68e7ee91691859affdf5923c64214d831f080eac9df2022a7c4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_208.webp",
+      "sha256": "062ab957c32a4a5ecb396d23ad5b5d8af658be579a5223a0be0440725927dc5c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_209.webp",
+      "sha256": "6886a44985fc227a6612a0442a5a663f8ae2d29cb7648e020c255c55b19e7b59"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_210.webp",
+      "sha256": "93f599974356f9e20ab13c3c6b71b93f8a7d1d0488d1053d6e48c3f288bc1d32"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_211.webp",
+      "sha256": "79b1a4d4469ff33c7aa537f43e05809e23d6a0e380ff7baa495fc86d7421b542"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_212.webp",
+      "sha256": "7fee0faf9f7be80d31da462c4e103dbf16ffec0d7e9ecb1d2d19b82f7ac44781"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_213.webp",
+      "sha256": "5c6b27180351bb7317c3f805b4cab3b3a2f30d517ecae2ec9e584496943036ed"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_214.webp",
+      "sha256": "63aee3b473f6c0bade32d9224c0d9d9db93828ae734547502655773f87969910"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_215.webp",
+      "sha256": "81f3444bf7e8af4624bce7a8a8f58b99f694960e4b68b3dcf6c06e369ef13ff6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_216.webp",
+      "sha256": "3637664755128790d3a75d4cd42601dd77d23c31888a282902897a22bb52ecd9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_217.webp",
+      "sha256": "1702fee4653df1e1a1253796790cd9334a012d483875dabe61adc0274460f927"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_218.webp",
+      "sha256": "792b1fdf1e5697f60a5a4c8e6f280b158de9b6adbce8c08d97c32aff4789ffc4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_219.webp",
+      "sha256": "6d8128a6a0e504b760264cc9004cbfbea11c74e28ea8209e81a07a6f0d808dde"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_220.webp",
+      "sha256": "f3f1212d53b30afb0d1205444fbd8a5e36088d5344d2ac5c08a847d358a655fe"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_221.webp",
+      "sha256": "42c3f84a2b53c22341e73e8174d74eec5cdcaa6238fbf2920d4db369e0283725"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_222.webp",
+      "sha256": "5c966800ffd7d2c96a39bf0c46af843bdab057712da35b59aebf408a74de35ea"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_223.webp",
+      "sha256": "11f4ec68e6ce7978d0077062ffe93c2164d4de4ba76d9b32eb59ce9a6fad4271"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_224.webp",
+      "sha256": "49c67f234474eb962a812fc10d9d9123f4947235634c7678a1c7c446d57222ce"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_225.webp",
+      "sha256": "a32717e6b7ef571f325e00350eba227e8daddade616d1574b43a6093ed7fba5a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_226.webp",
+      "sha256": "fbe2840775eb7dc720e0569c9dfa96775a527c4e14e4163d8fef56a8cb79745b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_227.webp",
+      "sha256": "7dbd1e743f283d9b8d01daa3c78f38352f62cb704c74544f6da14e66d97a4308"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_228.webp",
+      "sha256": "8d686f6707d281356037039b566d3cd52a8d25cacaa05f4d2a15c19d90c19de9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_229.webp",
+      "sha256": "098da87ef2bc6c6ff6feb475e068b1f4e266dfdeea0bb45f3baf1e603bd1083b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_230.webp",
+      "sha256": "01bab63ecd816bd6e07c5d3e694dc732140c1f86436843535dcaa818e9d19d4b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_231.webp",
+      "sha256": "0eea6244d867e0055d0bae330fba1b9a86ce24810487cb9bdfb1557ac82912bb"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_232.webp",
+      "sha256": "a5872995b31af8b2b0b60fcd9c09ea379abb4c16f9e1d06f11b0950fa692a421"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_233.webp",
+      "sha256": "b0ea54aa846aab3d449d6a32e2c73ed574230fe497f1e242d54d394e3e14cb0e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_234.webp",
+      "sha256": "54bcc3eafca338c580dff970da0dcc4722e53eb418bfcac58966812e0335a49b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_235.webp",
+      "sha256": "0db8a9b65d61113e474b34026dc99a7e3a15ed74eda3d167e947b0bc2cc1be6e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_236.webp",
+      "sha256": "8993846531221a6aef887d9df1707b58a260513e1f21a327681051a9553556ab"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_237.webp",
+      "sha256": "efaea965fb51bdd913113f5007e12d8daf6c98c5c7a7d3d044cb5897b6f6165d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_238.webp",
+      "sha256": "7ea77a23ced0ad1249b51512817cf5b24307ec31e3ff06b92dc4df90b95d14f1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_239.webp",
+      "sha256": "56d368a81d3cbebba347b2e7ee2b6e5a73eb2fb1691367ee41f612e3bd0e846d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_240.webp",
+      "sha256": "5ee3bd04ab21b27cf1746046bfb01253673916c97ea321ed27e8bc6aaf1f2189"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_241.webp",
+      "sha256": "1dab2416c1ac45adb34dfce21d55b1829179f3f15a863f17a33c7d3d42d50bab"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_242.webp",
+      "sha256": "2dabfb9d3a8d3ceacd30b76f58f4ea0f71848d810a5c04750b0319a2bd0da803"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_243.webp",
+      "sha256": "987d7c1b8bc22e13745f95acaad59f24760ca7b2e76c7cdc1719d61d020e66b1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_244.webp",
+      "sha256": "6f8601e3aee9929c2693567ff919c779c96b83ba861b0632f8a1c2d64ffb79f2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_245.webp",
+      "sha256": "7ae62bc72569c18ab2fa7e913f6a8026b99c739d7517eb78ad124bbaa09fad8e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_246.webp",
+      "sha256": "e1031389d94a589525a503256cc3b6ab2a36c9a5532255190af0748143ece518"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_247.webp",
+      "sha256": "44669815eb4b331dde54e79371ec5b40275d54e3cd652f0c1ae005f0a10c487c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_248.webp",
+      "sha256": "b6bf8dd5fb7c3a51a4110700f5ba2871714732a784f368a3f81492cf64d62cf1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_249.webp",
+      "sha256": "30a62a6a964902ed7c91d2ebe0df25a919328236e2f4f77e43a09b7dafa87b67"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_250.webp",
+      "sha256": "2d9b9b8dd2d802b680db731511108ebdafbf8d1aedec79aa605a92f74b39773b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_251.webp",
+      "sha256": "f3858c262050eceb99ea9e4937e52a67a30977950b2a0753b5ad03fa8617195a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_252.webp",
+      "sha256": "242f8c42c6c0e3543dd06cf467a98233e6a3464cac4d7ab3b812533db6e021aa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_253.webp",
+      "sha256": "7d3468d3cc26eda5691c501e389b138f8606933e68d77843ffba2d41a3efe94b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_254.webp",
+      "sha256": "27b99651ce4b86651b215bb85985f92b1a32ee54d3a084af597e707c7f14d2d0"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_255.webp",
+      "sha256": "4fa3969cbc25be012e1acfdbf3ae25c455104e1c728debac5cc66b340f40d3be"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_256.webp",
+      "sha256": "72b25ae16f20082dd1b114b23d4f8181cc154571fea7d6b131488b5241acf36c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_257.webp",
+      "sha256": "dce9383b516b4849128313ba0b4af4fbbc69e9976c398b31402595511c90ee48"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_258.webp",
+      "sha256": "ca66e04e1f3b8abd94794b63c3329ad838932b00fb31715d66674521756f0c19"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_259.webp",
+      "sha256": "adc5bdc1602d29b40e9ebb094083b3648314b957cd8aa2e2f177ed3c532487fd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_260.webp",
+      "sha256": "4be9517875c23fe1465854f7b829e24e56c208de13f03cc349f3e39d172f592c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_261.webp",
+      "sha256": "0af92350fb3e5b825d8e8d2a6cf8eb841ce447fd13465c9c9b9b09387e7a56d8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_262.webp",
+      "sha256": "e391dafe6050277d146c7d0b84663fb1dfa395e946df5e544cef0ee12382c7fc"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_263.webp",
+      "sha256": "a0f68cd441aaaf2936eaff5889da656b245651798d83bba600394dbc21fc20b9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_264.webp",
+      "sha256": "7a94d78e7d257f7842cb6df109e1da3041dcabe8ffc82d5520df1eee2fa49086"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_265.webp",
+      "sha256": "ad9b0b1eb1aa81f1a24a3a13b7c357159a075a6984ed7bb9b4bf914d9806eb88"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_266.webp",
+      "sha256": "4ad9b16dd1c4b496afb22907adecf3d7476967c7f705203cdb61349e9a4d8a84"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_267.webp",
+      "sha256": "55058f6c8abb94aef59aefcd127e3653d13fb36a7390899e7013a3df33d8ccc1"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_268.webp",
+      "sha256": "573da6622d60543ec04c7cf03d725750aa333b4e2342bba4f5cccab8976d8a5e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_269.webp",
+      "sha256": "f537fed44b3f060e1049b9acf32c65e875b6e7e2a4a0760e2f5f25baae78680e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_270.webp",
+      "sha256": "0121aa644c9fcdfab24d3958db215ac7a07b6c783925523c5d2176f6f0e1d066"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_271.webp",
+      "sha256": "6a3d6c1d32015474fcd07a013d2ae1c48af5da462622abcded21de5e11b0018a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_272.webp",
+      "sha256": "046e06f614acb775ec0d90d33aabea6d6b218ea10020c44ecc2d2512d5017a36"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_273.webp",
+      "sha256": "9e3b7380390a94e22a7a941bb6fcb604f2dc0c6a44c1f1fe0ccefbc98c2fe5ea"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_274.webp",
+      "sha256": "6dafb362064248eb726af968445d95dba51a8813acdee795518115263bfe8b45"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_275.webp",
+      "sha256": "08e175eaf9d67b7c2a051a3be691c5101e555372d31f94247900d05d8c971baa"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_276.webp",
+      "sha256": "0a9c029562586cdd81d43f6aed2abad54eae8d79f53045799dfb59948074c0d0"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_277.webp",
+      "sha256": "5077a0e98c9e11b2666751d46b94667a6caec275be4595f4f1ab9ce8dae2ab3a"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_278.webp",
+      "sha256": "6c1774240867acdeb38ceadbe8855bf52a86e1bcd3ebd88b2a25574b4a4c3fe4"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_279.webp",
+      "sha256": "871ff4777797457bc5f2818c19241c713e102c5dede45ce5c88b983a2381c8fb"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_280.webp",
+      "sha256": "9cbe44d29cfa8b9d5e3eda96c72ba1a8d4150119648889cbee789a9c65527175"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_281.webp",
+      "sha256": "5f140fdefa8fc62e55d9c8d07840e710f4de783fe20453f8eb6992a380efd393"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_282.webp",
+      "sha256": "f283dd9fd405a0414ebb628f31d5ac5162f92d764f56c27480d6c963dba014c0"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_283.webp",
+      "sha256": "1fdf77e25d37801e72219ba3e4c578aa643afa1536a227c2c0b106f2c7b91664"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_284.webp",
+      "sha256": "97633baa35290d92f107c4990fbcc6d7e7408ada8a3e317cf25d4df4f7a8bb90"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_285.webp",
+      "sha256": "f44da5521c11005611de6eaf971185e41de43f76b8cbaa43daa9f02c11f3ef9b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_286.webp",
+      "sha256": "0573d240b986b062d127329fd39560e78066beb6aaa1bf82e0f0b40a14746d00"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_287.webp",
+      "sha256": "3717118be2bddeae9d2b59623156c4c86025a6d32ca336e504d16fdbb5af1015"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_288.webp",
+      "sha256": "2d04a8569f2eb546815802e7762c04f55f967f147cf3c7e2005874356e59e612"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_289.webp",
+      "sha256": "890aa5488720c19ffde3f050fa144d693e218764019e81e214543c3e00dd033c"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_290.webp",
+      "sha256": "00e5835d73618d0c1beee56e8dff4072116124e329531492c795070268fd1b46"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_291.webp",
+      "sha256": "2e03eab041028b32ca331f9bd10e316476a173ad188b6eda915c387157edabc6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_292.webp",
+      "sha256": "247417b9920ee8831414d5e4a919e51440046b41376855e894b7b959961a6716"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_293.webp",
+      "sha256": "ab71bc6488e2e4a2ca2960ac63c676b0060ecdc983986bb1c0cd3468818de31e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_294.webp",
+      "sha256": "aa56b9a3c8c232f7b3771bdaf80b73d900552e9ac13c267fdf341c2b48d452f9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_295.webp",
+      "sha256": "14c1259d6f2b3683203ff002f1df38abb8d65186247060b86110a7ac434000ec"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_296.webp",
+      "sha256": "6c87ea92ea0e94c978600ce8ba49aab622234537400233896f8ff1b626714668"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_297.webp",
+      "sha256": "eb1a9529a8de2180bbe6208a2bcf3c1a6c635607d4ad083d42f96ce53e16d206"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_298.webp",
+      "sha256": "f9020476b704e9d2b1cba8702ba094b801cadd016a53bb98eb4abb2f671ee54e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_299.webp",
+      "sha256": "2ca3ae984b349a6c87b777f17347cbf505a657e9ab34209fc70c290765fb5ff6"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_300.webp",
+      "sha256": "66e055d8fe649db317ca9ba656c7dfc5dc31191d8d8893ba3943440120891178"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_301.webp",
+      "sha256": "416883c7bfa3273d395e00a65dff9abaeb2cc63c15de6037bb587fdf95c7c2cc"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_302.webp",
+      "sha256": "6cc26baafdc07b8b535fb48c5d1446540af6381dfed9e58c947e6a0ca97e4e4f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_303.webp",
+      "sha256": "90faca1355b9e927f86019adabf4fc71a6364ab379bb6b49eda22eb1955511ad"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_304.webp",
+      "sha256": "210e5d023db05c6d0f62bc54f47a76e8feb8d2d61cc25f92493f9ebd6852ce17"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_305.webp",
+      "sha256": "2e5624c9ec90c4f925e4ce83557e8e00ef64f6fb706b33e322945f674a76549d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_306.webp",
+      "sha256": "a60ee166880f179c9006f8eee4d481c05cb8e47c8c29eab8576216e0ba88ed14"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_307.webp",
+      "sha256": "0d2efb552569bd0b5ddabd1d9b082c38a9edd7de98e16f7cff67082115c83843"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_308.webp",
+      "sha256": "1f793f023d863c88188e5812d086593ce6c2006c8d064ab9e7e3c63e5562a5bd"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_309.webp",
+      "sha256": "480f00527a3e144616043ee90a22cbf3c269908ab83dcbb0a9754d88bcbd6ac9"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_310.webp",
+      "sha256": "194f663b012512b754e6725436286e68a9158fdd159173f500536b32b2e8a75f"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_311.webp",
+      "sha256": "c1c9f619a07631fb1f0d9df242cfa327c91ffdd072d1f51fa9675a3a786b633b"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_312.webp",
+      "sha256": "2f371545e289a22379e1678ef8c434b88cf2a33395a1e7725eea12a3ef624f2d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_313.webp",
+      "sha256": "0fda582891eb684268af584f41d1f71d60e0589ff4348d82909d54729c521318"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_314.webp",
+      "sha256": "732fa819c69ba8cefeeefc9590a722406d76c7568380925e49e89986036d0020"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_315.webp",
+      "sha256": "bb3b591aa913eca9bd929a059f71c4cc5363fa69d3cc853ea8ee83ef5e165213"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_316.webp",
+      "sha256": "2564ff6f861d04e2f20d0be4b9ccbaad63d7e80ceff991d812d244c8e0c91478"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_317.webp",
+      "sha256": "4043a5f7112c0145e74c8d335459f06a3698861be8f1a2cf96f92a6341d8dbe8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_318.webp",
+      "sha256": "016e40ce511dab11eaf92dabea6d189143cc1a3a4cdaff944ef85ee1ce5fb9e2"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_319.webp",
+      "sha256": "fbab3f3276ab3a8103a52b34ec7917865183d77f47d0959ca42b8a4b8f018446"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_320.webp",
+      "sha256": "75476a0649635c5b807dff2d851a19d811a1a36fda79c2549e4b1b6b5e36245d"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_321.webp",
+      "sha256": "b36b1a010fc8c53f27735f518a8b0105ab7f8c12d088ccecd89a373bb3b89ebe"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_322.webp",
+      "sha256": "3061b76781e14e63e0e30b106665458f56a360bc1906352ac80b9540eed9eb24"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_323.webp",
+      "sha256": "ae98b49a5a299e085d6e929489dfd136a4a4da979f5b612398113b02a7f31a9e"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_324.webp",
+      "sha256": "8fdc09ec8ac853a799fc68e8a0a6d9922ad2faf62ca4b8a3d4c08026adea32d8"
+    },
+    {
+      "file": "vaeloria-android/app/src/main/res/drawable-nodpi/item_v092_325.webp",
+      "sha256": "566dba53f3ab0755d7b8feaf01056ddf06e2b16f15bf726815c4d17bb508e17d"
+    }
+  ]
+}

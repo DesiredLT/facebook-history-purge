@@ -1,0 +1,129 @@
+name: Release Vaeloria OOC v0.9.3
+
+on:
+  pull_request:
+    branches: [agent/vaeloria-local-android]
+    paths:
+      - '.github/workflows/vaeloria-v093-release.yml'
+      - 'v093/**'
+      - 'vaeloria-android/app/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vaeloria-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore stable signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+          fail-on-cache-miss: true
+
+      - name: Verify upgrade-compatible signing identity
+        run: |
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Character-profile, language and retained-asset audit
+        run: |
+          cd ..
+          python3 v093/audit_v093.py
+
+      - name: Unit, profile, Lithuanian-language and resolver tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Real 360dp character creation, gameplay and SQLite v3-to-v7 tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size 360x800
+            adb shell wm density 160
+            gradle -p vaeloria-android :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Build release APK
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.9.3.apk
+
+      - name: APK, package, permissions, resources and signer audit
+        run: |
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.9.3.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee apk-badging-v093.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v093.txt
+          grep -q "versionCode='33'" apk-badging-v093.txt
+          grep -q "versionName='0.9.3'" apk-badging-v093.txt
+          grep -q "application-label:'Vaeloria OOC 0.9.3'" apk-badging-v093.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v093.txt
+
+          "$AAPT" dump permissions "$APK" | tee apk-permissions-v093.txt
+          test "$(grep -c '^uses-permission:' apk-permissions-v093.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions-v093.txt
+
+          "$AAPT" dump resources "$APK" | tee apk-resources-v093.txt
+          for number in $(seq -w 1 325); do
+            grep -q "item_v092_$number" apk-resources-v093.txt
+          done
+          for number in $(seq -w 1 200); do
+            grep -q "monster_v091_$number" apk-resources-v093.txt
+          done
+
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          "$APKSIGNER" verify --verbose "$APK"
+          unzip -t "$APK"
+          if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          sha256sum "$APK" | tee apk-sha256-v093.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-ooc-v0.9.3-apk-and-audits
+          path: |
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.9.3.apk
+            vaeloria-android/apk-badging-v093.txt
+            vaeloria-android/apk-permissions-v093.txt
+            vaeloria-android/apk-sha256-v093.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v0.9.3 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.9.3 app/build/outputs/apk/release/Vaeloria-OOC-v0.9.3.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vaeloria OOC v0.9.3 · Veikėjo kūrimas" --notes "Vaeloria OOC v0.9.3 prieš pirmą žaidimą pateikia pilną mobilų veikėjo kūrimą: vardą, amžių, tapatybę, pasirenkamą išvaizdos aprašą, 6 kilmes, 6 archetipus ir 12 subalansuotų charakterio bruožų. Pasirenkami lygiai trys bruožai; kiekvienas turi aiškią naudą ir kainą. Kilmė, archetipas bei bruožai nėra vien kosmetiniai – jie sudaro atskirą profilio modifikatorių kiekvienai savybės patikrai ir rodomi jos skaičiavime. Profilis matomas veikėjo, statistikos, žemėlapio ir kovos ekranuose, jį galima keisti neprarandant pasaulio progreso. Groq žaidimo meistro sutartis dabar reikalauja taisyklingų, rišlių lietuviškų sakinių, antrojo asmens esamojo laiko, aiškios priežasties ir pasekmės bei trijų skirtingų pasirinkimų; vietinis filtras papildomai šalina Markdown, dažnus anglicizmus, dubliuotus pasirinkimus ir netvarkingus tarpus. SQLite ir eksporto formatas pakelti iki 7, o v0.9.2 išsaugojimai migruojami išsaugant kanoninį Einoro profilį. Išlaikyti visi 325 iliustruoti daiktai, 218 monstrai, iškritimo lentelės, potionai, setai ir stabilus atnaujinimo parašas. CI tikrina vienetinius testus, tikrą 360dp Android veikėjo kūrimo bei migracijos srautą, APK išteklius, leidimus ir pasirašymo tapatybę."
