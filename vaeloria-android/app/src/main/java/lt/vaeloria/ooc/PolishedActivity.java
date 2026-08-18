@@ -265,6 +265,14 @@ public class PolishedActivity extends PremiumActivity {
             archetypes.addView(profileRadio(archetype.id,archetype.name,archetype.description+" "+archetype.benefit,archetype.id.equals(currentArchetype)));
         archetypePanel.addView(archetypes);column.addView(archetypePanel, sp(dp(9)));
 
+        LinearLayout progressionPanel=panel(false);progressionPanel.addView(section("GALIOS IR PAŽANGOS REŽIMAS"));
+        progressionPanel.addView(txt(editing?"Pažangos režimas pasirenkamas kuriant veikėją ir vėliau nekeičiamas.":"Subalansuotas režimas skirtas pilnai RPG kelionei nuo 1 lygio. Legendinis režimas palieka ankstesnę Einoro galią ir turtus.",9,SUB,false),sp(dp(5)));
+        RadioGroup progressionModes=new RadioGroup(this);progressionModes.setOrientation(RadioGroup.VERTICAL);
+        String currentMode=editing?state.progressionMode:"balanced";
+        RadioButton balanced=profileRadio("balanced","Subalansuotas","1 lygis · 40 bazinės savybės · riboti ištekliai · pilna pažanga","balanced".equals(currentMode));
+        RadioButton legendary=profileRadio("legendary","Legendinis","100 lygis · 100 bazinės savybės · senosios relikvijos · galios fantazija","legendary".equals(currentMode));
+        balanced.setEnabled(!editing);legendary.setEnabled(!editing);progressionModes.addView(balanced);progressionModes.addView(legendary);progressionPanel.addView(progressionModes);column.addView(progressionPanel,sp(dp(9)));
+
         LinearLayout appearancePanel = panel(false);appearancePanel.addView(section("IŠVAIZDA · NEPRIVALOMA"));
         EditText appearance = profileInput("Trumpai aprašyk išvaizdą, aprangą ar išskirtinį ženklą…", editing ? state.characterAppearance : "", true, 140);
         appearance.setMinLines(2);appearance.setMaxLines(4);appearancePanel.addView(appearance);column.addView(appearancePanel, sp(dp(9)));
@@ -289,7 +297,7 @@ public class PolishedActivity extends PremiumActivity {
             int parsedAge;try{parsedAge=Integer.parseInt(age.getText().toString().trim());}catch(Exception error){parsedAge=-1;}
             ArrayList<String> selected=checkedTraits(traitBoxes);
             if(selected.size()!=3){Toast.makeText(this,"Pasirink lygiai tris charakterio bruožus",Toast.LENGTH_LONG).show();return;}
-            boolean ok=applyCharacterProfile(name.getText().toString(),parsedAge,ageless.isChecked(),selectedTag(identities),appearance.getText().toString(),selectedTag(origins),selectedTag(archetypes),selected);
+            boolean ok=applyCharacterProfile(name.getText().toString(),parsedAge,ageless.isChecked(),selectedTag(identities),appearance.getText().toString(),selectedTag(origins),selectedTag(archetypes),selected,selectedTag(progressionModes));
             if(!ok){Toast.makeText(this,"Patikrink vardą, amžių ir visus profilio pasirinkimus",Toast.LENGTH_LONG).show();return;}
             haptic();show("game");
         });
@@ -419,7 +427,7 @@ public class PolishedActivity extends PremiumActivity {
         overlay.addView(txt(CharacterCatalogV093.ageLine(state), 9, SUB, false));
         LinearLayout tags = row();
         tags.setPadding(0, dp(7), 0, 0);
-        tags.addView(chip("92/92 · 100/100", GOLD2));
+        tags.addView(chip("LYGIS "+state.level+" · "+("legendary".equals(state.progressionMode)?"LEGENDINIS":"SUBALANSUOTAS"), GOLD2));
         tags.addView(chip("3 BRUOŽAI", PURPLE));
         overlay.addView(tags);
         hero.addView(overlay, new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM));
@@ -438,10 +446,22 @@ public class PolishedActivity extends PremiumActivity {
         Button editProfile=outline("KEISTI PROFILĮ IR BRUOŽUS");editProfile.setMinHeight(dp(48));editProfile.setOnClickListener(view->show("character"));profile.addView(editProfile,sp(dp(2)));
         column.addView(profile,sp(dp(9)));
 
+        LinearLayout progression=panel(true);progression.addView(section("LYGIS IR TALENTAI"));
+        progression.addView(serif("Lygis "+state.level+" · "+state.experience+" / "+state.experienceNext+" patirties",18,PARCH,true));
+        ProgressBar xp=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);xp.setMax(Math.max(1,state.experienceNext));xp.setProgress(state.experience);xp.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD2));xp.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(36,50,58)));progression.addView(xp,new LinearLayout.LayoutParams(-1,dp(8)));
+        progression.addView(txt("Laisvi talentų taškai: "+state.talentPoints+" · atrakinta "+db.world().unlockedTalentIds().size()+" / "+ProgressionEngine.TALENTS.length,10,SUB,false),sp(dp(6)));
+        Button talents=gold("ATVERTI TALENTŲ MEDĮ");talents.setMinHeight(dp(48));talents.setOnClickListener(view->talentDialog());progression.addView(talents);column.addView(progression,sp(dp(9)));
+
+        LinearLayout companions=panel(false);companions.addView(section("KOMPANIONAI"));WorldRepository.Companion activeCompanion=db.world().activeCompanion();
+        companions.addView(serif(activeCompanion==null?"Keliaująs vienas":activeCompanion.name+" · "+activeCompanion.role,16,PARCH,true));
+        companions.addView(txt(activeCompanion==null?"Prisiviliok sąjungininką kurdamas pasitikėjimą ir vykdydamas Meridiano užduotį.":activeCompanion.perk+" · lojalumas "+activeCompanion.loyalty,10,SUB,false),sp(dp(6)));
+        Button manageCompanions=outline("VALDYTI KOMPANIONUS");manageCompanions.setMinHeight(dp(48));manageCompanions.setOnClickListener(view->companionsDialog());companions.addView(manageCompanions);column.addView(companions,sp(dp(9)));
+
         LinearLayout mastery = panel(false);
         mastery.addView(section("MEISTRIŠKUMAS"));
-        mastery.addView(serif("Legendinė bazė · pažanga virš ribos", 17, PARCH, true));
-        mastery.addView(txt("Skaitinė bazinė riba pasiekta. Toliau augama per principus, technikas, nežinomų taisyklių kalibraciją ir lygiaverčių meistrų praktiką.", 10, SUB, false));
+        int masteryTotal=0;for(VaeloriaDb.Mastery value:db.getMasteries().values())masteryTotal+=value.level;int masteryAverage=masteryTotal/Math.max(1,db.getMasteries().size());
+        mastery.addView(serif("Vidutinis meistriškumas "+masteryAverage+" / 100", 17, PARCH, true));
+        mastery.addView(txt("Kiekvienas realiai atliekamas veiksmas ugdo pagrindinę ir pagalbinę savybę. Aukštesnis meistriškumas tiesiogiai gerina patikras.", 10, SUB, false));
         column.addView(mastery, sp(dp(9)));
 
         LoadoutV090View loadout = new LoadoutV090View(this);
@@ -483,6 +503,30 @@ public class PolishedActivity extends PremiumActivity {
         stats.setOnClickListener(view -> startActivity(new Intent(this, StatsActivity.class)));
         column.addView(stats);
         return scroll;
+    }
+
+    private void talentDialog(){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(12));scroll.addView(column);
+        column.addView(serif("TALENTŲ MEDIS",23,PARCH,true));column.addView(txt("Laisvi taškai "+state.talentPoints+" · lygis "+state.level+". Kiekviena šaka turi nuoseklias prielaidas ir mechaninį poveikį.",10,SUB,false),sp(dp(9)));
+        final AlertDialog[] holder=new AlertDialog[1];String branch="";
+        for(WorldRepository.TalentState talent:db.world().talents()){
+            ProgressionEngine.TalentDef definition=talent.definition;if(!branch.equals(definition.branch)){branch=definition.branch;column.addView(section(branch),sp(dp(7)));}
+            LinearLayout card=panel(talent.unlocked);card.addView(serif((talent.unlocked?"◆ ":"◇ ")+definition.name+" · L"+definition.requiredLevel,15,talent.unlocked?GREEN:PARCH,true));card.addView(txt(definition.description,10,SUB,false),sp(dp(4)));
+            if(!talent.unlocked){ProgressionEngine.TalentDef prerequisite=ProgressionEngine.byId(definition.prerequisite);String requirement="Kaina "+definition.cost+" tšk."+(prerequisite==null?"":" · reikia "+prerequisite.name);Button unlock=gold("ATRAKINTI · "+requirement);unlock.setMinHeight(dp(44));unlock.setOnClickListener(view->{db.checkpoint("prieš talento atrakinimą",state);WorldRepository.TransactionResult result=db.world().unlockTalent(definition.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();if(result.ok){if(holder[0]!=null)holder[0].dismiss();show("hero");}});card.addView(unlock);}
+            column.addView(card,sp(dp(6)));
+        }
+        holder[0]=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).create();holder[0].show();
+    }
+
+    private void companionsDialog(){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(12));scroll.addView(column);
+        column.addView(serif("KOMPANIONAI",23,PARCH,true));column.addView(txt("Vienu metu keliauja vienas sąjungininkas. Santykiai, pagrindinė užduotis ir bendri veiksmai atrakina naujus pasirinkimus.",10,SUB,false),sp(dp(9)));
+        final AlertDialog[] holder=new AlertDialog[1];
+        for(WorldRepository.Companion companion:db.world().companions()){
+            LinearLayout card=panel(companion.active);card.addView(serif((companion.active?"◆ ":companion.recruited?"◇ ":"○ ")+companion.name,16,companion.active?GREEN:PARCH,true));card.addView(txt(companion.role+" · lojalumas "+companion.loyalty+"\n"+companion.perk,10,SUB,false),sp(dp(5)));
+            Button action=companion.active?outline("LEISTI PAILSĖTI"):gold(companion.recruited?"PASIRINKTI AKTYVIU":"PRISIVILIOTI");action.setMinHeight(dp(46));action.setOnClickListener(view->{db.checkpoint("prieš kompaniono pakeitimą",state);WorldRepository.TransactionResult result=companion.active?db.world().dismissCompanion():companion.recruited?db.world().activateCompanion(companion.id):db.world().recruitCompanion(companion.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();if(result.ok){if(holder[0]!=null)holder[0].dismiss();show("hero");}});card.addView(action);column.addView(card,sp(dp(6)));
+        }
+        holder[0]=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).create();holder[0].show();
     }
 
     View items() {
@@ -756,6 +800,10 @@ public class PolishedActivity extends PremiumActivity {
         profile.addView(txt(CharacterCatalogV093.originName(state.characterOriginId)+" · "+CharacterCatalogV093.archetypeName(state.characterArchetypeId),10,SUB,false));
         profile.addView(txt("Bruožai: "+CharacterCatalogV093.traitNames(state.characterTraitIds),9,GOLD2,true),sp(dp(6)));
         Button edit=gold("KEISTI PROFILĮ IR BRUOŽUS");edit.setMinHeight(dp(48));edit.setOnClickListener(view->show("character"));profile.addView(edit);column.addView(profile,sp(dp(9)));
+
+        LinearLayout difficulty=panel(false);difficulty.addView(section("SUNKUMO REŽIMAS"));difficulty.addView(txt("Režimas keičia savybių patikrų slenksčius, priešų žalą ir gaunamą patirtį. Pasaulio taisyklės visuose režimuose lieka tos pačios.",9,SUB,false),sp(dp(6)));
+        String[][] modes={{"story","ISTORIJA · lengvesnės patikros ir 28 % mažesnė žala"},{"normal","NORMALUS · numatytas balansas"},{"hard","SUNKUS · griežtesnės patikros ir 22 % didesnė žala"},{"nightmare","KOŠMARAS · ekstremalios patikros ir 48 % didesnė žala"}};
+        for(String[] mode:modes){Button button=mode[0].equals(state.difficulty)?gold("◆ "+mode[1]):dark("◇ "+mode[1]);button.setAllCaps(false);button.setMinHeight(dp(48));button.setOnClickListener(view->{db.checkpoint("prieš sunkumo pakeitimą",state);state.difficulty=mode[0];db.saveState(state);feedback="Sunkumo režimas: "+mode[1];show("settings");});difficulty.addView(button,sp(dp(5)));}column.addView(difficulty,sp(dp(9)));
 
         LinearLayout ai=panel(false);ai.addView(section("DI ŽAIDIMO MEISTRAS"));boolean has=!SecureKeyStore.load(this).isEmpty();
         ai.addView(txt(has?"Groq raktas saugomas Android raktų saugykloje":"Groq raktas nenustatytas",12,has?GREEN:SUB,true));

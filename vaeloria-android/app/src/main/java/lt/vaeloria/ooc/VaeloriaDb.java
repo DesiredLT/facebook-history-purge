@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 9;
+    private static final int VERSION = 10;
     private static final String ITEM_COLUMNS = "id,name,type,rarity,description,slot,equipped,synced,equipped_slot,catalog_id,item_level,power,set_id,quantity,value,effect";
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
@@ -65,7 +65,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         if (oldVersion < 6) { migrateV5toV6(db); oldVersion = 6; }
         if (oldVersion < 7) { migrateV6toV7(db); oldVersion = 7; }
         if (oldVersion < 8) { migrateV7toV8(db); oldVersion = 8; }
-        if (oldVersion < 9) migrateV8toV9(db);
+        if (oldVersion < 9) { migrateV8toV9(db); oldVersion = 9; }
+        if (oldVersion < 10) migrateV9toV10(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -176,6 +177,13 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     }
 
     private void migrateV8toV9(SQLiteDatabase db) {
+        WorldRepository.create(db);
+        GameState current;
+        try { current=loadStateFrom(db); } catch(Exception ignored) { current=new GameState(); }
+        WorldRepository.seed(db,current);
+    }
+
+    private void migrateV9toV10(SQLiteDatabase db) {
         WorldRepository.create(db);
         GameState current;
         try { current=loadStateFrom(db); } catch(Exception ignored) { current=new GameState(); }
@@ -358,6 +366,60 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         return getWritableDatabase().update("stats", v, "name=?", new String[]{name}) > 0;
     }
 
+    /** Vienkartinė naujo veikėjo ekonomikos ir galios kreivė. Esamų išsaugojimų nemažina. */
+    public void initializeCharacterProgression(GameState state,String requestedMode,String originId,String archetypeId){
+        String mode="legendary".equals(requestedMode)?"legendary":"balanced";
+        state.progressionMode=mode;
+        if("legendary".equals(mode)){
+            state.level=100;state.experience=0;state.experienceNext=1;state.talentPoints=Math.max(20,state.talentPoints);
+            state.hp=state.hpMax=100;state.mana=state.manaMax=100;state.stamina=state.staminaMax=100;state.aeonic=Math.max(180,state.aeonic);state.aeonicMax=Math.max(900,state.aeonicMax);
+            saveState(state);return;
+        }
+
+        SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
+        try{
+            ContentValues base=new ContentValues();base.put("value",40);database.update("stats",base,null,null);
+            CharacterCatalogV093.Origin origin=CharacterCatalogV093.origin(originId);
+            CharacterCatalogV093.Archetype archetype=CharacterCatalogV093.archetype(archetypeId);
+            if(origin!=null){for(String group:origin.groups)addGroupStatBonus(database,group,4);for(String stat:origin.stats)addStatBonus(database,stat,4);}
+            if(archetype!=null){for(String group:archetype.groups)addGroupStatBonus(database,group,8);for(String stat:archetype.stats)addStatBonus(database,stat,8);}
+            ContentValues mastery=new ContentValues();mastery.put("level",0);mastery.put("xp",0);mastery.put("next_xp",masteryNext(0));database.update("mastery",mastery,null,null);
+
+            database.delete("items",null,null);database.delete("abilities",null,null);
+            ItemCatalogV092.ItemDef weapon=starterWeapon(archetypeId);ItemCatalogV092.ItemDef chest=lowestItem("chest",null);
+            insertStarter(database,weapon,1,"starter-balanced-weapon","weapon");
+            insertStarter(database,chest,1,"starter-balanced-chest","chest");
+            if("sargybinis".equals(archetypeId))insertStarter(database,lowestItem("offhand",null),1,"starter-balanced-offhand","offhand");
+            insertStarter(database,ItemCatalogV092.byId("I092-201"),3,"starter-I092-201",null);
+            insertStarter(database,ItemCatalogV092.byId("I092-203"),2,"starter-I092-203",null);
+            insertStarter(database,ItemCatalogV092.byId("I092-204"),2,"starter-I092-204",null);
+            addAbility(database,"Archetipinis pasirengimas","bazinis_gebėjimas",CharacterCatalogV093.archetypeName(archetypeId)+" moka saugiai taikyti savo pagrindines priemones.");
+            addAbility(database,"Lauko improvizacija","bazinis_gebėjimas","Po nesėkmės leidžia ieškoti kito pagrįsto sprendimo, nepanaikinant pasekmių.");
+            database.execSQL("UPDATE talents SET unlocked=0,unlocked_minute=0");
+            database.execSQL("UPDATE companions SET recruited=0,active=0,loyalty=20");
+
+            state.level=1;state.experience=0;state.experienceNext=ProgressionEngine.experienceForNext(1);state.talentPoints=1;
+            state.crowns=650;state.aeonic=30;state.aeonicMax=100;
+            state.hpMax="sargybinis".equals(archetypeId)?120:"arkanistas".equals(archetypeId)?88:100;state.hp=state.hpMax;
+            state.staminaMax="klajunas".equals(archetypeId)?120:"arkanistas".equals(archetypeId)?90:100;state.stamina=state.staminaMax;
+            state.manaMax="arkanistas".equals(archetypeId)?110:"amatininkas".equals(archetypeId)?65:45;state.mana=state.manaMax;
+            ContentValues saved=new ContentValues();saved.put("json",state.toJson().toString());database.update("state",saved,"id=1",null);
+            database.setTransactionSuccessful();
+        }catch(Exception ignored){}finally{database.endTransaction();}
+    }
+
+    private void addGroupStatBonus(SQLiteDatabase database,String group,int bonus){database.execSQL("UPDATE stats SET value=MIN(cap,value+?) WHERE group_name=?",new Object[]{bonus,group});}
+    private void addStatBonus(SQLiteDatabase database,String stat,int bonus){database.execSQL("UPDATE stats SET value=MIN(cap,value+?) WHERE name=?",new Object[]{bonus,stat});}
+    private ItemCatalogV092.ItemDef starterWeapon(String archetype){
+        if("arkanistas".equals(archetype)){ItemCatalogV092.ItemDef staff=lowestItem("weapon","wand");return staff==null?lowestItem("weapon","staff"):staff;}
+        if("zvalgas".equals(archetype))return lowestItem("weapon","dagger");
+        if("klajunas".equals(archetype))return lowestItem("weapon","bow");
+        if("amatininkas".equals(archetype))return lowestItem("weapon","hammer");
+        return lowestItem("weapon","sword");
+    }
+    private ItemCatalogV092.ItemDef lowestItem(String category,String subtype){ItemCatalogV092.ItemDef best=null;for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL)if(category.equals(item.category)&&(subtype==null||subtype.equals(item.subtype))&&(best==null||item.level<best.level))best=item;return best;}
+    private void insertStarter(SQLiteDatabase database,ItemCatalogV092.ItemDef item,int quantity,String id,String target){if(item==null)return;ContentValues values=catalogValues(item,quantity);values.put("id",id);if(target!=null){values.put("equipped",1);values.put("equipped_slot",target);}database.insertWithOnConflict("items",null,values,SQLiteDatabase.CONFLICT_REPLACE);}
+
     public java.util.Map<String,Mastery> getMasteries() {
         java.util.LinkedHashMap<String,Mastery> out=new java.util.LinkedHashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery("SELECT name,level,xp,next_xp FROM mastery ORDER BY rowid",null)){while(c.moveToNext())out.put(c.getString(0),new Mastery(c.getInt(1),c.getInt(2),c.getInt(3)));}
@@ -509,7 +571,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         String defeatedEnemy="";ArrayList<String> drops=new ArrayList<>();int damage=0;
         if(state.combatActive&&"combat_consumable".equals(item.category)){
             damage=Math.max(8,item.power/2);state.enemyHp=Math.max(0,state.enemyHp-damage);
-            if(state.enemyHp==0){defeatedEnemy=state.enemyName;for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+item.id.hashCode())){addCatalogLoot(drop,1);drops.add(drop.name);}state.endCombat();}
+            if(state.enemyHp==0){int danger=state.enemyDanger;defeatedEnemy=state.enemyName;for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+item.id.hashCode())){addCatalogLoot(drop,1);drops.add(drop.name);}int companionHeal=world().companionVictoryHealing();state.hp=Math.min(state.hpMax,state.hp+companionHeal);ProgressionEngine.award(state,"combat_victory",null,danger);world().recordCompanionTurn(item.name,"combat_victory",state);state.endCombat();}
             else state.enemyStatus="Paveiktas reikmens · gyvybė "+state.enemyHp+"/"+state.enemyHpMax;
         }
         SQLiteDatabase db=getWritableDatabase();if(owned.quantity>1){ContentValues q=new ContentValues();q.put("quantity",owned.quantity-1);db.update("items",q,"id=?",new String[]{owned.id});}else db.delete("items","id=?",new String[]{owned.id});
@@ -550,7 +612,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",9); root.put("state",loadState().toJson());
+            JSONObject root=new JSONObject(); root.put("version",10); root.put("state",loadState().toJson());
             JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("synced",i.synced);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery);root.put("world",world().exportState()); return root.toString();
         } catch(Exception e){return "";}
     }

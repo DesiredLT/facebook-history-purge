@@ -6,6 +6,8 @@ import org.json.JSONObject;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.Collections;
 
 /** Vietinis deterministinis kovos variklis. DI gali aprašyti pasaulį, bet nekeičia kovos matematikos. */
 final class CombatEngine {
@@ -15,10 +17,17 @@ final class CombatEngine {
 
     static JSONObject resolve(GameState state, String action, StatEngine.Check check,
                               EquipmentRules.Stats gear, Map<String,Integer> stats) {
+        return resolve(state,action,check,gear,stats,Collections.emptySet(),0,0);
+    }
+
+    static JSONObject resolve(GameState state, String action, StatEngine.Check check,
+                              EquipmentRules.Stats gear, Map<String,Integer> stats,Set<String> talents,
+                              int companionDefense,int companionHealing) {
         try {
             if (!state.combatActive) return begin(state, action);
             hydrate(state);
-            return turn(state, action, check, gear == null ? new EquipmentRules.Stats() : gear, stats);
+            return turn(state, action, check, gear == null ? new EquipmentRules.Stats() : gear, stats,
+                    talents==null?Collections.emptySet():talents,companionDefense,companionHealing);
         } catch (Exception error) {
             return safeFailure(state, error);
         }
@@ -64,7 +73,8 @@ final class CombatEngine {
     }
 
     private static JSONObject turn(GameState state, String action, StatEngine.Check check,
-                                   EquipmentRules.Stats gear, Map<String,Integer> stats) throws Exception {
+                                   EquipmentRules.Stats gear, Map<String,Integer> stats,Set<String> talents,
+                                   int companionDefense,int companionHealing) throws Exception {
         String query = norm(action);
         EnemyCatalogV091.Enemy catalog = EnemyCatalogV091.find(state.enemyName);
         int round = Math.max(1, state.combatRound) + 1;
@@ -75,9 +85,11 @@ final class CombatEngine {
         boolean spell = contains(query, "gebėj", "gebej", "burt", "magij", "eonin", "relikv", "runa");
         boolean heavy = contains(query, "sunk", "galing", "visa jėga", "visa jega", "pramuš", "pramus");
 
-        int playerSpeed = stat(stats, "Greitis", 45) / 3 + stat(stats, "Reakcijos greitis", 45) / 4 + gear.speed;
-        int playerDefense = stat(stats, "Gynyba", 45) / 2 + gear.defense;
-        int playerAttack = stat(stats, "Ginklų valdymas", 45) / 3 + stat(stats, "Atakos tikslumas", 45) / 4 + gear.attack;
+        int playerSpeed = stat(stats, "Greitis", 45) / 3 + stat(stats, "Reakcijos greitis", 45) / 4 + gear.speed+(talents.contains("scout_step")?7:0);
+        int playerDefense = stat(stats, "Gynyba", 45) / 2 + gear.defense+companionDefense+(talents.contains("warrior_guard")&&state.combatRound<=1?8:0);
+        int playerAttack = stat(stats, "Ginklų valdymas", 45) / 3 + stat(stats, "Atakos tikslumas", 45) / 4 + gear.attack+(talents.contains("warrior_edge")?6:0);
+        if(talents.contains("scout_ambush")&&state.combatRound<=1)playerAttack+=12;
+        if(talents.contains("warrior_counter")&&state.playerCombatStatus.contains("Kontratakos langas"))playerAttack+=10;
         int enemyHp = state.enemyHp;
         int hpDelta = 0, manaDelta = 0, staminaDelta = 0, aeonicDelta = 0;
         int dealt = 0, received = 0, guard = 0;
@@ -88,7 +100,7 @@ final class CombatEngine {
         StringBuilder scene = new StringBuilder();
 
         if (escape) {
-            int chance = 48 + (playerSpeed - state.enemySpeed) / 2 + outcomeBonus(check);
+            int chance = 48 + (playerSpeed - state.enemySpeed) / 2 + outcomeBonus(check)+(talents.contains("scout_escape")?20:0);
             if (random.nextInt(100) < clamp(chance, 15, 90)) {
                 return base(state, "Sėkmingas atsitraukimas",
                         "Pasirenki saugų tarpą ir nutrauki kontaktą. Priešas trumpai seka, tačiau tavo maršruto neperima, todėl kova baigiasi be pergalės ir be grobio.",
@@ -101,7 +113,7 @@ final class CombatEngine {
         } else if (defend) {
             guard = Math.max(8, playerDefense / 2 + outcomeBonus(check));
             staminaDelta -= 3;
-            playerStatus = "Gynybinė pozicija · apsauga " + guard;
+            playerStatus = "Gynybinė pozicija · apsauga " + guard+(talents.contains("warrior_counter")?" · Kontratakos langas":"");
             scene.append("Užimi gynybinę poziciją ir smūgį pasitinki pasiruošęs. ");
         } else if (dodge) {
             int chance = 55 + (playerSpeed - state.enemySpeed) / 2 + outcomeBonus(check);
@@ -118,6 +130,7 @@ final class CombatEngine {
             staminaDelta -= 6;
         } else if (spell) {
             int cost = 18;
+            if(talents.contains("arcane_efficiency"))cost=Math.max(4,cost-4);
             if (gear.thirdSpellDiscount && combo > 0 && (combo + 1) % 3 == 0) cost = 8;
             if (cooldown > 0) {
                 scene.append("Kovinis gebėjimas dar neatsistatė, todėl pereini į paprastą puolimą. ");
@@ -125,6 +138,7 @@ final class CombatEngine {
             } else if (state.mana >= cost || state.aeonic >= cost) {
                 if (state.mana >= cost) manaDelta -= cost; else aeonicDelta -= cost;
                 int magic = stat(stats, "Burtų galia", 45) / 2 + stat(stats, "Manos kontrolė", 45) / 4 + gear.magicPower;
+                if(talents.contains("arcane_echo")&&(combo+1)%3==0)magic+=18;
                 dealt = damage(magic + 22, state.enemyDefense, outcomeBonus(check), random, gear, state, true);
                 enemyEffects = magicEffect(query, catalog == null ? state.enemyTrait : catalog.trait);
                 cooldown = 2;
@@ -150,12 +164,14 @@ final class CombatEngine {
         if (effectDamage > 0) { dealt += effectDamage; scene.append("Ankstesnis poveikis toliau žeidžia priešą. "); }
         enemyHp = Math.max(0, enemyHp - dealt);
         if (enemyHp == 0) {
-            int heal = gear.postCombatRegeneration ? Math.min(12, state.hpMax - state.hp) : 0;
+            int heal = (gear.postCombatRegeneration?12:0)+Math.max(0,companionHealing);
+            heal=Math.min(heal,state.hpMax-state.hp);
+            int victoryStamina=staminaDelta+(talents.contains("leader_rally")?10:0);
             return base(state, "Priešas nugalėtas",
                     scene + "Paskutinis poveikis pralaužia gynybą. " + state.enemyName + " nebegali tęsti kovos; vietinis variklis dabar pritaiko jo grobio lentelę.",
                     new JSONArray().put("Apžiūrėti grobį").put("Atsigauti po kovos").put("Tęsti kelionę"),
                     "combat_victory", false).put("time_minutes", 4).put("hp_delta", heal)
-                    .put("stamina_delta", staminaDelta).put("mana_delta", manaDelta).put("aeonic_delta", aeonicDelta);
+                    .put("stamina_delta", victoryStamina).put("mana_delta", manaDelta).put("aeonic_delta", aeonicDelta);
         }
 
         int rawIncoming = enemyDamage(state, playerDefense, random);
@@ -175,6 +191,9 @@ final class CombatEngine {
         if (state.hp - received <= 0 && gear.cheatDeath && !state.playerCombatStatus.contains("Kapų apsauga panaudota")) {
             received = Math.max(0, state.hp - 1);
             playerStatus = playerStatus + " · Kapų apsauga panaudota";
+        }
+        if(state.hp-received<=0&&talents.contains("warrior_last_stand")&&!state.playerCombatStatus.contains("Paskutinis bastionas panaudotas")){
+            received=Math.max(0,state.hp-1);playerStatus=playerStatus+" · Paskutinis bastionas panaudotas";
         }
         hpDelta -= received;
         if (received == 0) scene.append("Priešo atsakas tavęs nepasiekia. ");

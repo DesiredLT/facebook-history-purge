@@ -65,14 +65,25 @@ public final class StatEngine {
         CharacterCatalogV093.Effect profile=CharacterCatalogV093.effect(s,c.primary);
         c.profileModifier=profile.value;c.profileReason=profile.explanation;
         c.total = c.base + c.roll + c.conditionModifier + c.equipmentModifier + c.abilityModifier + c.profileModifier;
-        int margin = c.total - c.difficulty;
-        if(c.roll==100 || margin>=45)c.outcome="išskirtinė sėkmė";
-        else if(margin>=0)c.outcome="sėkmė";
-        else if(margin>=-20)c.outcome="dalinė sėkmė";
-        else if(c.roll==1 || margin<=-45)c.outcome="rimta nesėkmė";
-        else c.outcome="nesėkmė";
+        classifyOutcome(c);
         c.reason = difficultyReason(a,s,c.primary);
         return c;
+    }
+
+    /** Prideda struktūrizuotą talento ar kompaniono premiją ir perskaičiuoja baigtį. */
+    public static void applyExternalModifier(Check check,int value,String reason){
+        if(check==null||value==0)return;check.profileModifier+=value;check.total+=value;
+        if(reason!=null&&!reason.isEmpty())check.profileReason=check.profileReason.isEmpty()?reason:check.profileReason+"; "+reason;
+        classifyOutcome(check);
+    }
+
+    private static void classifyOutcome(Check c){
+        int margin=c.total-c.difficulty;
+        if(c.roll==100||margin>=45)c.outcome="išskirtinė sėkmė";
+        else if(margin>=0)c.outcome="sėkmė";
+        else if(margin>=-20)c.outcome="dalinė sėkmė";
+        else if(c.roll==1||margin<=-45)c.outcome="rimta nesėkmė";
+        else c.outcome="nesėkmė";
     }
 
     static String[] classifyForTest(String action){
@@ -234,25 +245,27 @@ public final class StatEngine {
 
 
     private static int difficulty(String a,GameState s,String primary){
-        int d=125;
-        if(has(a,"apžiūrėti","klausytis","stebėti","perskaityti","paklausti"))d=105;
-        if(has(a,"keliauti","eiti į","vykti į"))d=115;
-        if(isPhysical(primary))d=Math.max(d,135);
-        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))d=Math.max(d,135);
-        if(inGroup(primary,"KOVOS MEISTRIŠKUMAS"))d=Math.max(d,145);
-        if(isMagic(primary))d=Math.max(d,150);
-        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika","laiko versija"))d=Math.max(d,175);
-        if(has(a,"sunaikinti","nužudyti","vienu smūgiu","akimirksniu"))d=Math.max(d,190);
-        if(s.combatActive)d+=10;
-        return Math.min(210,d);
+        boolean legendary="legendary".equals(s.progressionMode);int d=legendary?125:88;
+        if(has(a,"apžiūrėti","klausytis","stebėti","perskaityti","paklausti"))d=legendary?105:72;
+        if(has(a,"keliauti","eiti į","vykti į"))d=legendary?115:80;
+        if(isPhysical(primary))d=Math.max(d,legendary?135:92);
+        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))d=Math.max(d,legendary?135:94);
+        if(inGroup(primary,"KOVOS MEISTRIŠKUMAS"))d=Math.max(d,legendary?145:104);
+        if(isMagic(primary))d=Math.max(d,legendary?150:108);
+        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika","laiko versija"))d=Math.max(d,legendary?175:125);
+        if(has(a,"sunaikinti","nužudyti","vienu smūgiu","akimirksniu"))d=Math.max(d,legendary?190:150);
+        if(s.combatActive)d+=legendary?10:6;
+        if("story".equals(s.difficulty))d-=15;else if("hard".equals(s.difficulty))d+=15;else if("nightmare".equals(s.difficulty))d+=30;
+        return Math.max(40,Math.min(240,d));
     }
 
     private static String difficultyReason(String a,GameState s,String primary){
-        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika"))return "veiksmas liečia ne iki galo suprastą pasaulio taisyklę";
-        if(s.combatActive)return "aktyvus priešininkas gali priešintis ir keisti situaciją";
-        if(isMagic(primary))return "maginis veiksmas reikalauja kontrolės ir stabilumo";
-        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))return "kitas veikėjas ar praktinė situacija turi savo apribojimus";
-        return "įprasta rizikingo veiksmo patikra";
+        String base;if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika"))base="veiksmas liečia ne iki galo suprastą pasaulio taisyklę";
+        else if(s.combatActive)base="aktyvus priešininkas gali priešintis ir keisti situaciją";
+        else if(isMagic(primary))base="maginis veiksmas reikalauja kontrolės ir stabilumo";
+        else if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))base="kitas veikėjas ar praktinė situacija turi savo apribojimus";
+        else base="įprasta rizikingo veiksmo patikra";
+        return base+"; sunkumo režimas "+s.difficulty;
     }
 
     private static int conditionModifier(String stat,GameState s){

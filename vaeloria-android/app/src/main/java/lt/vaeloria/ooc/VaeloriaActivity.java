@@ -126,14 +126,34 @@ public class VaeloriaActivity extends Activity {
         LinearLayout tech=card();tech.addView(label("VEIKIMO PRINCIPAS"));tech.addView(t("Telefonas → vietinė SQLite duomenų bazė → Groq tik naujai scenai",13,TEXT,true));tech.addView(t("Žaidimo būsena, įranga, žemėlapis ir ėjimų istorija lieka telefone. Be Groq rakto pagrindinės vietinės funkcijos ir atsarginis scenos sprendimas veikia toliau.",11,MUT,false));c.addView(tech,m(dp(8)));return sv;
     }
 
-    void act(String action){if(busy)return;if(!state.characterCreated){show("character");return;}db.checkpoint("prieš veiksmą",state);String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();EquipmentRules.Stats equipmentStats=db.equipmentStats();String worldContext=db.world().contextPrompt(state);pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;boolean authoritativeCombat=CombatEngine.handles(state,action);pool.execute(()->{JSONObject r;String warn=null;try{r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues):key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check,worldContext);}catch(Exception e){r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues):local(action,check);warn=authoritativeCombat?"Kovą apskaičiavo vietinis variklis":"Groq nepasiekiamas · panaudotas vietinis sprendimas";}JSONObject rr=r;String ww=warn;runOnUiThread(()->finish(action,rr,ww));});}
+    void act(String action){
+        if(busy)return;if(!state.characterCreated){show("character");return;}
+        db.checkpoint("prieš veiksmą",state);
+        String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();
+        EquipmentRules.Stats equipmentStats=db.equipmentStats();String worldContext=db.world().contextPrompt(state);
+        Set<String> talents=db.world().unlockedTalentIds();
+        pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);
+        int talentBonus=ProgressionEngine.checkBonus(talents,action,pendingCheck.primary);int companionBonus=db.world().companionCheckBonus(action);
+        StatEngine.applyExternalModifier(pendingCheck,talentBonus,talentBonus==0?"":"talentų specializacija");
+        StatEngine.applyExternalModifier(pendingCheck,companionBonus,companionBonus==0?"":"Lyros tyrimo pagalba");
+        Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);
+        pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);
+        busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");
+        String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;boolean authoritativeCombat=CombatEngine.handles(state,action);
+        int companionDefense=db.world().companionDefenseBonus(state.combatRound);int companionHealing=db.world().companionVictoryHealing();
+        pool.execute(()->{JSONObject r;String warn=null;try{
+            r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues,talents,companionDefense,companionHealing):key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check,worldContext);
+        }catch(Exception e){r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues,talents,companionDefense,companionHealing):local(action,check);warn=authoritativeCombat?"Kovą apskaičiavo vietinis variklis":"Groq nepasiekiamas · panaudotas vietinis sprendimas";}
+            JSONObject rr=r;String ww=warn;runOnUiThread(()->finish(action,rr,ww));
+        });
+    }
 
     void finish(String action,JSONObject r,String warn){
         r=LithuanianNarrative.polish(r,state);
-        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;
+        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;int defeatedDanger=state.enemyDanger;
         state.applyTurn(r);CombatEngine.hydrate(state);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory="combat_victory".equals(event)||(wasCombat&&!state.combatActive&&!"combat_escape".equals(event)&&!"combat_end".equals(event));if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;String name=o.optString("name","Nežinomas radinys");db.addLoot(name,o.optString("category","artifact"),o.optString("rarity","common"),o.optString("description",""));gained.add(name);}}
-        String questUpdate=db.world().progressStory(action,event,state);String npcUpdate=db.world().recordNpcInteraction(action,event,state.worldMinute);String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);db.saveState(state);
-        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,npcUpdate,worldUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();busy=false;pendingCheck=null;pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;show("game");
+        ProgressionEngine.Award progression=ProgressionEngine.award(state,event,pendingCheck,defeatedDanger);String questUpdate=db.world().progressStory(action,event,state);String npcUpdate=db.world().recordNpcInteraction(action,event,state.worldMinute);String companionUpdate=db.world().recordCompanionTurn(action,event,state);String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);db.saveState(state);
+        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));if(progression.gained>0){if(f.length()>0)f.append("  ");f.append("★ ").append(progression.line());}String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,npcUpdate,companionUpdate,worldUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();busy=false;pendingCheck=null;pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;show("game");
     }
 
     JSONObject local(String action,StatEngine.Check check){
@@ -256,6 +276,11 @@ public class VaeloriaActivity extends Activity {
 
     boolean applyCharacterProfile(String name,int age,boolean ageless,String identity,String appearance,
                                   String originId,String archetypeId,List<String> traitIds){
+        return applyCharacterProfile(name,age,ageless,identity,appearance,originId,archetypeId,traitIds,state==null?"balanced":state.progressionMode);
+    }
+
+    boolean applyCharacterProfile(String name,int age,boolean ageless,String identity,String appearance,
+                                  String originId,String archetypeId,List<String> traitIds,String progressionMode){
         String cleanName=name==null?"":name.trim().replaceAll("\\s+"," ");
         ArrayList<String> traits=CharacterCatalogV093.normalizedTraits(traitIds);
         if(!cleanName.matches("[\\p{L}\\p{M}'’ -]{2,32}")||age<16||age>999
@@ -274,6 +299,7 @@ public class VaeloriaActivity extends Activity {
         state.characterTraitIds.clear();state.characterTraitIds.addAll(traits);
         state.characterCreated=true;
         if(first){
+            db.initializeCharacterProgression(state,progressionMode,originId,archetypeId);
             state.sceneTitle="Kelionės pradžia";
             state.scene="Luminara tave pasitinka kelionės vartų gaudesiu ir neramiomis žiniomis. Tavo kilmė, archetipas ir pasirinkti bruožai nuo šiol keis kiekvieną svarbią savybės patikrą. Karavano manifesto laiko neatitikimas tampa pirmuoju tikru išbandymu.";
             state.choices.clear();
