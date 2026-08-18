@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <application
         android:allowBackup="false"
-        android:label="Vaeloria OOC 0.9.0"
+        android:label="Vaeloria OOC 0.9.1"
         android:icon="@drawable/ic_vaeloria"
         android:roundIcon="@drawable/ic_vaeloria"
         android:supportsRtl="true"

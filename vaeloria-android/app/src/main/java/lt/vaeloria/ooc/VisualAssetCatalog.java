@@ -2,7 +2,7 @@ package lt.vaeloria.ooc;
 
 import java.util.Locale;
 
-/** Central mapping from live game data to immutable bundled v0.9.0 artwork. */
+/** Central mapping from live game data to immutable bundled v0.9.x artwork. */
 final class VisualAssetCatalog {
     private VisualAssetCatalog() {}
 
@@ -29,7 +29,7 @@ final class VisualAssetCatalog {
         String query = normalize(name);
         if (query.contains("kael")) return R.drawable.npc_kael_v090;
         if (query.contains("seraph")) return R.drawable.npc_seraphine_v090;
-        if (query.contains("oren pel")) return R.drawable.npc_oren_merchant_v090;
+        if (containsAny(query, "oren pel", "orenas pel")) return R.drawable.npc_oren_merchant_v090;
         if (query.contains("orin") || query.contains("oren")) return R.drawable.npc_orin_v090;
         if (query.contains("varek")) return R.drawable.npc_varek_v090;
         if (query.contains("mirel") || query.contains("mira")) return R.drawable.npc_mirel_v090;
@@ -44,11 +44,13 @@ final class VisualAssetCatalog {
         if (containsAny(query, "bram", "staty", "mason", "builder")) return R.drawable.npc_bram_builder_v090;
         if (containsAny(query, "nesta", "arklid", "stablemaster")) return R.drawable.npc_nesta_stablemaster_v090;
         if (containsAny(query, "emil", "raštin", "rastin", "scribe")) return R.drawable.npc_emil_scribe_v090;
-        if (containsAny(query, "corva", "gild", "broker")) return R.drawable.npc_corva_broker_v090;
+        if (containsAny(query, "corva", "korva", "gild", "broker")) return R.drawable.npc_corva_broker_v090;
         return R.drawable.npc_lyra_v090;
     }
 
     static int monsterFor(String name) {
+        int extendedArtwork = EnemyCatalogV091.artFor(name);
+        if (extendedArtwork != 0) return extendedArtwork;
         String query = normalize(name);
         if (containsAny(query, "meridiano wyrm", "meridian wyrm", "meridiano slibin")) {
             return R.drawable.monster_meridian_wyrm_v090;
@@ -81,7 +83,7 @@ final class VisualAssetCatalog {
         if (containsAny(query, "pelkių trol", "pelkiu trol", "mire troll", "troll")) {
             return R.drawable.monster_mire_troll_v090;
         }
-        if (containsAny(query, "nuodų motin", "nuodu motin", "broodmother", "vor", "spider")) {
+        if (containsAny(query, "nuodų motin", "nuodu motin", "nuodų perų", "nuodu peru", "broodmother", "vor", "spider")) {
             return R.drawable.monster_venom_broodmother_v090;
         }
         if (containsAny(query, "kristalų golem", "kristalu golem", "crystal golem")) {

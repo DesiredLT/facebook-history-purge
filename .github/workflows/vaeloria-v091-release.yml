@@ -1,0 +1,132 @@
+name: Release Vaeloria OOC v0.9.1
+
+on:
+  pull_request:
+    branches: [agent/vaeloria-local-android]
+    paths:
+      - '.github/workflows/vaeloria-v091-release.yml'
+      - 'v091/**'
+      - 'vaeloria-android/app/**'
+      - 'vaeloria-android/v090/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: vaeloria-android
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore stable signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+          fail-on-cache-miss: true
+
+      - name: Verify upgrade-compatible signing identity
+        run: |
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android platform
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Source, catalog and raster acceptance audit
+        run: |
+          python3 -m pip install --disable-pip-version-check pillow
+          cd ..
+          python3 v091/audit_v091.py
+
+      - name: Unit, resolver-contract and save-JSON tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Real 360dp mobile, local-loop and SQLite v3 migration tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size 360x800
+            adb shell wm density 160
+            cd vaeloria-android
+            gradle :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Build release APK
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v0.9.1.apk
+
+      - name: APK, manifest, permission, resources and signer audit
+        run: |
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v0.9.1.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$AAPT" dump badging "$APK" | tee apk-badging-v091.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v091.txt
+          grep -q "versionCode='31'" apk-badging-v091.txt
+          grep -q "versionName='0.9.1'" apk-badging-v091.txt
+          grep -q "application-label:'Vaeloria OOC 0.9.1'" apk-badging-v091.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v091.txt
+
+          "$AAPT" dump permissions "$APK" | tee apk-permissions-v091.txt
+          test "$(grep -c '^uses-permission:' apk-permissions-v091.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions-v091.txt
+
+          "$AAPT" dump resources "$APK" | tee apk-resources-v091.txt
+          for resource in hero_einoras_v090 scene_luminara_v090 scene_palace_v090 scene_road_v090 scene_forest_v090 scene_combat_v090 scene_meridian_v090 quest_broken_meridian_v090 world_map_base_v090 npc_lyra_v090 npc_oren_merchant_v090 npc_corva_broker_v090 monster_meridian_wolf_v090 monster_venom_broodmother_v090 monster_meridian_wyrm_v090 item_asterion_blade_v090 item_zero_glass_prism_v090; do
+            grep -q "$resource" apk-resources-v091.txt
+          done
+          for number in $(seq -w 1 200); do
+            grep -q "monster_v091_$number" apk-resources-v091.txt
+          done
+
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          "$APKSIGNER" verify --verbose "$APK"
+          unzip -t "$APK"
+          if unzip -p "$APK" classes.dex | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          sha256sum "$APK" | tee apk-sha256-v091.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-ooc-v0.9.1-apk-and-audits
+          path: |
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v0.9.1.apk
+            vaeloria-android/apk-badging-v091.txt
+            vaeloria-android/apk-permissions-v091.txt
+            vaeloria-android/apk-sha256-v091.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v0.9.1 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v0.9.1 app/build/outputs/apk/release/Vaeloria-OOC-v0.9.1.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Vaeloria OOC v0.9.1 · 218 Illustrated Threats" --notes "Vaeloria OOC v0.9.1 completes the v0.9 premium acceptance pass. It adds 200 original bundled enemy portraits across eight regions, bringing the illustrated bestiary to 218 threats. Every new enemy has a unique ID, artwork, region, role, trait, danger rating and HP/attack/defense/speed statistics; both the offline resolver and Groq game master can select the new roster. NPC portrait mappings for Orenas Pelas and Korva Dain and the Nuodų perų motina mapping are corrected. City and unknown atlas markers are distinct, developer-facing copy is removed, combat and equipment text wrap instead of being hard-cut, and the equipment grid fits its full content. CI validates 2,000+ source/raster assertions, all 270 retained/new premium assets, unit and resolver contracts, a real SQLite v3-to-v5 database migration, the full local combat/save loop, and all six primary screens at a true 360dp viewport with 44dp touch-target and no-horizontal-scroll checks. Package ID, save model, offline operation, Groq integration and the stable upgrade signing identity remain unchanged."

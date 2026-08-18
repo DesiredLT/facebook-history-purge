@@ -3,3 +3,7 @@
 local.properties
 **/build/
 *.iml
+__pycache__/
+*.pyc
+*.repaired.png
+generated-v091/

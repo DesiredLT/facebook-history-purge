@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Vaeloria v0.9.0 premium mobile presentation over the existing game and save systems. */
+/** Vaeloria v0.9.1 premium mobile presentation over the existing game and save systems. */
 public class PolishedActivity extends PremiumActivity {
     private static final int LINE = Color.rgb(43, 59, 68);
     private static final int PANEL = Color.rgb(9, 19, 27);
@@ -327,8 +327,8 @@ public class PolishedActivity extends PremiumActivity {
                     item == null ? Color.rgb(67, 84, 92) : rarity(item.rarity));
         }
         loadout.setListener(this::openSlot);
-        column.addView(loadout, new LinearLayout.LayoutParams(-1, dp(420)));
-        TextView gearHint = txt("Bakstelėk įrangos lauką, kad pakeistum daiktą. Herojaus iliustracija nuo įrangos sąsajos atskirta.", 9, SUB, false);
+        column.addView(loadout, new LinearLayout.LayoutParams(-1, dp(552)));
+        TextView gearHint = txt("Bakstelėk įrangos lauką, kad pakeistum daiktą.", 9, SUB, false);
         gearHint.setPadding(dp(4), dp(7), dp(4), dp(9));
         column.addView(gearHint);
 
@@ -589,7 +589,7 @@ public class PolishedActivity extends PremiumActivity {
         column.setPadding(dp(14), dp(12), dp(14), dp(10));
         scroll.addView(column);
         column.addView(serif("LUMINAROS GYVENTOJAI", 23, PARCH, true));
-        column.addView(txt("Kiekvienas veikėjas turi savo amatą, paslaugą, žinias ir atskirą portretą.", 10, SUB, false), sp(dp(10)));
+        column.addView(txt("Čia susitinka miesto amatai, paslaugos, žinios ir kasdieniai interesai.", 10, SUB, false), sp(dp(10)));
         for (int index = 0; index < CITY_NPCS_V090.length; index++) {
             if (index == 0) column.addView(section("PREKYBA, AMATAI IR PASLAUGOS"));
             if (index == 6) column.addView(section("TVARKA, KELIAI IR MIESTO GYVENIMAS"), sp(dp(10)));
@@ -600,14 +600,21 @@ public class PolishedActivity extends PremiumActivity {
 
     private View bestiaryPanel() {
         LinearLayout panel = panel(false);
-        panel.addView(section("BESTIARIUMAS · 18 ILIUSTRUOTŲ GRĖSMIŲ"));
+        panel.addView(section("BESTIARIUMAS · 218 ILIUSTRUOTŲ GRĖSMIŲ"));
         panel.addView(serif("Pažintos Vaelorios būtybės", 17, PARCH, true));
-        panel.addView(txt("Portretas kovoje parenkamas pagal aktyvaus priešo vardą. Katalogas kraunamas po vieną grupę.", 9, SUB, false), sp(dp(7)));
+        panel.addView(txt("Pasirink grėsmių grupę ir pasiruošk pagal jos pavojų, aplinką bei elgseną.", 9, SUB, false), sp(dp(7)));
         String[] categories = {"LAUKINIAI", "ANOMALIJOS", "PASAULIO BOSAI"};
         for (String category : categories) {
             Button button = dark(category + " · 6");
             button.setMinHeight(dp(48));
             button.setOnClickListener(view -> bestiaryDialog(category));
+            panel.addView(button, sp(dp(5)));
+        }
+        panel.addView(section("REGIONINIAI ĮRAŠAI · 200"), sp(dp(10)));
+        for (String region : EnemyCatalogV091.regions()) {
+            Button button = dark(region + " · 25");
+            button.setMinHeight(dp(48));
+            button.setOnClickListener(view -> extendedBestiaryDialog(region));
             panel.addView(button, sp(dp(5)));
         }
         return panel;
@@ -672,6 +679,72 @@ public class PolishedActivity extends PremiumActivity {
                 .setNegativeButton("UŽDARYTI", null)
                 .setPositiveButton("IEŠKOTI PĖDSAKŲ", (dialog, which) ->
                         act("Ieškoti " + monster[0] + " pėdsakų saugiai, neinicijuojant kovos be aiškaus mano sprendimo."))
+                .show();
+    }
+
+    private void extendedBestiaryDialog(String region) {
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout column = col();
+        column.setPadding(dp(12), dp(12), dp(12), dp(10));
+        scroll.addView(column);
+        column.addView(serif(region, 22, PARCH, true));
+        column.addView(txt("25 iliustruotos grėsmės su kovos statistika. Bakstelėk įrašą išsamiai analizei.", 9, SUB, false), sp(dp(9)));
+        List<EnemyCatalogV091.Enemy> matches = EnemyCatalogV091.inRegion(region);
+        for (int index = 0; index < matches.size(); index += 2) {
+            LinearLayout pair = row();
+            pair.addView(extendedMonsterCard(matches.get(index)), new LinearLayout.LayoutParams(0, dp(222), 1));
+            pair.addView(new Space(this), new LinearLayout.LayoutParams(dp(7), 1));
+            if (index + 1 < matches.size()) {
+                pair.addView(extendedMonsterCard(matches.get(index + 1)), new LinearLayout.LayoutParams(0, dp(222), 1));
+            } else {
+                pair.addView(new View(this), new LinearLayout.LayoutParams(0, dp(222), 1));
+            }
+            column.addView(pair, sp(dp(7)));
+        }
+        new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI", null).show();
+    }
+
+    private View extendedMonsterCard(EnemyCatalogV091.Enemy enemy) {
+        LinearLayout card = col();
+        int accent = dangerColor(enemy.danger);
+        card.setPadding(dp(8), dp(8), dp(8), dp(8));
+        card.setMinimumHeight(dp(212));
+        card.setBackground(round(PANEL_2, 14,
+                Color.argb(170, Color.red(accent), Color.green(accent), Color.blue(accent))));
+        MonsterArtView art = new MonsterArtView(this);
+        art.setMonster(enemy.name);
+        card.addView(art, new LinearLayout.LayoutParams(-1, dp(126)));
+        TextView name = serif(enemy.name, 12, PARCH, true);
+        name.setMaxLines(2);
+        card.addView(name, sp(dp(3)));
+        card.addView(txt(enemy.role.toUpperCase(Locale.forLanguageTag("lt-LT")), 7, SUB, true));
+        card.addView(txt("PAVOJUS · " + enemy.danger + "/10", 8, accent, true));
+        card.setContentDescription(enemy.name + ". Pavojus " + enemy.danger + " iš 10");
+        card.setOnClickListener(view -> extendedMonsterDialog(enemy));
+        return card;
+    }
+
+    private void extendedMonsterDialog(EnemyCatalogV091.Enemy enemy) {
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout content = col();
+        content.setPadding(dp(16), dp(12), dp(16), dp(8));
+        scroll.addView(content);
+        MonsterArtView art = new MonsterArtView(this);
+        art.setMonster(enemy.name);
+        content.addView(art, new LinearLayout.LayoutParams(-1, dp(260)));
+        content.addView(serif(enemy.name, 22, PARCH, true), sp(dp(4)));
+        content.addView(txt(enemy.region + " · PAVOJUS " + enemy.danger + "/10", 9,
+                dangerColor(enemy.danger), true), sp(dp(6)));
+        content.addView(txt(enemy.role.toUpperCase(Locale.forLanguageTag("lt-LT")) + " · " + enemy.trait,
+                9, GOLD2, true), sp(dp(6)));
+        content.addView(txt("GYVYBĖ " + enemy.hp + "   ATAKA " + enemy.attack + "   GYNYBA "
+                + enemy.defense + "   GREITIS " + enemy.speed, 10, Color.rgb(205, 219, 218), true), sp(dp(7)));
+        content.addView(txt(enemy.description, 11, Color.rgb(217, 222, 217), false));
+        new AlertDialog.Builder(this)
+                .setView(scroll)
+                .setNegativeButton("UŽDARYTI", null)
+                .setPositiveButton("IEŠKOTI PĖDSAKŲ", (dialog, which) ->
+                        act("Ieškoti " + enemy.name + " pėdsakų saugiai, neinicijuojant kovos be aiškaus mano sprendimo."))
                 .show();
     }
 

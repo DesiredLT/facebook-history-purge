@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Vaeloria v0.9.0 scene renderer. Only the selected bundled bitmap is decoded. */
+/** Vaeloria v0.9.1 scene renderer. Only the selected bundled bitmap is decoded. */
 class SceneV090View extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private Bitmap artwork;
@@ -74,21 +74,14 @@ class SceneV090View extends View {
 
         String title = location.toUpperCase(Locale.forLanguageTag("lt-LT"));
         paint.setTypeface(Typeface.create(Typeface.SERIF, Typeface.BOLD));
-        float titleSize = dp(25);
-        paint.setTextSize(titleSize);
-        while (titleSize > dp(16) && paint.measureText(title) > width - dp(32)) {
-            titleSize -= 1;
-            paint.setTextSize(titleSize);
-        }
         paint.setColor(Color.rgb(245, 229, 194));
         paint.setShadowLayer(dp(5), 0, dp(2), Color.BLACK);
-        canvas.drawText(title, dp(16), height - dp(45), paint);
+        drawAdaptiveLine(canvas, title, dp(16), height - dp(45), width - dp(32), 25f, 12f);
         paint.clearShadowLayer();
 
         paint.setTypeface(Typeface.DEFAULT_BOLD);
-        paint.setTextSize(dp(10));
         paint.setColor(Color.rgb(197, 209, 209));
-        canvas.drawText(fit(scene, width - dp(34)), dp(17), height - dp(20), paint);
+        drawAdaptiveLine(canvas, scene, dp(17), height - dp(20), width - dp(34), 10f, 7f);
     }
 
     @Override protected void onDetachedFromWindow() {
@@ -101,13 +94,17 @@ class SceneV090View extends View {
         artwork = null;
     }
 
-    private String fit(String value, float maxWidth) {
+    private void drawAdaptiveLine(Canvas canvas, String value, float x, float baseline,
+                                  float maxWidth, float preferredSp, float minimumSp) {
         String text = value == null ? "" : value;
-        if (paint.measureText(text) <= maxWidth) return text;
-        while (text.length() > 2 && paint.measureText(text + "…") > maxWidth) {
-            text = text.substring(0, text.length() - 1);
+        float density = getResources().getDisplayMetrics().scaledDensity;
+        float size = preferredSp;
+        paint.setTextSize(size * density);
+        while (size > minimumSp && paint.measureText(text) > maxWidth) {
+            size -= .5f;
+            paint.setTextSize(size * density);
         }
-        return text + "…";
+        canvas.drawText(text, x, baseline, paint);
     }
 
     static void drawCover(Canvas canvas, Bitmap bitmap, int width, int height, Paint paint) {
@@ -335,7 +332,7 @@ class CombatV090View extends View {
         canvas.drawRect(0, 0, width, height, paint);
         paint.setShader(null);
 
-        RectF enemyBox = new RectF(width * .42f, dp(38), width - dp(12), height - dp(98));
+        RectF enemyBox = new RectF(width * .42f, dp(38), width - dp(12), height - dp(140));
         Path clip = new Path();
         clip.addRoundRect(enemyBox, dp(14), dp(14), Path.Direction.CW);
         canvas.save();
@@ -356,9 +353,8 @@ class CombatV090View extends View {
         canvas.drawText("EINORAS", dp(14), dp(25), paint);
 
         String enemyName = safe(state.enemyName, "Priešas").toUpperCase(Locale.forLanguageTag("lt-LT"));
-        paint.setTextSize(dp(12));
         paint.setColor(Color.rgb(229, 104, 89));
-        canvas.drawText(fit(enemyName, width - dp(30)), dp(14), dp(51), paint);
+        drawAdaptiveLine(canvas, enemyName, dp(14), dp(51), width - dp(30), 12f, 7f);
 
         String distance = "close".equals(state.combatDistance) ? "ARTIMAS"
                 : "far".equals(state.combatDistance) ? "TOLIMAS" : "VIDUTINIS";
@@ -366,28 +362,28 @@ class CombatV090View extends View {
         paint.setTextSize(dp(8));
         paint.setColor(Color.rgb(195, 207, 207));
         canvas.drawText("ATSTUMAS · " + distance, dp(14), dp(73), paint);
-        canvas.drawText("GYVA PRIEŠO ILIUSTRACIJA", dp(14), dp(92), paint);
+        canvas.drawText("KOVOS LAUKAS", dp(14), dp(92), paint);
 
-        RectF panel = new RectF(dp(12), height - dp(88), width - dp(12), height - dp(10));
+        RectF panel = new RectF(dp(12), height - dp(132), width - dp(12), height - dp(10));
         paint.setColor(Color.argb(232, 4, 12, 17));
         canvas.drawRoundRect(panel, dp(12), dp(12), paint);
         paint.setTypeface(Typeface.DEFAULT_BOLD);
         paint.setTextSize(dp(8));
         paint.setColor(Color.rgb(232, 150, 91));
         canvas.drawText("PRIEŠO KETINIMAS", panel.left + dp(10), panel.top + dp(17), paint);
+        float textLeft = panel.left + dp(10);
+        float textWidth = panel.width() - dp(20);
         paint.setTypeface(Typeface.DEFAULT);
-        paint.setTextSize(dp(10));
         paint.setColor(Color.rgb(236, 238, 231));
-        canvas.drawText(trim(safe(state.enemyTelegraph, "Ketinimas dar neaiškus"), 48),
-                panel.left + dp(10), panel.top + dp(38), paint);
+        float next = drawWrapped(canvas, safe(state.enemyTelegraph, "Ketinimas dar neaiškus"),
+                textLeft, panel.top + dp(37), textWidth, 9.5f, 7f, 2);
         paint.setTypeface(Typeface.DEFAULT_BOLD);
-        paint.setTextSize(dp(8));
         paint.setColor(Color.rgb(182, 198, 194));
-        canvas.drawText("BŪSENA · " + trim(safe(state.enemyStatus, "Nežinoma"), 38),
-                panel.left + dp(10), panel.top + dp(57), paint);
+        next = drawWrapped(canvas, "BŪSENA · " + safe(state.enemyStatus, "Nežinoma"),
+                textLeft, next + dp(14), textWidth, 8f, 6.5f, 2);
         paint.setColor(Color.rgb(221, 187, 104));
-        canvas.drawText("APLINKA · " + trim(safe(state.combatHazard, "Stabili"), 38),
-                panel.left + dp(10), panel.top + dp(73), paint);
+        drawWrapped(canvas, "APLINKA · " + safe(state.combatHazard, "Stabili"),
+                textLeft, next + dp(13), textWidth, 8f, 6.5f, 2);
     }
 
     @Override protected void onDetachedFromWindow() {
@@ -405,17 +401,53 @@ class CombatV090View extends View {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
 
-    private String trim(String value, int max) {
-        return value.length() <= max ? value : value.substring(0, max - 1) + "…";
+    private void drawAdaptiveLine(Canvas canvas, String value, float x, float baseline,
+                                  float maxWidth, float preferredSp, float minimumSp) {
+        float density = getResources().getDisplayMetrics().scaledDensity;
+        float size = preferredSp;
+        paint.setTextSize(size * density);
+        while (size > minimumSp && paint.measureText(value) > maxWidth) {
+            size -= .5f;
+            paint.setTextSize(size * density);
+        }
+        canvas.drawText(value, x, baseline, paint);
     }
 
-    private String fit(String value, float maxWidth) {
-        if (paint.measureText(value) <= maxWidth) return value;
-        String candidate = value;
-        while (candidate.length() > 2 && paint.measureText(candidate + "…") > maxWidth) {
-            candidate = candidate.substring(0, candidate.length() - 1);
+    private float drawWrapped(Canvas canvas, String value, float x, float baseline, float maxWidth,
+                              float preferredSp, float minimumSp, int targetLines) {
+        float density = getResources().getDisplayMetrics().scaledDensity;
+        float size = preferredSp;
+        List<String> lines;
+        do {
+            paint.setTextSize(size * density);
+            lines = wrap(value, maxWidth);
+            if (lines.size() <= targetLines || size <= minimumSp) break;
+            size -= .5f;
+        } while (true);
+        float lineHeight = paint.getTextSize() * 1.18f;
+        for (int index = 0; index < lines.size(); index++) {
+            canvas.drawText(lines.get(index), x, baseline + index * lineHeight, paint);
         }
-        return candidate + "…";
+        return baseline + Math.max(0, lines.size() - 1) * lineHeight;
+    }
+
+    private List<String> wrap(String value, float maxWidth) {
+        ArrayList<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : value.trim().split("\\s+")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && paint.measureText(candidate) > maxWidth) {
+                lines.add(line.toString());
+                line.setLength(0);
+                line.append(word);
+            } else {
+                if (line.length() > 0) line.append(' ');
+                line.append(word);
+            }
+        }
+        if (line.length() > 0) lines.add(line.toString());
+        if (lines.isEmpty()) lines.add("");
+        return lines;
     }
 
     int dp(float value) {
@@ -477,7 +509,7 @@ class LoadoutV090View extends View {
         float gap = dp(7);
         float side = dp(9);
         float cardWidth = (width - side * 2 - gap) / 2f;
-        float cardHeight = dp(48);
+        float cardHeight = dp(58);
         float y = dp(34);
         String[] keys = {"head", "neck", "weapon", "offhand", "chest", "utility",
                 "hands", "belt", "legs", "feet", "ring_left", "ring_right"};
@@ -488,10 +520,11 @@ class LoadoutV090View extends View {
         }
 
         String[] relics = {"relic_1", "relic_2", "relic_3", "relic_4"};
-        float relicGap = dp(5);
-        float relicWidth = (width - side * 2 - relicGap * 3) / 4f;
         for (int index = 0; index < relics.length; index++) {
-            drawSlot(canvas, relics[index], side + index * (relicWidth + relicGap), y, relicWidth, dp(48));
+            int row = index / 2;
+            int column = index % 2;
+            drawSlot(canvas, relics[index], side + column * (cardWidth + gap),
+                    y + row * (cardHeight + gap), cardWidth, cardHeight);
         }
     }
 
@@ -526,14 +559,13 @@ class LoadoutV090View extends View {
         float textX = imageRect.right + dp(6);
         float textWidth = Math.max(dp(18), card.right - textX - dp(5));
         paint.setTypeface(Typeface.DEFAULT_BOLD);
-        paint.setTextSize(dp(width < dp(90) ? 5.5f : 6.4f));
         paint.setColor(color);
         String title = slot == null ? key : slot.title;
-        canvas.drawText(fit(title.toUpperCase(Locale.ROOT), textWidth), textX, y + dp(16), paint);
+        drawAdaptiveLine(canvas, title.toUpperCase(Locale.ROOT), textX, y + dp(15),
+                textWidth, 6.4f, 5f);
         paint.setTypeface(Typeface.DEFAULT);
-        paint.setTextSize(dp(width < dp(90) ? 6.1f : 7.3f));
         paint.setColor(equipped ? Color.rgb(235, 233, 222) : Color.rgb(104, 120, 128));
-        canvas.drawText(fit(equipped ? slot.item : "Tuščia", textWidth), textX, y + dp(35), paint);
+        drawItemName(canvas, equipped ? slot.item : "Tuščia", textX, y + dp(33), textWidth);
     }
 
     private Bitmap bitmap(int resource) {
@@ -545,13 +577,51 @@ class LoadoutV090View extends View {
         return bitmap;
     }
 
-    private String fit(String value, float maxWidth) {
-        String text = value == null ? "" : value;
-        if (paint.measureText(text) <= maxWidth) return text;
-        while (text.length() > 2 && paint.measureText(text + "…") > maxWidth) {
-            text = text.substring(0, text.length() - 1);
+    private void drawAdaptiveLine(Canvas canvas, String value, float x, float baseline,
+                                  float maxWidth, float preferredSp, float minimumSp) {
+        float density = getResources().getDisplayMetrics().scaledDensity;
+        float size = preferredSp;
+        paint.setTextSize(size * density);
+        while (size > minimumSp && paint.measureText(value) > maxWidth) {
+            size -= .25f;
+            paint.setTextSize(size * density);
         }
-        return text + "…";
+        canvas.drawText(value, x, baseline, paint);
+    }
+
+    private void drawItemName(Canvas canvas, String value, float x, float baseline, float maxWidth) {
+        float density = getResources().getDisplayMetrics().scaledDensity;
+        float size = 7.3f;
+        List<String> lines;
+        do {
+            paint.setTextSize(size * density);
+            lines = wrap(value, maxWidth);
+            if (lines.size() <= 2 || size <= 5f) break;
+            size -= .25f;
+        } while (true);
+        float lineHeight = paint.getTextSize() * 1.12f;
+        for (int index = 0; index < lines.size(); index++) {
+            canvas.drawText(lines.get(index), x, baseline + index * lineHeight, paint);
+        }
+    }
+
+    private List<String> wrap(String value, float maxWidth) {
+        ArrayList<String> lines = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String word : (value == null ? "" : value).trim().split("\\s+")) {
+            String candidate = line.length() == 0 ? word : line + " " + word;
+            if (line.length() > 0 && paint.measureText(candidate) > maxWidth) {
+                lines.add(line.toString());
+                line.setLength(0);
+                line.append(word);
+            } else {
+                if (line.length() > 0) line.append(' ');
+                line.append(word);
+            }
+        }
+        if (line.length() > 0) lines.add(line.toString());
+        if (lines.isEmpty()) lines.add("");
+        return lines;
     }
 
     @Override public boolean onTouchEvent(MotionEvent event) {
@@ -781,6 +851,20 @@ class WorldMapV090View extends View {
             canvas.drawCircle(x, y, icon, paint);
             canvas.drawLine(x - icon * .8f, y, x + icon * .8f, y, paint);
             canvas.drawLine(x, y - icon * .8f, x, y + icon * .8f, paint);
+        } else if ("city".equals(node.type)) {
+            canvas.drawCircle(x, y, icon, paint);
+            canvas.drawRect(x - icon * .35f, y - icon * .35f,
+                    x + icon * .35f, y + icon * .35f, paint);
+        } else if ("unknown".equals(node.type)) {
+            Path unknown = new Path();
+            unknown.moveTo(x, y - icon);
+            unknown.lineTo(x + icon, y);
+            unknown.lineTo(x, y + icon);
+            unknown.lineTo(x - icon, y);
+            unknown.close();
+            canvas.drawPath(unknown, paint);
+            canvas.drawLine(x - icon * .45f, y - icon * .45f,
+                    x + icon * .45f, y + icon * .45f, paint);
         } else {
             canvas.drawCircle(x, y, icon * .72f, paint);
         }

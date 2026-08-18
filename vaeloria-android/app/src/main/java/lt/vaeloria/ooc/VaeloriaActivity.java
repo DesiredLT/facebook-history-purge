@@ -173,8 +173,12 @@ public class VaeloriaActivity extends Activity {
                 c.put("Paprašyti konkretaus liudijimo").put("Paklausti, kas galėtų žinoti daugiau").put("Užrašyti informaciją ir tęsti tyrimą");
             }else if(q.contains("puol")||q.contains("kov")||q.contains("smūg")||q.contains("smug")||q.contains("ataka")||q.contains("pulti")){
                 title="Kova prasideda";minutes=2;stamina=-8;hp=-2;event="combat";combat=true;
-                if(enemy==null||enemy.isEmpty())enemy="Meridiano vilkas";
-                enemyStatus="Budrus · spaudžiamas";
+                if(enemy==null||enemy.isEmpty()){
+                    EnemyCatalogV091.Enemy requested=EnemyCatalogV091.find(a);
+                    EnemyCatalogV091.Enemy encounter=requested!=null?requested:EnemyCatalogV091.encounterFor(state.location,state.worldMinute+a.hashCode());
+                    enemy=encounter.name;
+                    enemyStatus="Budrus · pavojus "+encounter.danger+"/10 · gyvybė "+encounter.hp;
+                }else enemyStatus="Budrus · spaudžiamas";
                 telegraph="Žemas žingsnis į šoną ir pasiruošimas kontratakai";
                 distance="close";
                 hazard="Slidus akmuo ir siauras praėjimas";
