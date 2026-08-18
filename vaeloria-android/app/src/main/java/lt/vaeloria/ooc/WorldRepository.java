@@ -21,7 +21,7 @@ final class WorldRepository {
     static final String[] TABLES = {
             "quests", "quest_steps", "quest_evidence", "npcs", "shops", "shop_stock",
             "factions", "faction_relations", "settlements", "world_events", "economy", "recipes",
-            "businesses", "hired_npcs", "companions", "talents"
+            "businesses", "hired_npcs", "companions", "talents", "locations"
     };
 
     static final class Quest {
@@ -93,6 +93,13 @@ final class WorldRepository {
         long unlockedMinute;
     }
 
+    static final class LocationInfo {
+        String id,name,region;
+        int danger,x,y;
+        boolean discovered,visited;
+        long lastVisit;
+    }
+
     static final class Hire {
         String npcId, name, job;
         int wage, loyalty;
@@ -126,6 +133,7 @@ final class WorldRepository {
         db.execSQL("CREATE TABLE IF NOT EXISTS hired_npcs (npc_id TEXT PRIMARY KEY, job TEXT NOT NULL, wage INTEGER NOT NULL, loyalty INTEGER NOT NULL DEFAULT 25, active INTEGER NOT NULL DEFAULT 1, hired_minute INTEGER NOT NULL, next_pay INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS companions (id TEXT PRIMARY KEY, npc_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, perk TEXT NOT NULL, loyalty INTEGER NOT NULL DEFAULT 20, recruited INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS talents (id TEXT PRIMARY KEY, unlocked INTEGER NOT NULL DEFAULT 0, unlocked_minute INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS locations (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, region TEXT NOT NULL, danger INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, discovered INTEGER NOT NULL DEFAULT 0, visited INTEGER NOT NULL DEFAULT 0, last_visit INTEGER NOT NULL DEFAULT 0)");
     }
 
     static void seed(SQLiteDatabase db, GameState state) {
@@ -196,6 +204,20 @@ final class WorldRepository {
         companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","+6 gynybai pirmame kovos ėjime");
         companion(db,"comp-mirel","npc-mirel","Mirel","Gydytoja","Po kovos atkuria 8 gyvybes");
         for(ProgressionEngine.TalentDef talent:ProgressionEngine.TALENTS)seedTalent(db,talent.id);
+        seedLocation(db,"luminara","Luminara","Luminara",3,400,360,true);
+        seedLocation(db,"asterio","Asterio Karūna","Luminara",4,290,170,true);
+        seedLocation(db,"stiklo","Stiklo Giria","KRAUJŠAKNĖS GIRIA",5,220,570,false);
+        seedLocation(db,"veyrhold","Veyrhold","Luminara",3,170,340,true);
+        seedLocation(db,"aurelionas","Aureliono Pakraštys","MERIDIANO TUŠTUMA",4,620,240,false);
+        seedLocation(db,"zvaigzdekrita","Žvaigždėkritos Skliautas","MERIDIANO TUŠTUMA",7,730,520,false);
+        seedLocation(db,"tusciavidure","Tuščiavidurė Smailė","MERIDIANO TUŠTUMA",8,650,660,false);
+        seedLocation(db,"pelenu","Pelenų Karūnos Citadelė","PELENŲ NEKROPOLIS",7,780,310,false);
+        seedLocation(db,"kharad","Kharad Vorn","GELEŽINĖS VIRŠŪNĖS",5,140,390,false);
+        seedLocation(db,"drakono","Drakono Pabudimo Viršūnės","AUDRŲ ŠIAURĖ",8,670,100,false);
+        seedLocation(db,"safyro","Safyro Platybės","AUDRŲ ŠIAURĖ",7,570,460,false);
+        seedLocation(db,"saltinio","Amžinojo Šaltinio Slėnis","KRAUJŠAKNĖS GIRIA",4,200,680,false);
+        seedLocation(db,"labirintas","Žaliasis Labirintas","KRAUJŠAKNĖS GIRIA",8,730,720,false);
+        seedLocation(db,"pelkynas","Šventųjų Pelkynas","KRAUJŠAKNĖS GIRIA",6,460,840,false);
     }
 
     List<Quest> quests() {
@@ -251,6 +273,27 @@ final class WorldRepository {
     List<Faction> factions(){ArrayList<Faction> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT id,name,influence,relation,treasury,territory,tension FROM factions ORDER BY influence DESC",null)){while(c.moveToNext()){Faction f=new Faction();f.id=c.getString(0);f.name=c.getString(1);f.influence=c.getInt(2);f.relation=c.getString(3);f.treasury=c.getInt(4);f.territory=c.getInt(5);f.tension=c.getInt(6);result.add(f);}}return result;}
 
     List<Settlement> settlements(){ArrayList<Settlement> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT id,name,region,faction,prosperity,security,autonomy,rival_id FROM settlements ORDER BY prosperity DESC",null)){while(c.moveToNext()){Settlement s=new Settlement();s.id=c.getString(0);s.name=c.getString(1);s.region=c.getString(2);s.faction=c.getString(3);s.prosperity=c.getInt(4);s.security=c.getInt(5);s.autonomy=c.getInt(6);s.rivalId=c.getString(7);result.add(s);}}return result;}
+
+    List<LocationInfo> locations(){ArrayList<LocationInfo> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT id,name,region,danger,x,y,discovered,visited,last_visit FROM locations ORDER BY discovered DESC,name",null)){while(c.moveToNext()){LocationInfo value=new LocationInfo();value.id=c.getString(0);value.name=c.getString(1);value.region=c.getString(2);value.danger=c.getInt(3);value.x=c.getInt(4);value.y=c.getInt(5);value.discovered=c.getInt(6)==1;value.visited=c.getInt(7)==1;value.lastVisit=c.getLong(8);result.add(value);}}return result;}
+
+    Set<String> discoveredLocations(){LinkedHashSet<String> names=new LinkedHashSet<>();for(LocationInfo location:locations())if(location.discovered)names.add(location.name);return names;}
+    boolean isDiscovered(String name){if(name==null)return false;for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(name))return location.discovered;return true;}
+
+    void initializeOriginDiscoveries(String originId){
+        if("dravenn".equals(originId))discoverById("kharad");else if("pelkynai".equals(originId)){discoverById("pelkynas");discoverById("saltinio");}
+        else if("pasienis".equals(originId)){discoverById("stiklo");discoverById("kharad");}
+        else if("akademija".equals(originId))discoverById("aurelionas");
+    }
+
+    String recordExploration(String action,GameState state){
+        String query=norm(action);String found="";for(LocationInfo location:locations()){String name=norm(location.name);String first=name.split(" ")[0];if((query.contains(name)||query.contains(first))&&!location.discovered){discoverById(location.id);found="Atrasta nauja atlaso vieta: "+location.name;}}
+        for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(state.location)){ContentValues values=new ContentValues();values.put("discovered",1);values.put("visited",1);values.put("last_visit",state.worldMinute);db().update("locations",values,"id=?",new String[]{location.id});break;}
+        return found;
+    }
+
+    int travelMinutes(String from,String to){LocationInfo a=locationByName(from),b=locationByName(to);if(a==null||b==null||a.id.equals(b.id))return-1;double distance=Math.sqrt((a.x-b.x)*(double)(a.x-b.x)+(a.y-b.y)*(double)(a.y-b.y));return Math.max(35,(int)Math.round(28+distance*.48+b.danger*7));}
+    private LocationInfo locationByName(String name){if(name==null)return null;for(LocationInfo value:locations())if(value.name.equalsIgnoreCase(name))return value;return null;}
+    private void discoverById(String id){ContentValues values=new ContentValues();values.put("discovered",1);db().update("locations",values,"id=?",new String[]{id});}
 
     String advanceWorld(GameState state,String eventTag,int elapsedMinutes){
         SQLiteDatabase db=db();db.execSQL("UPDATE world_events SET active=0 WHERE active=1 AND expires_minute<=?",new Object[]{state.worldMinute});db.execSQL("UPDATE economy SET price_index=CASE WHEN price_index>100 THEN price_index-1 WHEN price_index<100 THEN price_index+1 ELSE 100 END,updated_minute=?",new Object[]{state.worldMinute});db.execSQL("UPDATE settlements SET prosperity=MAX(0,MIN(100,prosperity+CASE WHEN security>=50 THEN 1 ELSE -1 END)) WHERE ABS(?+LENGTH(id))%4=0",new Object[]{state.turnNumber});
@@ -387,6 +430,7 @@ final class WorldRepository {
     private static void business(SQLiteDatabase db,String id,String name,String type,String location,int revenue,int upkeep,int price){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("type",type);v.put("location",location);v.put("revenue",revenue);v.put("upkeep",upkeep);v.put("price",price);db.insertWithOnConflict("businesses",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void companion(SQLiteDatabase db,String id,String npc,String name,String role,String perk){ContentValues v=new ContentValues();v.put("id",id);v.put("npc_id",npc);v.put("name",name);v.put("role",role);v.put("perk",perk);db.insertWithOnConflict("companions",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void seedTalent(SQLiteDatabase db,String id){ContentValues v=new ContentValues();v.put("id",id);db.insertWithOnConflict("talents",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
+    private static void seedLocation(SQLiteDatabase db,String id,String name,String region,int danger,int x,int y,boolean discovered){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("region",region);v.put("danger",danger);v.put("x",x);v.put("y",y);v.put("discovered",discovered?1:0);db.insertWithOnConflict("locations",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static boolean scheduleAvailable(String service,long minute){long hour=(minute%1440)/60;if(service.contains("guard"))return true;if(service.contains("inn"))return hour>=6||hour<2;return hour>=7&&hour<22;}
     private static void removeFirst(JSONArray array){JSONArray copy=new JSONArray();for(int i=1;i<array.length();i++)copy.put(array.opt(i));while(array.length()>0)array.remove(array.length()-1);for(int i=0;i<copy.length();i++)array.put(copy.opt(i));}
     private static String compact(String value,int max){String result=value==null?"":value.trim().replaceAll("\\s+"," ");return result.length()>max?result.substring(0,max-1)+"…":result;}

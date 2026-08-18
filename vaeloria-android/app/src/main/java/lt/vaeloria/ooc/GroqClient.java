@@ -11,6 +11,7 @@ public final class GroqClient {
     private static final String ENDPOINT="https://api.groq.com/openai/v1/chat/completions";
     private static final String MODEL="openai/gpt-oss-120b";
     private static final int MAX_COMPLETION_TOKENS=1800;
+    private static volatile HttpURLConnection activeConnection;
     private GroqClient(){}
 
     public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities,StatEngine.Check check)throws Exception{
@@ -27,9 +28,11 @@ public final class GroqClient {
 
         Exception last=null;
         for(int attempt=0;attempt<2;attempt++){
+            if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("Užklausa atšaukta");
             HttpURLConnection c=null;
             try{
                 c=(HttpURLConnection)new URL(ENDPOINT).openConnection();
+                activeConnection=c;
                 c.setConnectTimeout(15000);c.setReadTimeout(60000);c.setRequestMethod("POST");
                 c.setRequestProperty("Authorization","Bearer "+apiKey);c.setRequestProperty("Content-Type","application/json");c.setDoOutput(true);
                 try(OutputStream os=c.getOutputStream()){os.write(req.toString().getBytes(StandardCharsets.UTF_8));}
@@ -43,10 +46,12 @@ public final class GroqClient {
                 throw new IllegalStateException(msg);
             }catch(SocketTimeoutException|UnknownHostException e){
                 last=e;if(attempt==0){Thread.sleep(700);continue;}throw e;
-            }finally{if(c!=null)c.disconnect();}
+            }finally{if(c!=null)c.disconnect();if(activeConnection==c)activeConnection=null;}
         }
         throw last==null?new IllegalStateException("Groq užklausa nepavyko"):last;
     }
+
+    static void cancelActive(){HttpURLConnection connection=activeConnection;if(connection!=null)connection.disconnect();}
 
     public static JSONObject resolveTurn(String apiKey,GameState s,String action,String equipped,List<String[]> abilities)throws Exception{
         return resolveTurn(apiKey,s,action,equipped,abilities,null);
@@ -122,6 +127,6 @@ public final class GroqClient {
     private static JSONObject str()throws Exception{return new JSONObject().put("type","string");}
     private static JSONObject str(int maxLength)throws Exception{return str().put("maxLength",maxLength);}
     private static JSONObject integer(int min,int max)throws Exception{return new JSONObject().put("type","integer").put("minimum",min).put("maximum",max);}
-    private static String read(InputStream in)throws Exception{if(in==null)return"";try(BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);return b.toString();}}
+    private static String read(InputStream in)throws Exception{if(in==null)return"";try(BufferedReader r=new BufferedReader(new InputStreamReader(in,StandardCharsets.UTF_8))){StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null){if(Thread.currentThread().isInterrupted())throw new InterruptedIOException("Užklausa atšaukta");b.append(line);}return b.toString();}}
     private static String apiError(String body){try{String m=new JSONObject(body).getJSONObject("error").optString("message",body);return m.length()>500?m.substring(0,500)+"…":m;}catch(Exception e){return body==null?"":(body.length()>500?body.substring(0,500)+"…":body);}}
 }

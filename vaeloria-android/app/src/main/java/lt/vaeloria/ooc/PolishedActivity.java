@@ -21,14 +21,18 @@ import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.Space;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Vaeloria v0.9.3 premium mobile presentation over the existing game and save systems. */
 public class PolishedActivity extends PremiumActivity {
@@ -38,6 +42,8 @@ public class PolishedActivity extends PremiumActivity {
     private static final int BLUE = Color.rgb(91, 164, 207);
     private static final int GREEN = Color.rgb(95, 186, 139);
     private static final int PURPLE = Color.rgb(158, 117, 214);
+    private String inventoryQuery="",inventoryRarity="all",inventorySort="rarity";
+    private int inventoryPage=0;
     private static final String[][] ITEM_GROUPS_V092 = {
             {"GINKLAI", "weapon"}, {"SKYDAI IR FOKUSAI", "offhand"}, {"ŠALMAI IR GOBTUVAI", "head"},
             {"KRŪTINĖS ŠARVAI", "chest"}, {"PIRŠTINĖS", "hands"}, {"KELNĖS", "legs"},
@@ -207,6 +213,7 @@ public class PolishedActivity extends PremiumActivity {
             view = errorView(error);
         }
         content.addView(view);
+        if(audio!=null)audio.startAmbient(state.location);
         if (pref("animations", true)) {
             view.setAlpha(0);
             view.setTranslationY(dp(7));
@@ -338,6 +345,11 @@ public class PolishedActivity extends PremiumActivity {
             column.addView(scene, new LinearLayout.LayoutParams(-1, dp(285)));
         }
         column.addView(resources(), sp(dp(8)));
+        if(!state.tutorialComplete){
+            LinearLayout guide=panel(true);guide.addView(section("GREITA PRADŽIA · 1 MINUTĖ"));guide.addView(serif("Tavo sprendimai turi mechanines pasekmes",18,PARCH,true));
+            guide.addView(txt("1. Rinkis vieną iš trijų veiksmų arba aprašyk savą.\n2. Patikra naudoja tavo savybes, įrangą, talentus ir būseną.\n3. Žurnale sek užduotis, o Veikėjo ekrane valdyk talentus bei kompanionus.\n4. Nustatymuose bet kada atšauk paskutinį ėjimą arba keisk sunkumą.",10,Color.rgb(221,226,220),false),sp(dp(7)));
+            Button understood=gold("SUPRATAU · PRADĖTI KELIONĘ");understood.setOnClickListener(view->{state.tutorialComplete=true;db.saveState(state);feedback="Vedlys užbaigtas · visada gali grįžti per nustatymus";show("game");});guide.addView(understood);column.addView(guide,sp(dp(8)));
+        }
         if (!feedback.isEmpty() && !busy) column.addView(feedbackCard(), sp(dp(8)));
 
         LinearLayout story = panel(true);
@@ -400,6 +412,7 @@ public class PolishedActivity extends PremiumActivity {
             if (!action.isEmpty()) act(action);
         });
         free.addView(send);
+        if(busy){Button cancel=outline("ATŠAUKTI SPRENDIMĄ");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->cancelPendingAction());free.addView(cancel,sp(dp(5)));}
         column.addView(free);
         return scroll;
     }
@@ -412,10 +425,14 @@ public class PolishedActivity extends PremiumActivity {
 
         FrameLayout hero = new FrameLayout(this);
         hero.setBackgroundColor(Color.rgb(2, 7, 11));
-        ImageView artwork = image(R.drawable.hero_einoras_v090);
-        artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        artwork.setContentDescription("Vaelorios veikėjo foninė iliustracija");
+        ImageView artwork = image(R.drawable.hero_einoras);
+        artwork.setContentDescription("Aukštos kokybės Vaelorios herojaus iliustracija");
         hero.addView(artwork, new FrameLayout.LayoutParams(-1, dp(510)));
+        CharacterAvatarV100View portrait = new CharacterAvatarV100View(this);
+        portrait.setCharacter(state);
+        FrameLayout.LayoutParams portraitParams = new FrameLayout.LayoutParams(dp(104), dp(126), Gravity.TOP | Gravity.END);
+        portraitParams.setMargins(0, dp(14), dp(14), 0);
+        hero.addView(portrait, portraitParams);
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Color.argb(0, 0, 0, 0), Color.argb(8, 0, 0, 0), Color.argb(244, 2, 8, 13)}));
@@ -537,16 +554,16 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout header = panel(true);
         header.addView(section("INVENTORIUS"));
         header.addView(serif("Relikvijos ir įranga", 23, PARCH, true));
-        List<VaeloriaDb.Item> inventory = db.getItems();
+        List<VaeloriaDb.Item> allInventory = db.getItems();
         int equipped = 0;
         int synced = 0;
         int units = 0;
-        for (VaeloriaDb.Item item : inventory) {
+        for (VaeloriaDb.Item item : allInventory) {
             if (item.equipped) equipped++;
             if (item.synced) synced++;
             units += Math.max(1, item.quantity);
         }
-        header.addView(txt(inventory.size() + " rūšių · " + units + " vnt. · " + equipped + " įrengti · " + synced + " rezonuoja", 10, SUB, false));
+        header.addView(txt(allInventory.size() + " rūšių · " + units + " vnt. · " + equipped + " įrengti · " + synced + " rezonuoja", 10, SUB, false));
         column.addView(header, sp(dp(9)));
 
         LinearLayout codex = panel(false);
@@ -555,26 +572,30 @@ public class PolishedActivity extends PremiumActivity {
         codex.addView(txt("19 kategorijų · 8 retumo pakopos · 1–100 lygiai · kiekvienas daiktas turi savo iliustraciją ir mechaninį poveikį.", 9, SUB, false), sp(dp(7)));
         Button sets = outline("10 PILNŲ SETŲ · 2 / 4 / 6 DALIŲ BONUSAI");
         sets.setMinHeight(dp(48));sets.setOnClickListener(view -> setsDialog());codex.addView(sets, sp(dp(7)));
+        Button catalogSearch=gold("IEŠKOTI VISAME 325 DAIKTŲ KODEKSE");catalogSearch.setOnClickListener(view->globalCatalogSearchDialog());codex.addView(catalogSearch,sp(dp(7)));
         for (String[] group : ITEM_GROUPS_V092) {
             int count = ItemCatalogV092.inCategory(group[1]).size();
             Button button = dark(group[0] + " · " + count);
             button.setMinHeight(dp(48));button.setOnClickListener(view -> catalogDialog(group[0], group[1], 0));codex.addView(button, sp(dp(5)));
         }
         column.addView(codex, sp(dp(10)));
-        column.addView(section("TURIMI DAIKTAI"), sp(dp(5)));
+        List<VaeloriaDb.Item> inventory=filteredInventory(allInventory);int pageSize=20,pageCount=Math.max(1,(inventory.size()+pageSize-1)/pageSize);inventoryPage=Math.max(0,Math.min(inventoryPage,pageCount-1));int start=inventoryPage*pageSize,end=Math.min(inventory.size(),start+pageSize);
+        LinearLayout inventoryTools=panel(false);inventoryTools.addView(section("TURIMI DAIKTAI · "+inventory.size()+" REZULTATŲ · "+(inventoryPage+1)+"/"+pageCount));inventoryTools.addView(txt((inventoryQuery.isEmpty()?"Be teksto filtro":"Paieška: "+inventoryQuery)+" · retumas: "+(inventoryRarity.equals("all")?"visi":rarityLabel(inventoryRarity))+" · rikiavimas: "+inventorySort,9,SUB,false),sp(dp(5)));Button filter=outline("IEŠKOTI · FILTRUOTI · RIKIUOTI");filter.setOnClickListener(view->inventoryFilterDialog());inventoryTools.addView(filter);column.addView(inventoryTools,sp(dp(7)));
+        if(inventory.isEmpty())column.addView(txt("Pagal pasirinktą filtrą daiktų nerasta.",11,SUB,false),sp(dp(8)));
 
-        for (int index = 0; index < inventory.size(); index += 2) {
+        for (int index = start; index < end; index += 2) {
             LinearLayout row = row();
             row.addView(itemCard(inventory.get(index)), new LinearLayout.LayoutParams(0, dp(216), 1));
             Space gap = new Space(this);
             row.addView(gap, new LinearLayout.LayoutParams(dp(7), 1));
-            if (index + 1 < inventory.size()) {
+            if (index + 1 < end) {
                 row.addView(itemCard(inventory.get(index + 1)), new LinearLayout.LayoutParams(0, dp(216), 1));
             } else {
                 row.addView(new View(this), new LinearLayout.LayoutParams(0, dp(216), 1));
             }
             column.addView(row, sp(dp(7)));
         }
+        if(pageCount>1){LinearLayout pages=row();if(inventoryPage>0){Button previous=dark("← ANKSTESNIS");previous.setOnClickListener(view->{inventoryPage--;show("items");});pages.addView(previous,new LinearLayout.LayoutParams(0,dp(48),1));}if(inventoryPage+1<pageCount){Button next=gold("KITAS →");next.setOnClickListener(view->{inventoryPage++;show("items");});pages.addView(next,new LinearLayout.LayoutParams(0,dp(48),1));}column.addView(pages,sp(dp(5)));}
         return scroll;
     }
 
@@ -601,6 +622,21 @@ public class PolishedActivity extends PremiumActivity {
             itemDialog(item);
         });
         return card;
+    }
+
+    private List<VaeloriaDb.Item> filteredInventory(List<VaeloriaDb.Item> source){
+        ArrayList<VaeloriaDb.Item> result=new ArrayList<>();String query=inventoryQuery.trim().toLowerCase(Locale.forLanguageTag("lt-LT"));for(VaeloriaDb.Item item:source){String searchable=(item.name+" "+item.description+" "+item.effect+" "+item.type).toLowerCase(Locale.forLanguageTag("lt-LT"));if(!query.isEmpty()&&!searchable.contains(query))continue;if(!"all".equals(inventoryRarity)&&!inventoryRarity.equals(item.rarity))continue;result.add(item);}
+        if("name".equals(inventorySort)){java.text.Collator collator=java.text.Collator.getInstance(Locale.forLanguageTag("lt-LT"));result.sort((a,b)->collator.compare(a.name,b.name));}else if("level".equals(inventorySort))result.sort((a,b)->Integer.compare(b.itemLevel,a.itemLevel));else if("value".equals(inventorySort))result.sort((a,b)->Integer.compare(b.value,a.value));return result;
+    }
+
+    private void inventoryFilterDialog(){
+        ScrollView scroll=new ScrollView(this);LinearLayout content=col();content.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(content);content.addView(serif("INVENTORIAUS FILTRAI",21,PARCH,true));EditText query=profileInput("Pavadinimas, poveikis ar tipas",inventoryQuery,false,60);content.addView(query,sp(dp(7)));content.addView(section("RETUMAS"));RadioGroup rarities=new RadioGroup(this);String[][] rarityValues={{"all","Visi"},{"common","Paprasti"},{"uncommon","Neįprasti"},{"rare","Reti"},{"epic","Epiniai"},{"legendary","Legendiniai"},{"mythic","Mitiniai"},{"ancient","Senoviniai"},{"unique","Unikalūs"}};for(String[] value:rarityValues)rarities.addView(profileRadio(value[0],value[1],"",value[0].equals(inventoryRarity)));content.addView(rarities);content.addView(section("RIKIAVIMAS"),sp(dp(5)));RadioGroup sorts=new RadioGroup(this);sorts.addView(profileRadio("rarity","Pagal retumą","","rarity".equals(inventorySort)));sorts.addView(profileRadio("level","Pagal lygį","","level".equals(inventorySort)));sorts.addView(profileRadio("value","Pagal vertę","","value".equals(inventorySort)));sorts.addView(profileRadio("name","Pagal pavadinimą","","name".equals(inventorySort)));content.addView(sorts);new AlertDialog.Builder(this).setView(scroll).setNegativeButton("ATŠAUKTI",null).setNeutralButton("VALYTI",(dialog,which)->{inventoryQuery="";inventoryRarity="all";inventorySort="rarity";inventoryPage=0;show("items");}).setPositiveButton("TAIKYTI",(dialog,which)->{inventoryQuery=query.getText().toString().trim();inventoryRarity=selectedTag(rarities);inventorySort=selectedTag(sorts);inventoryPage=0;show("items");}).show();
+    }
+
+    private void globalCatalogSearchDialog(){EditText query=profileInput("Pvz., nuodai, kardas, mitinis, mana…","",false,60);new AlertDialog.Builder(this).setTitle("Ieškoti daiktų kodekse").setMessage("Paieška tikrina pavadinimą, aprašą, poveikį, regioną, kategoriją ir retumą.").setView(query).setNegativeButton("ATŠAUKTI",null).setPositiveButton("IEŠKOTI",(dialog,which)->{String value=query.getText().toString().trim();if(!value.isEmpty())catalogSearchResults(value,0);}).show();}
+
+    private void catalogSearchResults(String rawQuery,int page){
+        String query=rawQuery.toLowerCase(Locale.forLanguageTag("lt-LT"));ArrayList<ItemCatalogV092.ItemDef> matches=new ArrayList<>();for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){String text=(item.name+" "+item.description+" "+item.effect+" "+item.region+" "+item.category+" "+item.rarity).toLowerCase(Locale.forLanguageTag("lt-LT"));if(text.contains(query))matches.add(item);}matches.sort((a,b)->Integer.compare(b.level,a.level));int pageSize=20,pageCount=Math.max(1,(matches.size()+pageSize-1)/pageSize),safe=Math.max(0,Math.min(page,pageCount-1)),start=safe*pageSize,end=Math.min(matches.size(),start+pageSize);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(12),dp(12),dp(12),dp(10));scroll.addView(column);column.addView(serif("„"+rawQuery+"“",21,PARCH,true));column.addView(txt(matches.size()+" rezultatų · puslapis "+(safe+1)+"/"+pageCount,9,SUB,false),sp(dp(8)));for(int index=start;index<end;index+=2){LinearLayout pair=row();pair.addView(catalogCard(matches.get(index)),new LinearLayout.LayoutParams(0,dp(198),1));pair.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));if(index+1<end)pair.addView(catalogCard(matches.get(index+1)),new LinearLayout.LayoutParams(0,dp(198),1));else pair.addView(new View(this),new LinearLayout.LayoutParams(0,dp(198),1));column.addView(pair,sp(dp(7)));}AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null);if(safe>0)builder.setNeutralButton("ANKSTESNIS",(dialog,which)->catalogSearchResults(rawQuery,safe-1));if(end<matches.size())builder.setPositiveButton("KITAS",(dialog,which)->catalogSearchResults(rawQuery,safe+1));builder.show();
     }
 
     private void catalogDialog(String title, String category, int page) {
@@ -674,7 +710,7 @@ public class PolishedActivity extends PremiumActivity {
 
     @Override View map() {
         FrameLayout frame = new FrameLayout(this);
-        WorldMapV090View world = new WorldMapV090View(this, state);
+        WorldMapV090View world = new WorldMapV090View(this, state,db.world().discoveredLocations());
         world.setCurrentLocation(state.location);
         world.setListener(this::locationDialog);
         frame.addView(world, new FrameLayout.LayoutParams(-1, -1));
@@ -691,7 +727,7 @@ public class PolishedActivity extends PremiumActivity {
         String mapName=state.characterName.length()>12?state.characterName.substring(0,11)+"…":state.characterName;
         topRow.addView(chip("◆ "+mapName.toUpperCase(Locale.forLanguageTag("lt-LT")), GOLD2));
         top.addView(topRow);
-        top.addView(txt("Žnybk · tempk · dukart bakstelėk · paliesk lokaciją", 8, SUB, false));
+        top.addView(txt("Žnybk · tempk · dukart bakstelėk · ? žymi dar neatrastą kryptį", 8, SUB, false));
         FrameLayout.LayoutParams topParams = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
         topParams.setMargins(dp(10), dp(9), dp(10), 0);
         frame.addView(top, topParams);
@@ -703,24 +739,31 @@ public class PolishedActivity extends PremiumActivity {
         TextView danger = txt("GRĖSMĖ  ● žema · ● vid. · ● aukšta", 7, Color.rgb(193, 205, 206), true);
         danger.setMaxLines(2);
         bottom.addView(danger, new LinearLayout.LayoutParams(0, -2, 1));
+        Button locations=small("VIETOS");locations.setMinHeight(dp(44));locations.setContentDescription("Atverti prieinamą atlaso vietų sąrašą");locations.setOnClickListener(view->atlasListDialog());bottom.addView(locations,new LinearLayout.LayoutParams(dp(72),dp(44)));
         Button factions = small("FRAKCIJOS");
         factions.setMinHeight(dp(44));
         factions.setOnClickListener(view -> {
             world.toggleFactions();
             haptic();
         });
-        bottom.addView(factions, new LinearLayout.LayoutParams(dp(82), dp(44)));
+        bottom.addView(factions, new LinearLayout.LayoutParams(dp(76), dp(44)));
         Button center = small("CENTRUOTI");
         center.setMinHeight(dp(44));
         center.setOnClickListener(view -> {
             world.resetView();
             haptic();
         });
-        bottom.addView(center, new LinearLayout.LayoutParams(dp(82), dp(44)));
+        bottom.addView(center, new LinearLayout.LayoutParams(dp(76), dp(44)));
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
         bottomParams.setMargins(dp(10), 0, dp(10), dp(10));
         frame.addView(bottom, bottomParams);
         return frame;
+    }
+
+    private void atlasListDialog(){
+        ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);column.addView(serif("ATLASO VIETOS",22,PARCH,true));column.addView(txt("Sąrašas pateikia tą pačią informaciją kaip interaktyvus žemėlapis ir yra patogus ekrano skaitytuvui.",10,SUB,false),sp(dp(8)));
+        int unknown=0;for(WorldRepository.LocationInfo location:db.world().locations()){String label=location.discovered?location.name+" · "+location.region+" · pavojus "+location.danger:"Neatrasta vieta "+(++unknown)+" · pavojus "+location.danger;Button button=location.name.equalsIgnoreCase(state.location)?gold("◆ DABAR · "+label):dark("◇ "+label);button.setAllCaps(false);button.setOnClickListener(view->locationDialog(location.name,location.danger));column.addView(button,sp(dp(5)));}
+        new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();
     }
 
     @Override View journal() {
@@ -810,9 +853,16 @@ public class PolishedActivity extends PremiumActivity {
         ai.addView(txt("Atsakymai prašomi taisyklinga, aiškia ir rišlia lietuvių kalba, o prieš rodymą papildomai sutvarkomi telefone.",9,SUB,false),sp(dp(6)));
         Button key=gold(has?"PAKEISTI API RAKTĄ":"ĮVESTI API RAKTĄ");key.setMinHeight(dp(48));key.setOnClickListener(view->key());ai.addView(key);column.addView(ai,sp(dp(9)));
 
-        LinearLayout presentation=panel(false);presentation.addView(section("PATEIKIMAS"));presentation.addView(toggle("Sklandūs ekranų perėjimai","animations",true));presentation.addView(toggle("Haptinis grįžtamasis ryšys","haptics",true));presentation.addView(toggle("Subtilūs sąsajos garsai","sounds",false));column.addView(presentation,sp(dp(9)));
+        LinearLayout presentation=panel(false);presentation.addView(section("PATEIKIMAS IR PRIEINAMUMAS"));presentation.addView(toggle("Sklandūs ekranų perėjimai (išjungti mažesniam judesiui)","animations",true));presentation.addView(toggle("Haptinis grįžtamasis ryšys","haptics",true));
+        Switch largeText=toggle("Didesnis tekstas","large_text",false);largeText.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putBoolean("large_text",checked).apply();show("settings");});presentation.addView(largeText);
+        Switch colorblind=toggle("Spalvų skyrimo paletė","colorblind",false);colorblind.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putBoolean("colorblind",checked).apply();show("settings");});presentation.addView(colorblind);Button tutorial=dark("PAKARTOTI GREITOS PRADŽIOS VEDLĮ");tutorial.setOnClickListener(view->{state.tutorialComplete=false;db.saveState(state);show("game");});presentation.addView(tutorial,sp(dp(3)));column.addView(presentation,sp(dp(9)));
+
+        LinearLayout audioPanel=panel(false);audioPanel.addView(section("GARSAS"));audioPanel.addView(toggle("Sąsajos ir kovos signalai","sounds",false));Switch ambient=toggle("Procedūrinis pasaulio fonas","ambient",false);ambient.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putBoolean("ambient",checked).apply();if(audio!=null){if(checked)audio.startAmbient(state.location);else audio.stopAmbient();}});audioPanel.addView(ambient);
+        audioPanel.addView(txt("APLINKOS GARSUMAS",9,SUB,true));audioPanel.addView(volumeSlider("ambient_volume",22,"Aplinkos garsumas"),sp(dp(4)));audioPanel.addView(txt("SIGNALŲ GARSUMAS",9,SUB,true));audioPanel.addView(volumeSlider("sfx_volume",24,"Sąsajos signalų garsumas"));column.addView(audioPanel,sp(dp(9)));
 
         LinearLayout saves=panel(false);saves.addView(section("IŠSAUGOJIMAS"));
+        Map<Integer,VaeloriaDb.SaveSlot> slotMap=new HashMap<>();for(VaeloriaDb.SaveSlot saved:db.saveSlots())slotMap.put(saved.slot,saved);
+        for(int slotNumber=1;slotNumber<=3;slotNumber++){final int slotId=slotNumber;VaeloriaDb.SaveSlot saved=slotMap.get(slotId);LinearLayout slotCard=panel(saved!=null);slotCard.addView(serif("LIZDAS "+slotId+(saved==null?" · TUŠČIAS":" · "+saved.name),14,saved==null?SUB:PARCH,true));if(saved!=null)slotCard.addView(txt(saved.location+" · lygis "+saved.level+" · "+new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm",Locale.forLanguageTag("lt-LT")).format(new java.util.Date(saved.updatedAt)),9,SUB,false),sp(dp(4)));LinearLayout slotActions=row();Button saveSlot=outline(saved==null?"IŠSAUGOTI":"PERRAŠYTI");saveSlot.setOnClickListener(view->saveSlotDialog(slotId,saved==null?"":saved.name));slotActions.addView(saveSlot,new LinearLayout.LayoutParams(0,dp(48),1));if(saved!=null){Button loadSlot=gold("ATKURTI");loadSlot.setOnClickListener(view->new AlertDialog.Builder(this).setTitle("Atkurti lizdą "+slotId+"?").setMessage("Dabartinė būsena pirmiausia bus įrašyta į atšaukimo kontrolinį tašką.").setNegativeButton("NE",null).setPositiveButton("ATKURTI",(dialog,which)->{if(db.loadFromSlot(slotId)){state=db.loadState();feedback="Atkurtas "+saved.name;show("game");}}).show());slotActions.addView(loadSlot,new LinearLayout.LayoutParams(0,dp(48),1));Button deleteSlot=dark("TRINTI");deleteSlot.setOnClickListener(view->new AlertDialog.Builder(this).setTitle("Ištrinti lizdą?").setNegativeButton("NE",null).setPositiveButton("TRINTI",(dialog,which)->{db.deleteSlot(slotId);show("settings");}).show());slotActions.addView(deleteSlot,new LinearLayout.LayoutParams(0,dp(48),1));}slotCard.addView(slotActions);saves.addView(slotCard,sp(dp(6)));}
         Button undo=dark("ATŠAUKTI PASKUTINĮ ĖJIMĄ");undo.setMinHeight(dp(48));undo.setOnClickListener(view->{if(db.undo()){state=db.loadState();feedback="Atkurtas ankstesnis kontrolinis taškas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Nėra ankstesnio kontrolinio taško",Toast.LENGTH_SHORT).show();});saves.addView(undo,sp(dp(5)));
         Button export=dark("EKSPORTUOTI IŠSAUGOJIMĄ");export.setMinHeight(dp(48));export.setOnClickListener(view->export());saves.addView(export,sp(dp(5)));
         Button importButton=dark("IMPORTUOTI IŠSAUGOJIMĄ");importButton.setMinHeight(dp(48));importButton.setOnClickListener(view->importSave());saves.addView(importButton,sp(dp(5)));
@@ -821,6 +871,15 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout about=panel(false);about.addView(section("APIE VERSIJĄ"));about.addView(serif("Vaeloria OOC · "+BuildConfig.VERSION_NAME,17,PARCH,true));
         about.addView(txt("Vietinė SQLite būsena · veikėjo kūrimas · mechaniniai bruožai · lietuviškų atsakymų kontrolė",10,SUB,false));
         about.addView(txt("Atsarginės sistemos kopijos išjungtos · ryšys tik per HTTPS",9,GREEN,true));column.addView(about);return scroll;
+    }
+
+    private SeekBar volumeSlider(String key,int fallback,String description){
+        SeekBar slider=new SeekBar(this);slider.setMax(100);slider.setProgress(getSharedPreferences("vaeloria_visual",MODE_PRIVATE).getInt(key,fallback));slider.setMinHeight(dp(48));slider.setContentDescription(description+". "+slider.getProgress()+" procentų");
+        slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar bar,int value,boolean fromUser){bar.setContentDescription(description+". "+value+" procentų");if(fromUser)getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putInt(key,value).apply();}public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){if(audio!=null&&"ambient_volume".equals(key)){audio.stopAmbient();audio.startAmbient(state.location);}}});return slider;
+    }
+
+    private void saveSlotDialog(int slot,String existingName){
+        EditText name=profileInput("Išsaugojimo pavadinimas",existingName==null?"":existingName,false,32);new AlertDialog.Builder(this).setTitle("Išsaugoti į lizdą "+slot).setMessage("Bus išsaugota visa veikėjo, inventoriaus, pasaulio, užduočių, NPC ir ekonomikos būsena.").setView(name).setNegativeButton("ATŠAUKTI",null).setPositiveButton("IŠSAUGOTI",(dialog,which)->{String label=name.getText().toString().trim();if(label.isEmpty())label=state.characterName+" · "+state.location;if(db.saveToSlot(slot,label)){feedback="Išsaugota į lizdą "+slot;show("settings");}else Toast.makeText(this,"Nepavyko išsaugoti lizdo",Toast.LENGTH_LONG).show();}).show();
     }
 
     @Override void locationHub() {
@@ -948,6 +1007,7 @@ public class PolishedActivity extends PremiumActivity {
         panel.addView(section("BESTIARIUMAS · 218 ILIUSTRUOTŲ GRĖSMIŲ"));
         panel.addView(serif("Pažintos Vaelorios būtybės", 17, PARCH, true));
         panel.addView(txt("Pasirink grėsmių grupę ir pasiruošk pagal jos pavojų, aplinką, elgseną bei tikslias grobio iškritimo tikimybes.", 9, SUB, false), sp(dp(7)));
+        Button search=gold("IEŠKOTI VISAME BESTIARIUME");search.setOnClickListener(view->bestiarySearchDialog());panel.addView(search,sp(dp(7)));
         String[] categories = {"LAUKINIAI", "ANOMALIJOS", "PASAULIO BOSAI"};
         for (String category : categories) {
             Button button = dark(category + " · 6");
@@ -963,6 +1023,102 @@ public class PolishedActivity extends PremiumActivity {
             panel.addView(button, sp(dp(5)));
         }
         return panel;
+    }
+
+    private void bestiarySearchDialog() {
+        LinearLayout content = col();
+        content.setPadding(dp(18), dp(14), dp(18), dp(8));
+        content.addView(serif("Bestiariumo paieška", 22, PARCH, true));
+        content.addView(txt("Ieškok pagal būtybės vardą, regioną, grupę, kovos vaidmenį arba ypatingą savybę. Paieška nepaiso lietuviškų diakritinių ženklų.", 10, SUB, false), sp(dp(10)));
+        EditText query = profileInput("Pvz., drakonas, pelkė, sargas…", "", false, 48);
+        query.setSingleLine(true);
+        content.addView(query);
+        new AlertDialog.Builder(this)
+                .setView(content)
+                .setNegativeButton("UŽDARYTI", null)
+                .setPositiveButton("IEŠKOTI", (dialog, which) ->
+                        showBestiarySearchResults(query.getText().toString().trim(), 0))
+                .show();
+    }
+
+    private void showBestiarySearchResults(String query, int requestedPage) {
+        ArrayList<Object> matches = new ArrayList<>();
+        String needle = searchable(query);
+        for (String[] monster : MONSTERS_V090) {
+            String haystack = searchable(monster[0] + " " + monster[1] + " " + monster[3]
+                    + " pavojus " + monster[2]);
+            if (containsEveryWord(haystack, needle)) matches.add(monster);
+        }
+        for (EnemyCatalogV091.Enemy enemy : EnemyCatalogV091.ALL) {
+            String haystack = searchable(enemy.name + " " + enemy.region + " " + enemy.role + " "
+                    + enemy.trait + " " + enemy.description + " pavojus " + enemy.danger);
+            if (containsEveryWord(haystack, needle)) matches.add(enemy);
+        }
+
+        final int pageSize = 20;
+        int pageCount = Math.max(1, (matches.size() + pageSize - 1) / pageSize);
+        int page = Math.max(0, Math.min(requestedPage, pageCount - 1));
+        ScrollView scroll = new ScrollView(this);
+        LinearLayout column = col();
+        column.setPadding(dp(12), dp(12), dp(12), dp(10));
+        scroll.addView(column);
+        column.addView(serif(query.isEmpty() ? "Visas bestiariumas" : "Paieška · „" + query + "“", 21, PARCH, true));
+        column.addView(txt("RASTA " + matches.size() + " IŠ 218 · PUSLAPIS " + (page + 1) + "/" + pageCount,
+                9, matches.isEmpty() ? dangerColor(8) : GOLD2, true), sp(dp(8)));
+        if (matches.isEmpty()) {
+            column.addView(txt("Atitikmenų nėra. Pabandyk trumpesnį vardą, regioną arba bendresnį žodį.", 11, SUB, false), sp(dp(10)));
+        } else {
+            int start = page * pageSize;
+            int end = Math.min(matches.size(), start + pageSize);
+            for (int index = start; index < end; index += 2) {
+                LinearLayout pair = row();
+                Object first = matches.get(index);
+                pair.addView(first instanceof String[] ? monsterCard((String[]) first)
+                                : extendedMonsterCard((EnemyCatalogV091.Enemy) first),
+                        new LinearLayout.LayoutParams(0, dp(226), 1));
+                pair.addView(new Space(this), new LinearLayout.LayoutParams(dp(7), 1));
+                if (index + 1 < end) {
+                    Object second = matches.get(index + 1);
+                    pair.addView(second instanceof String[] ? monsterCard((String[]) second)
+                                    : extendedMonsterCard((EnemyCatalogV091.Enemy) second),
+                            new LinearLayout.LayoutParams(0, dp(226), 1));
+                } else {
+                    pair.addView(new View(this), new LinearLayout.LayoutParams(0, dp(226), 1));
+                }
+                column.addView(pair, sp(dp(7)));
+            }
+        }
+
+        LinearLayout navigation = row();
+        Button previous = outline("← ANKSTESNIS");
+        previous.setEnabled(page > 0);
+        final int previousPage = page - 1;
+        previous.setOnClickListener(view -> showBestiarySearchResults(query, previousPage));
+        navigation.addView(previous, new LinearLayout.LayoutParams(0, dp(50), 1));
+        navigation.addView(new Space(this), new LinearLayout.LayoutParams(dp(7), 1));
+        Button next = outline("KITAS →");
+        next.setEnabled(page + 1 < pageCount);
+        final int nextPage = page + 1;
+        next.setOnClickListener(view -> showBestiarySearchResults(query, nextPage));
+        navigation.addView(next, new LinearLayout.LayoutParams(0, dp(50), 1));
+        column.addView(navigation, sp(dp(6)));
+
+        new AlertDialog.Builder(this)
+                .setView(scroll)
+                .setNegativeButton("UŽDARYTI", null)
+                .setPositiveButton("NAUJA PAIEŠKA", (dialog, which) -> bestiarySearchDialog())
+                .show();
+    }
+
+    private String searchable(String value) {
+        String normalized = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}+", "").toLowerCase(Locale.forLanguageTag("lt-LT")).trim();
+    }
+
+    private boolean containsEveryWord(String haystack, String needle) {
+        if (needle.isEmpty()) return true;
+        for (String word : needle.split("\\s+")) if (!haystack.contains(word)) return false;
+        return true;
     }
 
     private void bestiaryDialog(String category) {
@@ -1288,6 +1444,18 @@ public class PolishedActivity extends PremiumActivity {
                 .setMessage(feedback)
                 .setPositiveButton("UŽDARYTI", null)
                 .show();
+    }
+
+    @Override void finish(String action, org.json.JSONObject result, String warning) {
+        String event = result.optString("event_tag", "");
+        super.finish(action, result, warning);
+        if (audio != null) {
+            VaeloriaAudio.Cue cue = "setback".equals(event) || "combat_escape".equals(event)
+                    ? VaeloriaAudio.Cue.DANGER
+                    : "combat_victory".equals(event) || "reward".equals(event)
+                    ? VaeloriaAudio.Cue.SUCCESS : VaeloriaAudio.Cue.ACTION;
+            audio.cue(cue);
+        }
     }
 
     @Override public void onBackPressed(){

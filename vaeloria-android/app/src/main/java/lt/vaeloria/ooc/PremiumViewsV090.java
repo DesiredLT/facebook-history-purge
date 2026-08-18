@@ -24,6 +24,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.LinkedHashSet;
 
 /** Vaeloria v0.9.1 scene renderer. Only the selected bundled bitmap is decoded. */
 class SceneV090View extends View {
@@ -682,6 +684,7 @@ class WorldMapV090View extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private final Bitmap map;
     private final GameState state;
+    private final Set<String> discovered;
     private final ArrayList<Node> nodes = new ArrayList<>();
     private final ScaleGestureDetector scaleDetector;
     private final GestureDetector gestures;
@@ -696,14 +699,17 @@ class WorldMapV090View extends View {
     private float lastY;
     private boolean dragged;
     private boolean showFactions;
+    private final boolean animatePulse;
 
-    WorldMapV090View(Context context, GameState gameState) {
+    WorldMapV090View(Context context, GameState gameState,Set<String> discoveredLocations) {
         super(context);
         state = gameState;
+        discovered=discoveredLocations==null?new LinkedHashSet<>():new LinkedHashSet<>(discoveredLocations);
+        animatePulse=context.getSharedPreferences("vaeloria_visual",Context.MODE_PRIVATE).getBoolean("animations",true);
         map = BitmapFactory.decodeResource(getResources(), R.drawable.world_map_base_v090);
         setBackgroundColor(Color.rgb(3, 8, 13));
         setFocusable(true);
-        setContentDescription("Interaktyvus Vaeloria pasaulio atlasas");
+        setContentDescription("Interaktyvus Vaeloria pasaulio atlasas. Atrasta vietų: "+discovered.size()+". Vietų sąrašas pasiekiamas atskiru mygtuku.");
 
         add("Luminara", .40f, .36f, 3, "capital", 13, -7);
         add("Asterio Karūna", .29f, .17f, 4, "fortress", -13, -8);
@@ -790,7 +796,7 @@ class WorldMapV090View extends View {
             drawNode(canvas, node, inverse, node == currentNode, node.name.equals(selected));
         }
         canvas.restore();
-        if (isAttachedToWindow()) postInvalidateDelayed(80);
+        if (animatePulse && isAttachedToWindow()) postInvalidateDelayed(250);
     }
 
     private void drawFactionLayer(Canvas canvas) {
@@ -817,6 +823,11 @@ class WorldMapV090View extends View {
     private void drawNode(Canvas canvas, Node node, float inverse, boolean here, boolean isSelected) {
         float x = node.nx * map.getWidth();
         float y = node.ny * map.getHeight();
+        boolean known=here||discovered.contains(node.name);
+        if(!known){
+            float unknown=dp(7)*inverse;paint.setColor(Color.argb(215,112,130,137));canvas.drawCircle(x,y,unknown,paint);paint.setColor(Color.rgb(235,224,197));paint.setTypeface(Typeface.DEFAULT_BOLD);paint.setTextSize(dp(9)*inverse);canvas.drawText("?",x-paint.measureText("?")/2f,y+dp(3)*inverse,paint);
+            if(isSelected){paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(2)*inverse);paint.setColor(Color.rgb(92,190,178));canvas.drawCircle(x,y,dp(16)*inverse,paint);paint.setStyle(Paint.Style.FILL);}return;
+        }
         int color = dangerColor(node.danger);
         float icon = dp(8) * inverse;
         paint.setStyle(Paint.Style.STROKE);

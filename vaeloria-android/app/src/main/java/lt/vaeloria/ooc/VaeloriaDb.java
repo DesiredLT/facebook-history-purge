@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 10;
+    private static final int VERSION = 11;
     private static final String ITEM_COLUMNS = "id,name,type,rarity,description,slot,equipped,synced,equipped_slot,catalog_id,item_level,power,set_id,quantity,value,effect";
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
@@ -36,6 +36,10 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         public Mastery(int level,int xp,int nextXp){this.level=level;this.xp=xp;this.nextXp=nextXp;}
     }
 
+    public static class SaveSlot {
+        public int slot,level;public String name,location;public long updatedAt;
+    }
+
     private WorldRepository worldRepository;
 
     public VaeloriaDb(Context c) { super(c, DB, null, VERSION); }
@@ -47,6 +51,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE checkpoints (id INTEGER PRIMARY KEY AUTOINCREMENT, label TEXT, state_json TEXT NOT NULL, equipment_json TEXT NOT NULL, snapshot_json TEXT, created_at INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE stats (name TEXT PRIMARY KEY, group_name TEXT NOT NULL, value INTEGER NOT NULL, cap INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE mastery (name TEXT PRIMARY KEY, level INTEGER NOT NULL, xp INTEGER NOT NULL, next_xp INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS save_slots (slot INTEGER PRIMARY KEY CHECK(slot BETWEEN 1 AND 3), name TEXT NOT NULL, snapshot_json TEXT NOT NULL, updated_at INTEGER NOT NULL, location TEXT NOT NULL, level INTEGER NOT NULL)");
         seed(db);
         seedStats(db);
         seedMastery(db);
@@ -66,7 +71,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         if (oldVersion < 7) { migrateV6toV7(db); oldVersion = 7; }
         if (oldVersion < 8) { migrateV7toV8(db); oldVersion = 8; }
         if (oldVersion < 9) { migrateV8toV9(db); oldVersion = 9; }
-        if (oldVersion < 10) migrateV9toV10(db);
+        if (oldVersion < 10) { migrateV9toV10(db); oldVersion = 10; }
+        if (oldVersion < 11) migrateV10toV11(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -188,6 +194,11 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         GameState current;
         try { current=loadStateFrom(db); } catch(Exception ignored) { current=new GameState(); }
         WorldRepository.seed(db,current);
+    }
+
+    private void migrateV10toV11(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS save_slots (slot INTEGER PRIMARY KEY CHECK(slot BETWEEN 1 AND 3), name TEXT NOT NULL, snapshot_json TEXT NOT NULL, updated_at INTEGER NOT NULL, location TEXT NOT NULL, level INTEGER NOT NULL)");
+        WorldRepository.create(db);GameState current;try{current=loadStateFrom(db);}catch(Exception ignored){current=new GameState();}WorldRepository.seed(db,current);
     }
 
     private void addColumn(SQLiteDatabase db, String sql) {
@@ -397,6 +408,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             addAbility(database,"Lauko improvizacija","bazinis_gebėjimas","Po nesėkmės leidžia ieškoti kito pagrįsto sprendimo, nepanaikinant pasekmių.");
             database.execSQL("UPDATE talents SET unlocked=0,unlocked_minute=0");
             database.execSQL("UPDATE companions SET recruited=0,active=0,loyalty=20");
+            world().initializeOriginDiscoveries(originId);
 
             state.level=1;state.experience=0;state.experienceNext=ProgressionEngine.experienceForNext(1);state.talentPoints=1;
             state.crowns=650;state.aeonic=30;state.aeonicMax=100;
@@ -610,10 +622,25 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         } catch(Exception e){ return false; }
     }
 
+    public List<SaveSlot> saveSlots(){
+        ArrayList<SaveSlot> result=new ArrayList<>();try(Cursor c=getReadableDatabase().rawQuery("SELECT slot,name,updated_at,location,level FROM save_slots ORDER BY slot",null)){while(c.moveToNext()){SaveSlot slot=new SaveSlot();slot.slot=c.getInt(0);slot.name=c.getString(1);slot.updatedAt=c.getLong(2);slot.location=c.getString(3);slot.level=c.getInt(4);result.add(slot);}}return result;
+    }
+
+    public boolean saveToSlot(int slot,String name){
+        if(slot<1||slot>3)return false;String snapshot=exportSave();if(snapshot.isEmpty())return false;GameState current=loadState();ContentValues values=new ContentValues();values.put("slot",slot);values.put("name",name==null||name.trim().isEmpty()?"Kelionė "+slot:name.trim());values.put("snapshot_json",snapshot);values.put("updated_at",System.currentTimeMillis());values.put("location",current.location);values.put("level",current.level);return getWritableDatabase().insertWithOnConflict("save_slots",null,values,SQLiteDatabase.CONFLICT_REPLACE)!=-1;
+    }
+
+    public boolean loadFromSlot(int slot){
+        String snapshot=null;try(Cursor c=getReadableDatabase().rawQuery("SELECT snapshot_json FROM save_slots WHERE slot=?",new String[]{String.valueOf(slot)})){if(c.moveToFirst())snapshot=c.getString(0);}if(snapshot==null)return false;
+        checkpoint("prieš lizdo atkūrimą",loadState());SQLiteDatabase database=getWritableDatabase();database.beginTransaction();try{restoreCore(database,new JSONObject(snapshot));database.setTransactionSuccessful();return true;}catch(Exception ignored){return false;}finally{database.endTransaction();}
+    }
+
+    public boolean deleteSlot(int slot){return getWritableDatabase().delete("save_slots","slot=?",new String[]{String.valueOf(slot)})>0;}
+
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",10); root.put("state",loadState().toJson());
-            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("synced",i.synced);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery);root.put("world",world().exportState()); return root.toString();
+            JSONObject root=new JSONObject(); root.put("version",11); root.put("state",loadState().toJson());
+            JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("synced",i.synced);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items);JSONArray abilities=new JSONArray();for(String[] ability:getAbilities()){JSONObject entry=new JSONObject();entry.put("name",ability[0]);entry.put("type",ability[1]);entry.put("description",ability[2]);abilities.put(entry);}root.put("abilities",abilities); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery);root.put("world",world().exportState()); return root.toString();
         } catch(Exception e){return "";}
     }
 
@@ -632,6 +659,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         GameState restored=GameState.fromJson(root.getJSONObject("state"));ContentValues st=new ContentValues();st.put("json",restored.toJson().toString());db.update("state",st,"id=1",null);
         JSONArray items=root.optJSONArray("items");if(items!=null){db.delete("items",null,null);for(int i=0;i<items.length();i++){JSONObject o=items.getJSONObject(i);String id=o.optString("id","");if(id.isEmpty())continue;String catalogId=o.isNull("catalog_id")?null:o.optString("catalog_id",null);ItemCatalogV092.ItemDef known=ItemCatalogV092.byId(catalogId);ContentValues add=known==null?new ContentValues():catalogValues(known,Math.max(1,o.optInt("quantity",1)));add.put("id",id);add.put("name",o.optString("name",known==null?"Nežinomas daiktas":known.name));add.put("type",o.optString("type",known==null?"imported":known.subtype));add.put("rarity",o.optString("rarity",known==null?"common":known.rarity));add.put("description",o.optString("description",known==null?"":known.description));String cat=o.optString("category","artifact");String importedSlot=equipmentSlotForCategory(cat);if(importedSlot==null)add.putNull("slot");else add.put("slot",importedSlot);String target=o.isNull("equipped_slot")?null:o.optString("equipped_slot",null);add.put("equipped",target==null?0:1);add.put("synced",o.optBoolean("synced",false)?1:0);if(target==null)add.putNull("equipped_slot");else add.put("equipped_slot",target);if(catalogId==null)add.putNull("catalog_id");else add.put("catalog_id",catalogId);add.put("item_level",Math.max(1,o.optInt("item_level",known==null?1:known.level)));add.put("power",Math.max(0,o.optInt("power",known==null?0:known.power)));String setId=o.isNull("set_id")?null:o.optString("set_id",null);if(setId==null)add.putNull("set_id");else add.put("set_id",setId);add.put("quantity",Math.max(1,o.optInt("quantity",1)));add.put("value",Math.max(0,o.optInt("value",known==null?0:known.value)));add.put("effect",o.optString("effect",known==null?"":known.effect));db.insertOrThrow("items",null,add);}}
         JSONArray stats=root.optJSONArray("stats");if(stats!=null){db.delete("stats",null,null);for(int i=0;i<stats.length();i++){JSONObject o=stats.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("group_name",groupForStat(o.getString("name")));value.put("value",Math.max(0,Math.min(100,o.optInt("value",45))));value.put("cap",100);db.insertOrThrow("stats",null,value);}}
+        JSONArray abilities=root.optJSONArray("abilities");if(abilities!=null){db.delete("abilities",null,null);for(int i=0;i<abilities.length();i++){JSONObject o=abilities.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("type",o.optString("type","bazinis_gebėjimas"));value.put("description",o.optString("description",""));db.insertOrThrow("abilities",null,value);}}
         JSONArray mastery=root.optJSONArray("mastery");if(mastery!=null){db.delete("mastery",null,null);for(int i=0;i<mastery.length();i++){JSONObject o=mastery.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;int level=Math.max(0,Math.min(100,o.optInt("level",0)));ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("level",level);value.put("xp",Math.max(0,o.optInt("xp",0)));value.put("next_xp",Math.max(1,o.optInt("next_xp",masteryNext(level))));db.insertOrThrow("mastery",null,value);}}
         world().restoreState(db,root.optJSONObject("world"));
     }
