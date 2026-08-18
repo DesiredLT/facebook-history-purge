@@ -1,0 +1,492 @@
+{
+  "hero_einoras_v090.webp": {
+    "width": 1023,
+    "height": 1537,
+    "format": "WEBP",
+    "bytes": 284038,
+    "sha256": "75632b29f173d48719db82e5a4a9975ab3c0117812308014ca93bfc4a7aef265"
+  },
+  "item_alchemical_vial_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 17432,
+    "sha256": "69a9b5e0daa0c93ead01c8e5374f9bca2742bd93e558efd9439e2f26e0b95de6"
+  },
+  "item_asterion_blade_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 16936,
+    "sha256": "ecc7e329d7b3bb9c403a5e9ac6190c70e20e77a86bd7d0a14019a7cf16eecaa9"
+  },
+  "item_chain_token_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 20390,
+    "sha256": "fc2b2deacaf5bcd189dca5a8ec564f57c3a5cf59ed0d18d9e7229a9095d57515"
+  },
+  "item_concord_sigil_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 33548,
+    "sha256": "6c8dce2f7a440943356b7289755a1438efa998261d8d5a4c32c0d7cc6d909a25"
+  },
+  "item_fractured_key_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 16636,
+    "sha256": "108b8dce5406b4f210f9c554505816a22a7318c34a22165766c74d73441603df"
+  },
+  "item_guard_helm_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 18350,
+    "sha256": "451ad8f123443e68ff891c4fd1c456c025746c30244c08bd7d1c43f9d3262c13"
+  },
+  "item_healing_potion_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 17438,
+    "sha256": "b86cb34d088bad63b38ebd3587eb6fc76a0f153694c2ad5dfc584fbe45a50e70"
+  },
+  "item_living_rune_seed_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 20228,
+    "sha256": "f03178bb5da481b97acb55690a27571630b306fb7b1abdb353178b34f9ea7969"
+  },
+  "item_meridian_key_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 16670,
+    "sha256": "f4db3637135e9d4a35807a75e4b3ee8e92de97374c16355a59e267aaebc772ba"
+  },
+  "item_obsidian_ore_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 19020,
+    "sha256": "7bdcc31cdcaa3a614ffdaa4b5f997bd609cd0a9530c0f145c6aaeb19c695474a"
+  },
+  "item_obsidian_ring_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 13976,
+    "sha256": "84840d96e01d601a62ae004af5182e1500c7e84c8fc05b3a388df1fada57575e"
+  },
+  "item_orison_astrolabe_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 28302,
+    "sha256": "cd999ff54882e5566b20d2fde7994c68fdea829e1f232bf650dc373ef766633a"
+  },
+  "item_quest_letter_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 16006,
+    "sha256": "022607a5c43045219935a92615e19457769a0cba3665e12d7fc972a7b9379c19"
+  },
+  "item_relic_tablet_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 28268,
+    "sha256": "34effd61533a263a6160b1c7a4ee1867e4de704f2efd80ce42a8639943b1d63f"
+  },
+  "item_resonance_gauntlet_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 21136,
+    "sha256": "1eddabc8d351ddb3839f546ee55b150d3d94558d83256b326a284496edc5ebd6"
+  },
+  "item_resonance_shard_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 23996,
+    "sha256": "bd6f2547696def7d46c1ee75962023f896e3ef3d368e4fbd5cbe9107f5a7ca26"
+  },
+  "item_resonance_signet_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 15200,
+    "sha256": "34de226d9f52b82e95859aaef38adfa614cf01cdcfbc36ae4cb8ccbebf356adb"
+  },
+  "item_route_map_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 18704,
+    "sha256": "12831fc3ce09878708e4a5aac1a4334921c33c39cdbb0d47952d6642a91ebdad"
+  },
+  "item_rune_stone_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 21538,
+    "sha256": "1f18b76e4766ed5436234095671891fb31c98699ed8b84f3ccd1185908245026"
+  },
+  "item_seven_layer_armor_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 22672,
+    "sha256": "455609e7ea8414f33f4175dbb18d80b33ef9bbed5ba9823b5cb5dd6c93f7613d"
+  },
+  "item_shadow_dagger_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 12892,
+    "sha256": "ea14a68b0f61dbe0ba0b69a0f47e6663ab3c248954e61dae31f8106db1417d28"
+  },
+  "item_smoke_flask_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 15656,
+    "sha256": "b6c37f9de90069286fd002a9f667d1d5e46537fd0a929ac49b40f2f5c90843f6"
+  },
+  "item_starfall_compass_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 21624,
+    "sha256": "7a055c3cecdedc56f3d3439085bff54f7519a255251e244784c1eea1c31e8693"
+  },
+  "item_ward_talisman_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 27048,
+    "sha256": "32faa2b47fe096b68a6f8a4dde3968726ab69e74351fc44d39c2a05990690a65"
+  },
+  "item_zero_glass_prism_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 20418,
+    "sha256": "728f87e6b501bf3c2b343d1cd9778e17c456ed37533d121af30a9b640cb72714"
+  },
+  "monster_abyss_herald_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 52852,
+    "sha256": "ced6f4b77844eb0e826536485e9b23866dc77b07151c293a72d75db7aeafdf10"
+  },
+  "monster_ash_revenant_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 33464,
+    "sha256": "08a4b5d44142496a3a024a61a71cab9839bd434e74385317e21b0755224ca0f7"
+  },
+  "monster_bloodroot_matriarch_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 57118,
+    "sha256": "d70e2fa68dc2179bc4afb9b4dab9bd086b7ae8e94c15129b89ff9fe7c0f70a90"
+  },
+  "monster_bone_oracle_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 36360,
+    "sha256": "e1df51122437a9ba39838f4f0e9c54d266b30ca4581ccaf6e8f289b7ea6d7448"
+  },
+  "monster_carrion_drake_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 33850,
+    "sha256": "3f250d8040ed282283b7df487ec3addbefdbff62b7837cbfdef5c5bd78a0ef86"
+  },
+  "monster_crownless_titan_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 45100,
+    "sha256": "d4d6d71afbdfc29da8064f999bc370b75f8f3a8bd0376b5a2b0faf921f851657"
+  },
+  "monster_crystal_golem_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 41454,
+    "sha256": "5f7a5585bf1148e8357f424f94b913507797ee90dce36cca507807d65c5a72cd"
+  },
+  "monster_drowned_knight_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 42316,
+    "sha256": "1e1f43ec1da77d587e2e5a91d1702f579c345401293242d6c3e5de84ab8d1c38"
+  },
+  "monster_glass_lich_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 50100,
+    "sha256": "92cafdb9920a8dd2379e8c4026fb5c19f3446f627c5d49e11d3ee78e4fe42a0e"
+  },
+  "monster_grave_colossus_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 40024,
+    "sha256": "3bb3b3a4d9b306b04a43c31798a1b59fdfb7b6b6af52961a906f6c7bca415b2e"
+  },
+  "monster_meridian_wolf_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 37278,
+    "sha256": "161f712f4902161a60d2e4ef661272d444be5d88f8d603cb79fe01a6c1c19796"
+  },
+  "monster_meridian_wyrm_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 56304,
+    "sha256": "89a161993e8ab378eb203546eeb36848fcbda510cf3505f73d5339fc218ed1f7"
+  },
+  "monster_mire_troll_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 38598,
+    "sha256": "153b36c115c7af8ea18926b1c98ee5b5b9b98d1a604617da4a6b4963ed515eb9"
+  },
+  "monster_night_harpy_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 31810,
+    "sha256": "0efbda60563b1708a9334625f408301f3da7b4c29c6010aced7c75ae8bd547b2"
+  },
+  "monster_plague_husk_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 39282,
+    "sha256": "c41d732aac7ebfea0c9baddfe392024a7ac4107fb89df7ee5d3ff015fbf08809"
+  },
+  "monster_tempest_colossus_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 47768,
+    "sha256": "9c19449240749096531685042cdd8a2c31d3886174e50c9780638b387b43ad98"
+  },
+  "monster_venom_broodmother_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 52156,
+    "sha256": "f4bb726f393bb16a90fd22324571ecd83c1d45ee8f1eeb9fcc83d8fdbfe35556"
+  },
+  "monster_void_parasite_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 37458,
+    "sha256": "cf4d8e174e05f9b138a7671d145428bbb8011ae94e77dda774929ee6ba137b69"
+  },
+  "npc_bram_builder_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 36956,
+    "sha256": "8a51e94b1c67353cdac500e52cb0b0eadb605b100b1756988c56b0295e63f317"
+  },
+  "npc_brynja_smith_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 40098,
+    "sha256": "26e6dc131e7eaf4a3e9c6fe87948b17b925133578b78b0e7cb7cd93843d6414a"
+  },
+  "npc_corva_broker_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 33548,
+    "sha256": "d059602b0e713a512401c9ae3ec603b6b979210270841286dc8695c69462c1ff"
+  },
+  "npc_darven_traveler_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 34730,
+    "sha256": "6997951ff3155567e09b655c0a8ba84d4abed5c6dd49faf1a587e98f450c771d"
+  },
+  "npc_elen_healer_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 43214,
+    "sha256": "0b3c66705cd0bf2ccf3680fadca1dfa35318d19cb6b5b8808e16db13e57b4879"
+  },
+  "npc_emil_scribe_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 33318,
+    "sha256": "67dce7db823c34c9ce061fd221b815ccb729509837564170145b44a90f3e2aa3"
+  },
+  "npc_ilyne_guard_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 36472,
+    "sha256": "752e996c9c2e161f5c482cc7ab317fb082f0befe7eed9fa7febb1679ca2d9115"
+  },
+  "npc_kael_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 50056,
+    "sha256": "20ccbfb270b969caa7490815b804eab10a2cd156c072e3f602d9bbe72ffe9b7d"
+  },
+  "npc_lyra_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 45914,
+    "sha256": "f8239c7fbec52ad2665c17baaa1629a9c63a5509a6d7635270bb7d5306b33188"
+  },
+  "npc_mara_innkeeper_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 37394,
+    "sha256": "7e01ac25a1ee1de6c16e0cb4a49aa5709cdba948f15a61fc3ed6d3df1493baae"
+  },
+  "npc_mirel_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 58996,
+    "sha256": "2817d33d4a9f5eec491694e6c68d9357fa1166fcac9d94a83894e2a86d2e61f6"
+  },
+  "npc_nesta_stablemaster_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 34344,
+    "sha256": "b068d1e9597a802b938062f9f76f9bc5826c53a630396e03dc8361c1dc8a055f"
+  },
+  "npc_oren_merchant_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 42276,
+    "sha256": "bb07950603ee9f92871542e75af8de8e877deed706fb8cf5a3e8991750570f8f"
+  },
+  "npc_orin_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 49314,
+    "sha256": "c72d15fdd05b5feea15911961dee876e2e19aedb2c63ac2317812ac122739d1f"
+  },
+  "npc_seraphine_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 53282,
+    "sha256": "b971f6553f71e77a262d6d0f9bb91f978eeb5821e96860c0c90010e596875526"
+  },
+  "npc_taren_armorer_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 35926,
+    "sha256": "469259c69697575fde72c2a2a0376dd19b503c2daba6f7d600bf305b26f15f56"
+  },
+  "npc_varek_v090.webp": {
+    "width": 512,
+    "height": 512,
+    "format": "WEBP",
+    "bytes": 45662,
+    "sha256": "d13aa671f2ba96388803c21e4ee5308984f7a05ca61cd1aa87b0c22823d314d5"
+  },
+  "npc_ysra_runes_v090.webp": {
+    "width": 384,
+    "height": 384,
+    "format": "WEBP",
+    "bytes": 37008,
+    "sha256": "81ee2fd3eeed59dcb22d14f2d40f62b5d0a75fb8e01619281f75b097181e5338"
+  },
+  "quest_broken_meridian_v090.webp": {
+    "width": 1774,
+    "height": 887,
+    "format": "WEBP",
+    "bytes": 372540,
+    "sha256": "0b0adc881bb5a497ba354b460a1f1549ffa503ddb5a15d6e97c43c78a75f77bb"
+  },
+  "scene_combat_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 399528,
+    "sha256": "2abfdb914c31a80cf11ac3a9b623a3bac1fe3c81fbe76d6967778d3684b496db"
+  },
+  "scene_forest_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 371138,
+    "sha256": "fa63c3c922f88ef14998bcf606e8f72a9a66ca360a04046fb4b4dba374910d6a"
+  },
+  "scene_luminara_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 364126,
+    "sha256": "99e9395d0e946a63f8725326bbee7d2566b4afb9adb55395ee470ecac958b4bd"
+  },
+  "scene_meridian_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 342026,
+    "sha256": "fdbf9cfd85dc200b0660b171e7b4aed560cac0e27d3d2aca92a83ae68a5cbe97"
+  },
+  "scene_palace_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 323228,
+    "sha256": "3622ef45c87758380ac314c4b803ef5d7b370491271155d3ebca4aa9a682fe8b"
+  },
+  "scene_road_v090.webp": {
+    "width": 1672,
+    "height": 941,
+    "format": "WEBP",
+    "bytes": 267170,
+    "sha256": "c7a9313920440a7e54b70af9cca2e149e31781583b1934706e8b6113f3d6026b"
+  },
+  "world_map_base_v090.webp": {
+    "width": 1024,
+    "height": 1536,
+    "format": "WEBP",
+    "bytes": 689160,
+    "sha256": "6a7bb118a8c425772234a7e9b012e45d3e70e5ae29b4b5623810a087c8a56a66"
+  }
+}
