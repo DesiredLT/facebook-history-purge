@@ -26,6 +26,10 @@ public class GameState {
     public int stamina = 100, staminaMax = 100;
     public int aeonic = 180, aeonicMax = 900;
     public long crowns = 1_062_400L;
+    public int level = 1, experience = 0, experienceNext = 350, talentPoints = 1;
+    public String difficulty = "normal";
+    public String progressionMode = "balanced";
+    public long turnNumber = 0L;
     public int asterraInfluence = 34, dravennInfluence = 72, lysaraInfluence = 24;
     public String asterraRelation = "NEUTRALI", dravennRelation = "ĮTAMPA", lysaraRelation = "SĄJUNGINĖ";
     public String questTitle = "Lūžęs Meridianas";
@@ -40,7 +44,20 @@ public class GameState {
     public String combatHazard = "";
     public int enemyHp = 0;
     public int enemyHpMax = 0;
+    public int enemyAttack = 0;
+    public int enemyDefense = 0;
+    public int enemySpeed = 0;
+    public int enemyDanger = 0;
+    public String enemyRole = "";
+    public String enemyTrait = "";
+    public String playerCombatStatus = "";
+    public String enemyCombatEffects = "";
+    public int playerGuard = 0;
+    public int combatAbilityCooldown = 0;
+    public int combatCombo = 0;
     public int combatRound = 0;
+    public String storyEnding = "";
+    public boolean tutorialComplete = false;
     public final List<String> choices = new ArrayList<>();
     public final List<String> recentTurns = new ArrayList<>();
 
@@ -72,6 +89,8 @@ public class GameState {
         o.put("stamina", stamina); o.put("staminaMax", staminaMax);
         o.put("aeonic", aeonic); o.put("aeonicMax", aeonicMax);
         o.put("crowns", crowns);
+        o.put("level", level); o.put("experience", experience); o.put("experienceNext", experienceNext); o.put("talentPoints", talentPoints);
+        o.put("difficulty", difficulty); o.put("progressionMode", progressionMode); o.put("turnNumber", turnNumber);
         o.put("asterraInfluence", asterraInfluence); o.put("dravennInfluence", dravennInfluence); o.put("lysaraInfluence", lysaraInfluence);
         o.put("asterraRelation", asterraRelation); o.put("dravennRelation", dravennRelation); o.put("lysaraRelation", lysaraRelation);
         o.put("questTitle", questTitle);
@@ -86,7 +105,20 @@ public class GameState {
         o.put("combatHazard", combatHazard);
         o.put("enemyHp", enemyHp);
         o.put("enemyHpMax", enemyHpMax);
+        o.put("enemyAttack", enemyAttack);
+        o.put("enemyDefense", enemyDefense);
+        o.put("enemySpeed", enemySpeed);
+        o.put("enemyDanger", enemyDanger);
+        o.put("enemyRole", enemyRole);
+        o.put("enemyTrait", enemyTrait);
+        o.put("playerCombatStatus", playerCombatStatus);
+        o.put("enemyCombatEffects", enemyCombatEffects);
+        o.put("playerGuard", playerGuard);
+        o.put("combatAbilityCooldown", combatAbilityCooldown);
+        o.put("combatCombo", combatCombo);
         o.put("combatRound", combatRound);
+        o.put("storyEnding", storyEnding);
+        o.put("tutorialComplete", tutorialComplete);
         JSONArray c = new JSONArray();
         for (String s : choices) c.put(s);
         o.put("choices", c);
@@ -128,6 +160,13 @@ public class GameState {
         s.stamina = o.optInt("stamina", s.stamina); s.staminaMax = o.optInt("staminaMax", s.staminaMax);
         s.aeonic = o.optInt("aeonic", s.aeonic); s.aeonicMax = o.optInt("aeonicMax", s.aeonicMax);
         s.crowns = o.optLong("crowns", s.crowns);
+        s.level = clamp(o.optInt("level", s.level), 1, 100);
+        s.experience = Math.max(0, o.optInt("experience", s.experience));
+        s.experienceNext = Math.max(100, o.optInt("experienceNext", s.experienceNext));
+        s.talentPoints = Math.max(0, o.optInt("talentPoints", s.talentPoints));
+        s.difficulty = validDifficulty(o.optString("difficulty", s.difficulty));
+        s.progressionMode = validProgression(o.optString("progressionMode", s.progressionMode));
+        s.turnNumber = Math.max(0L, o.optLong("turnNumber", s.turnNumber));
         s.asterraInfluence = clamp(o.optInt("asterraInfluence", s.asterraInfluence),0,100);
         s.dravennInfluence = clamp(o.optInt("dravennInfluence", s.dravennInfluence),0,100);
         s.lysaraInfluence = clamp(o.optInt("lysaraInfluence", s.lysaraInfluence),0,100);
@@ -146,7 +185,20 @@ public class GameState {
         s.combatHazard = o.optString("combatHazard", "");
         s.enemyHp = Math.max(0, o.optInt("enemyHp", 0));
         s.enemyHpMax = Math.max(s.enemyHp, o.optInt("enemyHpMax", s.enemyHp));
+        s.enemyAttack = Math.max(0, o.optInt("enemyAttack", 0));
+        s.enemyDefense = Math.max(0, o.optInt("enemyDefense", 0));
+        s.enemySpeed = Math.max(0, o.optInt("enemySpeed", 0));
+        s.enemyDanger = clamp(o.optInt("enemyDanger", 0), 0, 10);
+        s.enemyRole = o.optString("enemyRole", "");
+        s.enemyTrait = o.optString("enemyTrait", "");
+        s.playerCombatStatus = o.optString("playerCombatStatus", "");
+        s.enemyCombatEffects = o.optString("enemyCombatEffects", "");
+        s.playerGuard = Math.max(0, o.optInt("playerGuard", 0));
+        s.combatAbilityCooldown = Math.max(0, o.optInt("combatAbilityCooldown", 0));
+        s.combatCombo = Math.max(0, o.optInt("combatCombo", 0));
         s.combatRound = Math.max(0, o.optInt("combatRound", 0));
+        s.storyEnding = o.optString("storyEnding", "");
+        s.tutorialComplete = o.optBoolean("tutorialComplete", false);
         s.choices.clear();
         JSONArray c = o.optJSONArray("choices");
         if (c != null) for (int i=0;i<c.length();i++) s.choices.add(c.optString(i));
@@ -168,6 +220,7 @@ public class GameState {
         stamina = clamp(stamina + result.optInt("stamina_delta", 0), 0, staminaMax);
         aeonic = clamp(aeonic + result.optInt("aeonic_delta", 0), 0, aeonicMax);
         crowns = Math.max(0, crowns + result.optLong("crowns_delta", 0));
+        turnNumber++;
         asterraInfluence = clamp(asterraInfluence + result.optInt("asterra_delta",0),0,100);
         dravennInfluence = clamp(dravennInfluence + result.optInt("dravenn_delta",0),0,100);
         lysaraInfluence = clamp(lysaraInfluence + result.optInt("lysara_delta",0),0,100);
@@ -182,6 +235,17 @@ public class GameState {
         combatHazard = result.optString("combat_hazard", combatActive ? combatHazard : "");
         enemyHp = Math.max(0, result.optInt("enemy_hp", combatActive ? enemyHp : 0));
         enemyHpMax = Math.max(enemyHp, result.optInt("enemy_hp_max", combatActive ? enemyHpMax : 0));
+        enemyAttack = Math.max(0, result.optInt("enemy_attack", combatActive ? enemyAttack : 0));
+        enemyDefense = Math.max(0, result.optInt("enemy_defense", combatActive ? enemyDefense : 0));
+        enemySpeed = Math.max(0, result.optInt("enemy_speed", combatActive ? enemySpeed : 0));
+        enemyDanger = clamp(result.optInt("enemy_danger", combatActive ? enemyDanger : 0), 0, 10);
+        enemyRole = result.optString("enemy_role", combatActive ? enemyRole : "");
+        enemyTrait = result.optString("enemy_trait", combatActive ? enemyTrait : "");
+        playerCombatStatus = result.optString("player_combat_status", combatActive ? playerCombatStatus : "");
+        enemyCombatEffects = result.optString("enemy_combat_effects", combatActive ? enemyCombatEffects : "");
+        playerGuard = Math.max(0, result.optInt("player_guard", combatActive ? playerGuard : 0));
+        combatAbilityCooldown = Math.max(0, result.optInt("combat_ability_cooldown", combatActive ? combatAbilityCooldown : 0));
+        combatCombo = Math.max(0, result.optInt("combat_combo", combatActive ? combatCombo : 0));
         combatRound = Math.max(0, result.optInt("combat_round", combatActive ? combatRound : 0));
         if (!combatActive) endCombat();
         String note = result.optString("quest_note", "").trim();
@@ -194,9 +258,12 @@ public class GameState {
 
     public void endCombat() {
         combatActive=false;enemyName="";enemyStatus="";enemyTelegraph="";combatHazard="";
-        combatDistance="mid";enemyHp=0;enemyHpMax=0;combatRound=0;
+        combatDistance="mid";enemyHp=0;enemyHpMax=0;enemyAttack=0;enemyDefense=0;enemySpeed=0;enemyDanger=0;
+        enemyRole="";enemyTrait="";playerCombatStatus="";enemyCombatEffects="";playerGuard=0;combatAbilityCooldown=0;combatCombo=0;combatRound=0;
     }
 
     private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }
+    private static String validDifficulty(String value){return "story".equals(value)||"hard".equals(value)||"nightmare".equals(value)?value:"normal";}
+    private static String validProgression(String value){return "legendary".equals(value)?value:"balanced";}
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
 }

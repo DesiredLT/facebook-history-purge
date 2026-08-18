@@ -1025,7 +1025,7 @@ public class PolishedActivity extends PremiumActivity {
         if (item.setId != null && !item.setId.isEmpty()) {ItemCatalogV092.SetDef set=ItemCatalogV092.setById(item.setId);if(set!=null)content.addView(txt("SETAS · "+set.name,10,rarity(set.rarity),true),sp(dp(6)));}
         ItemCatalogV092.ItemDef definition=item.catalogId==null?ItemCatalogV092.find(item.name):ItemCatalogV092.byId(item.catalogId);
         AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(content).setNegativeButton("UŽDARYTI",null);
-        if(definition!=null&&definition.consumable)builder.setPositiveButton("NAUDOTI",(dialog,which)->{boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});
+        if(definition!=null&&definition.consumable)builder.setPositiveButton("NAUDOTI",(dialog,which)->{db.checkpoint("prieš daikto naudojimą",state);boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});
         builder.show();
     }
 
