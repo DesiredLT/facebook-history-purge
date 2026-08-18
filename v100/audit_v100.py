@@ -9,6 +9,7 @@ JAVA = APP / "src" / "main" / "java" / "lt" / "vaeloria" / "ooc"
 TEST = APP / "src" / "test" / "java" / "lt" / "vaeloria" / "ooc"
 ANDROID_TEST = APP / "src" / "androidTest" / "java" / "lt" / "vaeloria" / "ooc"
 RES = APP / "src" / "main" / "res" / "drawable-nodpi"
+WORKFLOWS = ROOT / ".github" / "workflows"
 
 
 def read(path: Path) -> str:
@@ -46,6 +47,12 @@ require("minifyEnabled true" in build and "shrinkResources true" in build, "rele
 require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest, "atsarginės kopijos ir nešifruotas ryšys išjungti")
 require(manifest.count("uses-permission") == 1 and "android.permission.INTERNET" in manifest, "šaltinyje prašomas tik interneto leidimas")
 require("screenOrientation" not in manifest and 'android:resizeableActivity="true"' in manifest, "veikla adaptyvi ir neužrakinta portreto režimu")
+for workflow in sorted(WORKFLOWS.glob("*.yml")):
+    if workflow.name == "vaeloria-v100-release.yml":
+        continue
+    legacy = read(workflow)
+    require("workflow_dispatch:" in legacy and "\n  push:" not in legacy and "\n  pull_request:" not in legacy,
+            f"senasis {workflow.name} workflow paleidžiamas tik rankiniu būdu")
 
 # P0 – autoritetingos mechanikos ir pilna atomarinė būsena.
 for token in ("enemyAttack", "enemyDefense", "enemySpeed", '"player_guard"', "cooldown", "status"):

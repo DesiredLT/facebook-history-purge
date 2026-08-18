@@ -1,11 +1,6 @@
 name: Final Vaeloria v0.8.0 Release R2
 
 on:
-  push:
-    branches:
-      - agent/vaeloria-local-android
-    paths:
-      - '.github/workflows/vaeloria-v080-final-r2.yml'
   workflow_dispatch:
 
 permissions:

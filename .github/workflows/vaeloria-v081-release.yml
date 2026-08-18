@@ -1,11 +1,6 @@
 name: Release Vaeloria v0.8.1 Visual Source Fix
 
 on:
-  push:
-    branches:
-      - agent/vaeloria-local-android
-    paths:
-      - '.github/workflows/vaeloria-v081-release.yml'
   workflow_dispatch:
 
 permissions:
