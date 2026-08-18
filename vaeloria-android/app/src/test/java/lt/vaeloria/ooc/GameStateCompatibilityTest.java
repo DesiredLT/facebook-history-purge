@@ -80,6 +80,29 @@ public class GameStateCompatibilityTest {
         assertEquals(4, restored.combatRound);
     }
 
+    @Test public void roundTripPreservesV100ProgressionDifficultyAndEnding() throws Exception {
+        GameState original = new GameState();
+        original.progressionMode = "balanced";
+        original.level = 37;
+        original.experience = 812;
+        original.experienceNext = 1400;
+        original.talentPoints = 6;
+        original.difficulty = "nightmare";
+        original.storyEnding = "nepriklausoma_chartija";
+        original.tutorialComplete = true;
+
+        GameState restored = GameState.fromJson(original.toJson());
+
+        assertEquals("balanced", restored.progressionMode);
+        assertEquals(37, restored.level);
+        assertEquals(812, restored.experience);
+        assertEquals(1400, restored.experienceNext);
+        assertEquals(6, restored.talentPoints);
+        assertEquals("nightmare", restored.difficulty);
+        assertEquals("nepriklausoma_chartija", restored.storyEnding);
+        assertTrue(restored.tutorialComplete);
+    }
+
     @Test public void turnConsequencesClampFactionInfluence() throws Exception {
         GameState state = new GameState();
         state.asterraInfluence = 98;

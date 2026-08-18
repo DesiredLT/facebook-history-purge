@@ -18,9 +18,10 @@ public class GroqContractV093Test {
     }
 
     @Test public void userPromptUsesTheSavedProfileInsteadOfHardcodedEinorasCanon(){
-        GameState state=new GameState();state.characterCreated=true;state.characterName="Austėja";state.characterIdentity="moteris";state.characterOriginId="pelkynai";state.characterArchetypeId="zvalgas";state.characterTraitIds.addAll(Arrays.asList("pastabumas","atsargumas","vikrumas"));
+        GameState state=new GameState();state.characterCreated=true;state.characterName="Austėja";state.characterIdentity="moteris";state.characterOriginId="pelkynai";state.characterArchetypeId="zvalgas";state.characterTraitIds.addAll(Arrays.asList("pastabumas","atsargumas","vikrumas"));state.progressionMode="balanced";state.level=17;state.experience=320;state.experienceNext=900;state.difficulty="hard";
         String prompt=GroqClient.userPromptForTest(state);
         assertTrue(prompt.contains("Austėja"));assertTrue(prompt.contains("Šventųjų pelkynų vaikas"));assertTrue(prompt.contains("Žvalgas"));assertTrue(prompt.contains("Pastabumas, Atsargumas, Vikrumas"));
+        assertTrue(prompt.contains("subalansuotas"));assertTrue(prompt.contains("veikėjo lygis 17"));assertTrue(prompt.contains("sunkumas hard"));
         assertFalse(prompt.contains("Einoras: 201"));
     }
 }

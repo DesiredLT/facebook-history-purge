@@ -1,0 +1,159 @@
+name: Build and release Vaeloria OOC v1.0.0
+
+on:
+  pull_request:
+    branches: [agent/vaeloria-local-android]
+    paths:
+      - '.github/workflows/vaeloria-v100-release.yml'
+      - 'v100/**'
+      - 'vaeloria-android/app/**'
+      - 'vaeloria-android/build.gradle'
+      - 'vaeloria-android/settings.gradle'
+  push:
+    branches: [agent/vaeloria-local-android]
+    paths:
+      - '.github/workflows/vaeloria-v100-release.yml'
+      - 'v100/**'
+      - 'vaeloria-android/app/**'
+      - 'vaeloria-android/build.gradle'
+      - 'vaeloria-android/settings.gradle'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vaeloria-v100-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: vaeloria-android
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Restore stable signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: vaeloria-android-debug-signing-v1
+          fail-on-cache-miss: true
+
+      - name: Verify upgrade-compatible signing identity
+        run: |
+          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install Android 35 toolchain
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: P0–P4 source and retained-asset audit
+        run: |
+          cd ..
+          python3 v100/audit_v100.py
+
+      - name: Unit and deterministic-engine tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Enable KVM for Android emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Real 360dp UI, v3-to-v11 migration, undo and save-slot tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            adb shell wm size 360x800
+            adb shell wm density 160
+            gradle -p vaeloria-android :app:connectedDebugAndroidTest --stacktrace
+
+      - name: Build optimized release APK
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.0.0.apk
+
+      - name: APK identity, security, resources and signer audit
+        run: |
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.0.0.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
+
+          "$AAPT" dump badging "$APK" | tee apk-badging-v100.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v100.txt
+          grep -q "versionCode='40'" apk-badging-v100.txt
+          grep -q "versionName='1.0.0'" apk-badging-v100.txt
+          grep -q "application-label:'Vaeloria OOC 1.0.0'" apk-badging-v100.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v100.txt
+          if grep -q '^application-debuggable' apk-badging-v100.txt; then exit 1; fi
+
+          "$AAPT" dump permissions "$APK" | tee apk-permissions-v100.txt
+          test "$(grep -c '^uses-permission:' apk-permissions-v100.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions-v100.txt
+
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-v100.txt
+          grep -A35 'E: application' apk-manifest-v100.txt | grep -q 'android:allowBackup.*0x0'
+          grep -A35 'E: application' apk-manifest-v100.txt | grep -q 'android:usesCleartextTraffic.*0x0'
+
+          "$AAPT" dump resources "$APK" | tee apk-resources-v100.txt
+          for number in $(seq -w 1 325); do grep -q "item_v092_$number" apk-resources-v100.txt; done
+          for number in $(seq -w 1 200); do grep -q "monster_v091_$number" apk-resources-v100.txt; done
+          for resource in hero_einoras_v090 world_map_base_v090 quest_broken_meridian_v090; do grep -q "$resource" apk-resources-v100.txt; done
+
+          test "$(stat -c %s "$APK")" -gt 10000000
+          unzip -t "$APK"
+          "$ZIPALIGN" -c -P 16 4 "$APK"
+          "$APKSIGNER" verify --verbose "$APK"
+          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          if unzip -p "$APK" 'classes*.dex' | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          sha256sum "$APK" | tee apk-sha256-v100.txt
+
+      - name: Upload verified APK and audits
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-ooc-v1.0.0-apk-and-audits-${{ github.run_id }}
+          path: |
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.0.0.apk
+            vaeloria-android/apk-badging-v100.txt
+            vaeloria-android/apk-permissions-v100.txt
+            vaeloria-android/apk-manifest-v100.txt
+            vaeloria-android/apk-sha256-v100.txt
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete vaeloria-ooc-v1.0.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+          gh release create vaeloria-ooc-v1.0.0 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v1.0.0.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Vaeloria OOC v1.0.0 · Pilnas RPG sistemų leidimas" \
+            --notes "Vaeloria OOC v1.0.0 užbaigia P0–P4 modernizavimą: autoritetinga kelių ėjimų kova ir įranga, pilnas atomarinis undo, šešių etapų istorija su trimis baigtimis, NPC atmintis, prekyba, gamyba, ekonomika ir pasaulio įvykiai, 1–100 progresija, 20 talentų, keturi sunkumai, trys kompanionai, atlaso atradimai, trys vardiniai išsaugojimo lizdai, adaptyvi ir prieinama sąsaja, garsai, paieška bei puslapiavimas. Išlaikyti 325 iliustruoti daiktai ir 218 iliustruotų monstrų su tikromis grobio lentelėmis. DI atsakymai turi griežtą rišlios lietuvių kalbos sutartį, tačiau kova ir pagrindinės taisyklės veikia vietiniame variklyje. CI patikrino vienetinius testus, tikrą 360dp Android UI, v3→v11 migraciją, pilną atkūrimą, R8 release APK, vienintelį INTERNET leidimą ir stabilų atnaujinimo parašą."

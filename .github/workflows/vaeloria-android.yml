@@ -1,12 +1,6 @@
 name: Build Vaeloria Android APK
 
 on:
-  push:
-    branches:
-      - agent/vaeloria-local-android
-    paths:
-      - 'vaeloria-android/**'
-      - '.github/workflows/vaeloria-android.yml'
   workflow_dispatch:
 
 permissions:
