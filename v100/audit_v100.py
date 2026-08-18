@@ -73,10 +73,13 @@ for mode in ("story", "normal", "hard", "nightmare"):
 require("progressionMode" in state and all(field in state for field in ("experienceNext", "talentPoints", "storyEnding")), "progresija ir baigtis išsaugomos GameState")
 for companion in ("Lyra", "Kaelis", "Mirel"):
     require(companion in world, f"pasaulyje yra kompanionas {companion}")
+require('companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","Gynėjas","+6 gynybai pirmame kovos ėjime")' in world,
+        "Kaelio kompaniono įrašas turi pilną vaidmenį ir mechaninį privalumą")
 require("companionDefenseBonus" in world and "companionVictoryHealing" in world, "kompanionai realiai keičia kovą")
 
 # P3 – moderni mobili sąsaja ir turinio pasiekiamumas.
 require("R.drawable.hero_einoras_v090" in activity and "CharacterAvatarV100View" in activity, "herojaus ekranas jungia premium iliustraciją ir personalizuotą portretą")
+require("import android.widget.ProgressBar;" in activity, "progresijos juosta turi Android klasės importą")
 for key in ("large_text", "colorblind", "animations", "haptics", "ambient_volume", "sfx_volume"):
     require(key in activity or key in audio, f"yra prieinamumo / garso nustatymas {key}")
 require("saveToSlot" in database and "loadFromSlot" in database and "deleteSlot" in database, "veikia trys vardiniai išsaugojimo lizdai")

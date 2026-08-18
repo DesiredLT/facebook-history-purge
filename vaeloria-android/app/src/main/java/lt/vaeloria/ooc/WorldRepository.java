@@ -201,7 +201,7 @@ final class WorldRepository {
         business(db,"biz-caravan","Karavano dalis","trade","Luminara",760,260,14500);
         business(db,"biz-inn","Užeigos kambarys","hospitality","Luminara",330,95,6200);
         companion(db,"comp-lyra","npc-lyra","Lyra Fen","Tyrėja","+4 tyrimo ir Meridiano patikroms");
-        companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","+6 gynybai pirmame kovos ėjime");
+        companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","Gynėjas","+6 gynybai pirmame kovos ėjime");
         companion(db,"comp-mirel","npc-mirel","Mirel","Gydytoja","Po kovos atkuria 8 gyvybes");
         for(ProgressionEngine.TalentDef talent:ProgressionEngine.TALENTS)seedTalent(db,talent.id);
         seedLocation(db,"luminara","Luminara","Luminara",3,400,360,true);
