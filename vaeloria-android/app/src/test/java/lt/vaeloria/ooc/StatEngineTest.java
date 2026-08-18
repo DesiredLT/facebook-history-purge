@@ -134,11 +134,14 @@ public class StatEngineTest {
         };
         assertEquals(92,cases.length);
         Set<String> covered=new HashSet<>();
+        StringBuilder mismatches=new StringBuilder();
         for(String[] x:cases){
-            expect(x[0],x[1]);
+            String actual=StatEngine.classifyForTest(x[0])[0];
+            if(!x[1].equals(actual)) mismatches.append("\n").append(x[0]).append(" expected ").append(x[1]).append(" but was ").append(actual);
             assertTrue("Duplicate semantic coverage for "+x[1],covered.add(x[1]));
         }
         assertEquals(92,covered.size());
+        assertEquals("Natural-action classifier mismatches:"+mismatches,"",mismatches.toString());
     }
 
     @Test public void regressionCasesDoNotCollide(){

@@ -20,6 +20,8 @@ public class GameState {
     public int stamina = 100, staminaMax = 100;
     public int aeonic = 180, aeonicMax = 900;
     public long crowns = 1_062_400L;
+    public int asterraInfluence = 34, dravennInfluence = 72, lysaraInfluence = 24;
+    public String asterraRelation = "NEUTRALI", dravennRelation = "ĮTAMPA", lysaraRelation = "SĄJUNGINĖ";
     public String questTitle = "Lūžęs Meridianas";
     public String objective = "Ištirti pirmą naują kelionės vartų poslinkio atvejį ir atskirti, kas žinoma, nuo to, kas tik numanoma.";
     public String sceneTitle = "Vėlyvieji keliai";
@@ -30,12 +32,15 @@ public class GameState {
     public String enemyTelegraph = "";
     public String combatDistance = "mid";
     public String combatHazard = "";
+    public int enemyHp = 0;
+    public int enemyHpMax = 0;
+    public int combatRound = 0;
     public final List<String> choices = new ArrayList<>();
     public final List<String> recentTurns = new ArrayList<>();
 
     public GameState() {
         choices.add("Ištirti manifestą dėl laiko ir Meridiano anomalijų");
-        choices.add("Susisiekti su Mira ir Kaeliu bei palyginti jų laiko stebėjimus");
+        choices.add("Susisiekti su Lyra ir Kaeliu bei palyginti jų laiko stebėjimus");
         choices.add("Vykti tiesiai prie paveiktų kelionės vartų ir rinkti lauko įrodymus");
     }
 
@@ -53,6 +58,8 @@ public class GameState {
         o.put("stamina", stamina); o.put("staminaMax", staminaMax);
         o.put("aeonic", aeonic); o.put("aeonicMax", aeonicMax);
         o.put("crowns", crowns);
+        o.put("asterraInfluence", asterraInfluence); o.put("dravennInfluence", dravennInfluence); o.put("lysaraInfluence", lysaraInfluence);
+        o.put("asterraRelation", asterraRelation); o.put("dravennRelation", dravennRelation); o.put("lysaraRelation", lysaraRelation);
         o.put("questTitle", questTitle);
         o.put("objective", objective);
         o.put("sceneTitle", sceneTitle);
@@ -63,6 +70,9 @@ public class GameState {
         o.put("enemyTelegraph", enemyTelegraph);
         o.put("combatDistance", combatDistance);
         o.put("combatHazard", combatHazard);
+        o.put("enemyHp", enemyHp);
+        o.put("enemyHpMax", enemyHpMax);
+        o.put("combatRound", combatRound);
         JSONArray c = new JSONArray();
         for (String s : choices) c.put(s);
         o.put("choices", c);
@@ -86,6 +96,12 @@ public class GameState {
         s.stamina = o.optInt("stamina", s.stamina); s.staminaMax = o.optInt("staminaMax", s.staminaMax);
         s.aeonic = o.optInt("aeonic", s.aeonic); s.aeonicMax = o.optInt("aeonicMax", s.aeonicMax);
         s.crowns = o.optLong("crowns", s.crowns);
+        s.asterraInfluence = clamp(o.optInt("asterraInfluence", s.asterraInfluence),0,100);
+        s.dravennInfluence = clamp(o.optInt("dravennInfluence", s.dravennInfluence),0,100);
+        s.lysaraInfluence = clamp(o.optInt("lysaraInfluence", s.lysaraInfluence),0,100);
+        s.asterraRelation = o.optString("asterraRelation", s.asterraRelation);
+        s.dravennRelation = o.optString("dravennRelation", s.dravennRelation);
+        s.lysaraRelation = o.optString("lysaraRelation", s.lysaraRelation);
         s.questTitle = o.optString("questTitle", s.questTitle);
         s.objective = o.optString("objective", s.objective);
         s.sceneTitle = o.optString("sceneTitle", s.sceneTitle);
@@ -96,6 +112,9 @@ public class GameState {
         s.enemyTelegraph = o.optString("enemyTelegraph", "");
         s.combatDistance = o.optString("combatDistance", "mid");
         s.combatHazard = o.optString("combatHazard", "");
+        s.enemyHp = Math.max(0, o.optInt("enemyHp", 0));
+        s.enemyHpMax = Math.max(s.enemyHp, o.optInt("enemyHpMax", s.enemyHp));
+        s.combatRound = Math.max(0, o.optInt("combatRound", 0));
         s.choices.clear();
         JSONArray c = o.optJSONArray("choices");
         if (c != null) for (int i=0;i<c.length();i++) s.choices.add(c.optString(i));
@@ -117,13 +136,22 @@ public class GameState {
         stamina = clamp(stamina + result.optInt("stamina_delta", 0), 0, staminaMax);
         aeonic = clamp(aeonic + result.optInt("aeonic_delta", 0), 0, aeonicMax);
         crowns = Math.max(0, crowns + result.optLong("crowns_delta", 0));
+        asterraInfluence = clamp(asterraInfluence + result.optInt("asterra_delta",0),0,100);
+        dravennInfluence = clamp(dravennInfluence + result.optInt("dravenn_delta",0),0,100);
+        lysaraInfluence = clamp(lysaraInfluence + result.optInt("lysara_delta",0),0,100);
+        asterraRelation = result.optString("asterra_relation", relationFor(asterraInfluence,false));
+        dravennRelation = result.optString("dravenn_relation", relationFor(dravennInfluence,true));
+        lysaraRelation = result.optString("lysara_relation", relationFor(lysaraInfluence,false));
         combatActive = result.optBoolean("combat_active", combatActive);
         enemyName = result.optString("enemy_name", combatActive ? enemyName : "");
         enemyStatus = result.optString("enemy_status", combatActive ? enemyStatus : "");
         enemyTelegraph = result.optString("enemy_telegraph", combatActive ? enemyTelegraph : "");
         combatDistance = result.optString("combat_distance", combatActive ? combatDistance : "mid");
         combatHazard = result.optString("combat_hazard", combatActive ? combatHazard : "");
-        if (!combatActive) { enemyName=""; enemyStatus=""; enemyTelegraph=""; combatHazard=""; combatDistance="mid"; }
+        enemyHp = Math.max(0, result.optInt("enemy_hp", combatActive ? enemyHp : 0));
+        enemyHpMax = Math.max(enemyHp, result.optInt("enemy_hp_max", combatActive ? enemyHpMax : 0));
+        combatRound = Math.max(0, result.optInt("combat_round", combatActive ? combatRound : 0));
+        if (!combatActive) endCombat();
         String note = result.optString("quest_note", "").trim();
         if (!note.isEmpty()) objective = note;
         choices.clear();
@@ -132,5 +160,11 @@ public class GameState {
         while (choices.size() < 3) choices.add("Stebėti situaciją ir rinkti įrodymus");
     }
 
+    public void endCombat() {
+        combatActive=false;enemyName="";enemyStatus="";enemyTelegraph="";combatHazard="";
+        combatDistance="mid";enemyHp=0;enemyHpMax=0;combatRound=0;
+    }
+
+    private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
 }
