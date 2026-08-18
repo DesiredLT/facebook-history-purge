@@ -18,6 +18,8 @@ public final class StatEngine {
         public int conditionModifier;
         public int equipmentModifier;
         public int abilityModifier;
+        public int profileModifier;
+        public String profileReason = "";
         public int difficulty;
         public int total;
         public String outcome;
@@ -29,7 +31,7 @@ public final class StatEngine {
                     "Pagalbinė savybė: "+secondary+" = "+secondaryValue+"/100.\n"+
                     "Savybių pagrindas (75% pagrindinė + 25% pagalbinė): "+base+".\n"+
                     "Patikros metimas: "+roll+"/100.\n"+
-                    "Būsenos modifikatorius: "+signed(conditionModifier)+". Įrangos modifikatorius: "+signed(equipmentModifier)+". Gebėjimų modifikatorius: "+signed(abilityModifier)+".\n"+
+                    "Būsenos modifikatorius: "+signed(conditionModifier)+". Įrangos modifikatorius: "+signed(equipmentModifier)+". Gebėjimų modifikatorius: "+signed(abilityModifier)+". Veikėjo profilio modifikatorius: "+signed(profileModifier)+(profileReason.isEmpty()?"":" ("+profileReason+")")+".\n"+
                     "Galutinis balas: "+total+". Sunkumas: "+difficulty+".\n"+
                     "Rezultatas: "+outcome+". Priežastis: "+reason+".\n"+
                     "Scenos pasekmės PRIVALO atitikti šį rezultatą. Sėkmė nereiškia, kad pasaulio veikėjai praranda valią ar kad gaunamas nepagrįstas atlygis.";
@@ -42,6 +44,7 @@ public final class StatEngine {
             if(conditionModifier!=0)b.append(" ").append(signed(conditionModifier)).append(" būsena");
             if(equipmentModifier!=0)b.append(" ").append(signed(equipmentModifier)).append(" įranga");
             if(abilityModifier!=0)b.append(" ").append(signed(abilityModifier)).append(" gebėjimai");
+            if(profileModifier!=0)b.append(" ").append(signed(profileModifier)).append(" profilis");
             b.append(" = ").append(total).append(" prieš ").append(difficulty).append(" → ").append(outcome);
             return b.toString();
         }
@@ -59,15 +62,28 @@ public final class StatEngine {
         c.conditionModifier = conditionModifier(c.primary,s);
         c.equipmentModifier = equipmentModifier(c.primary,a,equipped);
         c.abilityModifier = abilityModifier(c.primary,a,abilities);
-        c.total = c.base + c.roll + c.conditionModifier + c.equipmentModifier + c.abilityModifier;
-        int margin = c.total - c.difficulty;
-        if(c.roll==100 || margin>=45)c.outcome="išskirtinė sėkmė";
-        else if(margin>=0)c.outcome="sėkmė";
-        else if(margin>=-20)c.outcome="dalinė sėkmė";
-        else if(c.roll==1 || margin<=-45)c.outcome="rimta nesėkmė";
-        else c.outcome="nesėkmė";
+        CharacterCatalogV093.Effect profile=CharacterCatalogV093.effect(s,c.primary);
+        c.profileModifier=profile.value;c.profileReason=profile.explanation;
+        c.total = c.base + c.roll + c.conditionModifier + c.equipmentModifier + c.abilityModifier + c.profileModifier;
+        classifyOutcome(c);
         c.reason = difficultyReason(a,s,c.primary);
         return c;
+    }
+
+    /** Prideda struktūrizuotą talento ar kompaniono premiją ir perskaičiuoja baigtį. */
+    public static void applyExternalModifier(Check check,int value,String reason){
+        if(check==null||value==0)return;check.profileModifier+=value;check.total+=value;
+        if(reason!=null&&!reason.isEmpty())check.profileReason=check.profileReason.isEmpty()?reason:check.profileReason+"; "+reason;
+        classifyOutcome(check);
+    }
+
+    private static void classifyOutcome(Check c){
+        int margin=c.total-c.difficulty;
+        if(c.roll==100||margin>=45)c.outcome="išskirtinė sėkmė";
+        else if(margin>=0)c.outcome="sėkmė";
+        else if(margin>=-20)c.outcome="dalinė sėkmė";
+        else if(c.roll==1||margin<=-45)c.outcome="rimta nesėkmė";
+        else c.outcome="nesėkmė";
     }
 
     static String[] classifyForTest(String action){
@@ -80,12 +96,30 @@ public final class StatEngine {
     }
 
     private static void chooseStats(Check c,String a){
+        String canonical=canonicalExact(a);
+        if(canonical!=null){pick(c,canonical,defaultSecondary(canonical));return;}
+        // High-priority semantic rules: action intent must beat nouns or shorter overlapping phrases.
+        if(has(a,"staiga sureaguoti","sureaguoti","sureaguoju","reakcijos greitis")){pick(c,"Reakcijos greitis","Refleksai");return;}
+        if(has(a,"kojų darbą","kojų darbas","naudoti kojų darbą")){pick(c,"Kojų darbas","Krypties keitimo greitis");return;}
+        if(has(a,"erdviškai orientuotis","erdviškai orientuojuosi","erdvinė orientacija")){pick(c,"Erdvinė orientacija","Koordinacija");return;}
+        if(has(a,"strategiškai","ilgalaikę kampaniją","ilgalaikė kampanija","strateginis mąstymas")){pick(c,"Strateginis mąstymas","Planavimas");return;}
+        if(has(a,"atsispirti","atsilaikyti") && has(a,"magijai","magiją","maginė įtaka")){pick(c,"Atsparumas magijai","Valia");return;}
+        if(has(a,"išsklaidyti","išsklaidau","panaikinti") && has(a,"burtą","burtus","užkeikimą")){pick(c,"Užkeikimų ardymas","Magijos jutimas");return;}
+        if(has(a,"perprasti","perprantu") && has(a,"žmogų","žmogaus","motyvą","motyvus")){pick(c,"Žmonių perpratimas","Empatija");return;}
+        if(has(a,"atpažinti","nustatyti","suprasti") && has(a,"meluoja","melą","apgaulę")){pick(c,"Apgaulės atpažinimas","Žmonių perpratimas");return;}
+        if((has(a,"aktyvuoti","aktyvuoju","įjungti","įjungiu") && has(a,"artefaktą","artefaktas","artefakto"))){pick(c,"Relikvijų rezonansas","Magijos jutimas");return;}
+        if(has(a,"suderinti","suderinu") && has(a,"judesius","judesių")){pick(c,"Koordinacija","Judesių tikslumas");return;}
+        if(has(a,"išlaikyti","laikyti") && has(a,"rankomis","ranka","rankose")){pick(c,"Suėmimo jėga","Raumenų ištvermė");return;}
+        if(has(a,"valdyti","valdau") && has(a,"ginklą","ginklu","ginklus")){pick(c,"Ginklų valdymas","Atakos tikslumas");return;}
+        if(has(a,"suprasti","suprantu") && has(a,"principą","principo","principus")){pick(c,"Intelektas","Loginis mąstymas");return;}
+        if(has(a,"parengti","sudaryti") && has(a,"planą","plano")){pick(c,"Planavimas","Strateginis mąstymas");return;}
+        if(has(a,"pritaikyti","pritaikau") && has(a,"žinias","žinių")){pick(c,"Žinių pritaikymas","Intelektas");return;}
         // MAGIJA IR RELIKVIJOS. Specifinės intencijos yra aukščiau už bendrus objektų pavadinimus.
         if(has(a,"meridian","erdvinė magija","erdvinę magiją","erdvės magija","erdvę iškreipti","erdvę sulenkti","kelionės vartai","teleportuoti","teleportuoju","portalą")){pick(c,"Erdvinė magija","Relikvijų rezonansas");return;}
         if(has(a,"rezonuoti su relikvija","rezonansas","aktyvuoti relikviją","aktyvuoju relikviją","naudoti relikviją","susiderinti su artefaktu","aktyvuoti artefaktą","pajausti artefaktą")){pick(c,"Relikvijų rezonansas","Magijos jutimas");return;}
         if(has(a,"laiko magija","laiko magiją","chronomant","laiko versija","keliauti laiku","atsukti laiką","sustabdyti laiką","pažvelgti į ateitį magija")){pick(c,"Laiko magija","Burtų stabilumas");return;}
         if(has(a,"ardyti burtą","nutraukti burtą","išsklaidyti burtą","panaikinti užkeikimą")){pick(c,"Užkeikimų ardymas","Magijos jutimas");return;}
-        if(has(a,"gydyti žaizdą","gydau žaizdą","užgydyti","išgydyti","atkurti kūną","atkurti sveikatą")){pick(c,"Gydomoji magija","Manos kontrolė");return;}
+        if(has(a,"gydyti žaizdą","gydau žaizdą","užgydyti","išgydyti","atkurti kūną","atkurti sveikatą","atkurti mano sveikatą","atkurti savo sveikatą")){pick(c,"Gydomoji magija","Manos kontrolė");return;}
         if(has(a,"maginį barjerą","maginį skydą","apsaugos burtą","apsauginę magiją")){pick(c,"Apsauginė magija","Burtų stabilumas");return;}
         if(has(a,"atsispirti magijai","atlaikyti burtą","maginei įtakai")){pick(c,"Atsparumas magijai","Valia");return;}
         if(has(a,"pajausti magiją","aptikti magiją","magijos pėdsaką","magijos pėdsakus")){pick(c,"Magijos jutimas","Pastabumas");return;}
@@ -153,7 +187,7 @@ public final class StatEngine {
         if(has(a,"imtynės","pargriauti","klinčas","grumtis","numesti priešininką")){pick(c,"Imtynės","Kūno kontrolė");return;}
         if(has(a,"parteris","parteryje","ant žemės","laužimas","smaugimas","kova parteryje")){pick(c,"Kova parteryje","Imtynės");return;}
         if(has(a,"kovoju be ginklo","beginklė kova","kumščiu","kumščiais","spyris")){pick(c,"Beginklė kova","Smūgiavimo technika");return;}
-        if(has(a,"smūgiavimo technika","smūgiuoti","smūgiuoju","smogti","spirti")){pick(c,"Smūgiavimo technika","Kovinis laiko parinkimas");return;}
+        if(has(a,"smūgiavimo technika","smūgiuoti","smūgiuoju","smogti","smogiu","spirti")){pick(c,"Smūgiavimo technika","Kovinis laiko parinkimas");return;}
         if(has(a,"nepažįstamas ginklas","bet kokiu ginklu","ginklo valdymas","ginklų valdymas")){pick(c,"Ginklų valdymas","Atakos tikslumas");return;}
         if(has(a,"nujausti kovą","skaityti kovą","priešininko judesiai","kovinė nuojauta")){pick(c,"Kovinė nuojauta","Pavojaus nuojauta");return;}
         if(has(a,"kelis priešininkus","apsuptas","daugybė priešininkų","kelių priešininkų kontrolė")){pick(c,"Kelių priešininkų kontrolė","Taktinis prisitaikymas");return;}
@@ -162,7 +196,7 @@ public final class StatEngine {
 
         // JUDĖJIMAS IR KŪNAS
         if(has(a,"staiga sureaguoti","reakcijos greitis","netikėtai sureaguoti")){pick(c,"Reakcijos greitis","Refleksai");return;}
-        if(has(a,"išsisukti","vengti","atšokti","išvengti","refleksai")){pick(c,"Refleksai","Vikrumas");return;}
+        if(has(a,"išsisukti","išsisuku","vengti","vengiu","atšokti","atšoku","išvengti","išvengiu","refleksai")){pick(c,"Refleksai","Vikrumas");return;}
         if(has(a,"kojų darbas","pozicija kovoje","judėti aplink priešininką")){pick(c,"Kojų darbas","Krypties keitimo greitis");return;}
         if(has(a,"šokti","šoku","peršokti","šuolis","šuolio galia")){pick(c,"Šuolio galia","Pusiausvyra");return;}
         if(has(a,"kristi","nusileisti","kritimas","kritimo kontrolė")){pick(c,"Kritimo kontrolė","Kūno kontrolė");return;}
@@ -190,26 +224,48 @@ public final class StatEngine {
 
     private static void pick(Check c,String primary,String secondary){c.primary=primary;c.secondary=secondary;}
 
+    private static String canonicalExact(String action){
+        String a=fold(action).trim();
+        for(BaseStatCatalog.Group g:BaseStatCatalog.GROUPS){
+            for(String stat:g.stats)if(fold(stat).equals(a))return stat;
+        }
+        return null;
+    }
+
+    private static String defaultSecondary(String primary){
+        if(inGroup(primary,"KŪNO SAVYBĖS"))return primary.equals("Kūno kontrolė")?"Koordinacija":"Kūno kontrolė";
+        if(inGroup(primary,"JUDĖJIMAS IR REFLEKSAI"))return primary.equals("Koordinacija")?"Refleksai":"Koordinacija";
+        if(inGroup(primary,"KOVOS MEISTRIŠKUMAS"))return primary.equals("Kovinė nuojauta")?"Kovinis laiko parinkimas":"Kovinė nuojauta";
+        if(inGroup(primary,"JUTIMAI IR IŠGYVENIMAS"))return primary.equals("Pastabumas")?"Regėjimas":"Pastabumas";
+        if(inGroup(primary,"PROTINĖS SAVYBĖS"))return primary.equals("Intelektas")?"Loginis mąstymas":"Intelektas";
+        if(inGroup(primary,"MAGINĖS SAVYBĖS"))return primary.equals("Manos kontrolė")?"Burtų tikslumas":"Manos kontrolė";
+        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))return primary.equals("Žmonių perpratimas")?"Empatija":"Žmonių perpratimas";
+        return "Sprendimų greitis";
+    }
+
+
     private static int difficulty(String a,GameState s,String primary){
-        int d=125;
-        if(has(a,"apžiūrėti","klausytis","stebėti","perskaityti","paklausti"))d=105;
-        if(has(a,"keliauti","eiti į","vykti į"))d=115;
-        if(isPhysical(primary))d=Math.max(d,135);
-        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))d=Math.max(d,135);
-        if(inGroup(primary,"KOVOS MEISTRIŠKUMAS"))d=Math.max(d,145);
-        if(isMagic(primary))d=Math.max(d,150);
-        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika","laiko versija"))d=Math.max(d,175);
-        if(has(a,"sunaikinti","nužudyti","vienu smūgiu","akimirksniu"))d=Math.max(d,190);
-        if(s.combatActive)d+=10;
-        return Math.min(210,d);
+        boolean legendary="legendary".equals(s.progressionMode);int d=legendary?125:88;
+        if(has(a,"apžiūrėti","klausytis","stebėti","perskaityti","paklausti"))d=legendary?105:72;
+        if(has(a,"keliauti","eiti į","vykti į"))d=legendary?115:80;
+        if(isPhysical(primary))d=Math.max(d,legendary?135:92);
+        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))d=Math.max(d,legendary?135:94);
+        if(inGroup(primary,"KOVOS MEISTRIŠKUMAS"))d=Math.max(d,legendary?145:104);
+        if(isMagic(primary))d=Math.max(d,legendary?150:108);
+        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika","laiko versija"))d=Math.max(d,legendary?175:125);
+        if(has(a,"sunaikinti","nužudyti","vienu smūgiu","akimirksniu"))d=Math.max(d,legendary?190:150);
+        if(s.combatActive)d+=legendary?10:6;
+        if("story".equals(s.difficulty))d-=15;else if("hard".equals(s.difficulty))d+=15;else if("nightmare".equals(s.difficulty))d+=30;
+        return Math.max(40,Math.min(240,d));
     }
 
     private static String difficultyReason(String a,GameState s,String primary){
-        if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika"))return "veiksmas liečia ne iki galo suprastą pasaulio taisyklę";
-        if(s.combatActive)return "aktyvus priešininkas gali priešintis ir keisti situaciją";
-        if(isMagic(primary))return "maginis veiksmas reikalauja kontrolės ir stabilumo";
-        if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))return "kitas veikėjas ar praktinė situacija turi savo apribojimus";
-        return "įprasta rizikingo veiksmo patikra";
+        String base;if(has(a,"meridian","nežinoma taisyklė","anomalija","priežastingumas","nulinė sąveika"))base="veiksmas liečia ne iki galo suprastą pasaulio taisyklę";
+        else if(s.combatActive)base="aktyvus priešininkas gali priešintis ir keisti situaciją";
+        else if(isMagic(primary))base="maginis veiksmas reikalauja kontrolės ir stabilumo";
+        else if(inGroup(primary,"SOCIALINĖS IR PRAKTINĖS SAVYBĖS"))base="kitas veikėjas ar praktinė situacija turi savo apribojimus";
+        else base="įprasta rizikingo veiksmo patikra";
+        return base+"; sunkumo režimas "+s.difficulty;
     }
 
     private static int conditionModifier(String stat,GameState s){
@@ -230,6 +286,7 @@ public final class StatEngine {
 
     private static int equipmentModifier(String stat,String a,String equipped){
         String e=norm(equipped);int m=0;
+        String marker="bendras įrangos modifikatorius +";int markerAt=e.indexOf(marker);if(markerAt>=0){int start=markerAt+marker.length(),end=start;while(end<e.length()&&Character.isDigit(e.charAt(end)))end++;if(end>start)try{m+=Integer.parseInt(e.substring(start,end));}catch(Exception ignored){}}
         if((stat.contains("Kardo")||stat.contains("Atakos")||stat.contains("Kovinė"))&&has(e,"asteriono"))m+=10;
         if((stat.equals("Gynyba")||isPhysical(stat))&&has(e,"septynsluoksn"))m+=6;
         if((stat.equals("Erdvinė magija")||has(a,"keliauti"))&&has(e,"kelių klostės"))m+=8;

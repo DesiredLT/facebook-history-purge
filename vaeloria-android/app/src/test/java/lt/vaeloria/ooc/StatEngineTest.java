@@ -134,11 +134,14 @@ public class StatEngineTest {
         };
         assertEquals(92,cases.length);
         Set<String> covered=new HashSet<>();
+        StringBuilder mismatches=new StringBuilder();
         for(String[] x:cases){
-            expect(x[0],x[1]);
+            String actual=StatEngine.classifyForTest(x[0])[0];
+            if(!x[1].equals(actual)) mismatches.append("\n").append(x[0]).append(" expected ").append(x[1]).append(" but was ").append(actual);
             assertTrue("Duplicate semantic coverage for "+x[1],covered.add(x[1]));
         }
         assertEquals(92,covered.size());
+        assertEquals("Natural-action classifier mismatches:"+mismatches,"",mismatches.toString());
     }
 
     @Test public void regressionCasesDoNotCollide(){
@@ -184,6 +187,7 @@ public class StatEngineTest {
 
     @Test public void resourcePenaltiesFollowCatalogGroupsNotWordFragments(){
         GameState s=new GameState();
+        s.progressionMode="legendary";
         s.hp=10;s.hpMax=100;s.stamina=10;s.staminaMax=100;s.mana=10;s.manaMax=100;
         StatEngine.Check spatial=StatEngine.resolve(s,"Erdvinė orientacija","",Collections.emptyList(),null);
         assertEquals("Erdvinė orientacija",spatial.primary);
@@ -196,5 +200,18 @@ public class StatEngineTest {
         StatEngine.Check ordinary=StatEngine.resolve(s,"laikau duris","",Collections.emptyList(),null);
         assertEquals("Sprendimų greitis",ordinary.primary);
         assertEquals(125,ordinary.difficulty);
+    }
+
+    @Test public void characterProfileModifierIsIncludedInResolvedCheck(){
+        GameState state=new GameState();state.characterCreated=true;state.characterOriginId="akademija";state.characterArchetypeId="arkanistas";state.characterTraitIds.addAll(java.util.Arrays.asList("smalsumas","drausme","atjauta"));
+        StatEngine.Check check=StatEngine.resolve(state,"naudoti magiją tiksliai valdant maną","",Collections.emptyList(),null);
+        assertEquals("Manos kontrolė",check.primary);assertEquals(13,check.profileModifier);assertTrue(check.compact().contains("+13 profilis"));assertTrue(check.prompt().contains("Veikėjo profilio modifikatorius: +13"));
+    }
+
+    @Test public void balancedProgressionUsesReachableStartingDifficulties(){
+        GameState state=new GameState();
+        assertEquals(92,StatEngine.resolve(state,"Erdvinė orientacija","",Collections.emptyList(),null).difficulty);
+        assertEquals(108,StatEngine.resolve(state,"Erdvinė magija","",Collections.emptyList(),null).difficulty);
+        assertEquals(88,StatEngine.resolve(state,"laikau duris","",Collections.emptyList(),null).difficulty);
     }
 }

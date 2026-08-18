@@ -2,18 +2,22 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <application
-        android:allowBackup="true"
-        android:label="Vaeloria OOC 0.4"
+        android:allowBackup="false"
+        android:label="Vaeloria OOC 1.0.0"
+        android:icon="@drawable/ic_vaeloria"
+        android:roundIcon="@drawable/ic_vaeloria"
+        android:resizeableActivity="true"
         android:supportsRtl="true"
+        android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.NoActionBar">
-        <activity android:name="lt.vaeloria.ooc.MainActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name="lt.vaeloria.ooc.SafeGameActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name="lt.vaeloria.ooc.SafeLauncherActivity" android:exported="false" android:screenOrientation="portrait" />
-        <activity android:name="lt.vaeloria.ooc.StatsActivity" android:exported="false" android:screenOrientation="portrait" />
+        <activity android:name="lt.vaeloria.ooc.MainActivity" android:exported="false" />
+        <activity android:name="lt.vaeloria.ooc.SafeGameActivity" android:exported="false" />
+        <activity android:name="lt.vaeloria.ooc.SafeLauncherActivity" android:exported="false" />
+        <activity android:name="lt.vaeloria.ooc.StatsActivity" android:exported="false" />
+        <activity android:name="lt.vaeloria.ooc.VaeloriaActivity" android:exported="false" />
         <activity
-            android:name="lt.vaeloria.ooc.VaeloriaActivity"
-            android:exported="true"
-            android:screenOrientation="portrait">
+            android:name="lt.vaeloria.ooc.PolishedActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
