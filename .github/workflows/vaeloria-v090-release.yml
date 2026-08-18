@@ -2,7 +2,13 @@ name: Release Vaeloria OOC v0.9.0
 
 on:
   push:
-    branches: [agent/vaeloria-v090]
+    branches: [agent/vaeloria-local-android]
+    paths:
+      - '.github/workflows/vaeloria-v090-release.yml'
+      - 'vaeloria-android/app/**'
+      - 'vaeloria-android/v090/**'
+  pull_request:
+    branches: [agent/vaeloria-local-android]
     paths:
       - '.github/workflows/vaeloria-v090-release.yml'
       - 'vaeloria-android/app/**'
