@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.0.0."""
 
+import hashlib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,6 +23,43 @@ def require(condition: bool, message: str) -> None:
     if not condition:
         raise SystemExit(f"NEPRAĖJO: {message}")
     print(f"GERAI: {message}")
+
+
+def webp_dimensions(path: Path) -> tuple[int, int]:
+    """Read WebP canvas dimensions without optional image-processing packages."""
+    data = path.read_bytes()
+    if len(data) < 12 or data[:4] != b"RIFF" or data[8:12] != b"WEBP":
+        raise SystemExit(f"NEPRAĖJO: netaisyklingas WebP failas {path.relative_to(ROOT)}")
+
+    offset = 12
+    while offset + 8 <= len(data):
+        chunk_type = data[offset:offset + 4]
+        chunk_size = int.from_bytes(data[offset + 4:offset + 8], "little")
+        start = offset + 8
+        end = start + chunk_size
+        if end > len(data):
+            break
+        chunk = data[start:end]
+
+        if chunk_type == b"VP8X" and len(chunk) >= 10:
+            width = int.from_bytes(chunk[4:7], "little") + 1
+            height = int.from_bytes(chunk[7:10], "little") + 1
+            return width, height
+        if chunk_type == b"VP8L" and len(chunk) >= 5 and chunk[0] == 0x2F:
+            bits = int.from_bytes(chunk[1:5], "little")
+            return (bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1
+        if chunk_type == b"VP8 " and len(chunk) >= 10 and chunk[3:6] == b"\x9d\x01\x2a":
+            width = int.from_bytes(chunk[6:8], "little") & 0x3FFF
+            height = int.from_bytes(chunk[8:10], "little") & 0x3FFF
+            return width, height
+
+        offset = end + (chunk_size & 1)
+
+    raise SystemExit(f"NEPRAĖJO: nepavyko nustatyti WebP matmenų {path.relative_to(ROOT)}")
+
+
+def unique_file_count(paths: list[Path]) -> int:
+    return len({hashlib.sha256(path.read_bytes()).digest() for path in paths})
 
 
 build = read(APP / "build.gradle")
@@ -108,11 +146,32 @@ require("migrateV10toV11" in database and "save_slots" in database and "location
 require((ANDROID_TEST / "V100PersistenceDeviceTest.java").is_file(), "yra tikro Android pilnos būsenos atkūrimo testas")
 require("VersionEleven" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v11 migraciją")
 require((TEST / "CombatEngineV100Test.java").is_file() and (TEST / "EquipmentRulesV100Test.java").is_file() and (TEST / "ProgressionEngineV100Test.java").is_file(), "yra v1.0 kovos, įrangos ir progresijos vienetiniai testai")
-require(len(list(RES.glob("item_v092_*.webp"))) == 325, "išlaikytos 325 daiktų iliustracijos")
-require(len(list(RES.glob("monster_v091_*.webp"))) == 200, "išlaikytos 200 regioninių monstrų iliustracijos")
-require(len(list(RES.glob("npc_*"))) >= 18, "išlaikyta bent 18 NPC iliustracijų")
-require(len(list(RES.glob("scene_*"))) >= 6, "išlaikytos bent 6 scenų iliustracijos")
-require((RES / "hero_einoras_v090.webp").stat().st_size > 100_000, "premium herojaus assetas nėra placeholderis")
-require((RES / "world_map_base_v090.webp").stat().st_size > 100_000, "premium atlaso assetas nėra placeholderis")
+item_art = sorted(RES.glob("item_v092_*.webp"))
+monster_art = sorted(RES.glob("monster_v091_*.webp"))
+npc_art = sorted(RES.glob("npc_*_v090.webp"))
+scene_art = sorted(RES.glob("scene_*_v090.webp"))
+hero_art = RES / "hero_einoras_v090.webp"
+quest_art = RES / "quest_broken_meridian_v090.webp"
+map_art = RES / "world_map_base_v090.webp"
+
+require(len(item_art) == 325, "išlaikytos 325 daiktų iliustracijos")
+require(all(webp_dimensions(path) == (384, 384) for path in item_art),
+        "visos 325 daiktų iliustracijos yra individualios 384×384 ikonos")
+require(unique_file_count(item_art) == 325, "visos 325 daiktų iliustracijos yra unikalūs failai")
+require(len(monster_art) == 200, "išlaikytos 200 regioninių monstrų iliustracijos")
+require(all(webp_dimensions(path) == (384, 384) for path in monster_art),
+        "visos 200 monstrų iliustracijos yra individualios 384×384 ikonos")
+require(unique_file_count(monster_art) == 200, "visos 200 monstrų iliustracijos yra unikalūs failai")
+require(len(npc_art) >= 18, "išlaikyta bent 18 individualių NPC iliustracijų")
+require(all(width >= 384 and height >= 384 for width, height in map(webp_dimensions, npc_art)),
+        "visų NPC iliustracijų matmenys yra bent 384×384")
+require(len(scene_art) == 6, "išlaikytos 6 individualios scenų iliustracijos")
+require(all(width >= 1_600 and height >= 900 for width, height in map(webp_dimensions, scene_art)),
+        "visos scenų iliustracijos yra bent 1600×900")
+require(webp_dimensions(hero_art)[1] >= 1_400, "herojaus šaltinis yra bent 1400 px aukščio")
+require(webp_dimensions(quest_art)[0] >= 1_600 and webp_dimensions(quest_art)[1] >= 800,
+        "užduoties iliustracija yra bent 1600×800")
+require(webp_dimensions(map_art)[0] >= 1_000 and webp_dimensions(map_art)[1] >= 1_400,
+        "atlaso iliustracija yra bent 1000×1400")
 
 print("Vaeloria OOC v1.0.0 P0–P4 priėmimo auditas praėjo")
