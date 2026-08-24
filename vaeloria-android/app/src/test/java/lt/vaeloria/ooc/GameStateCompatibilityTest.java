@@ -63,6 +63,11 @@ public class GameStateCompatibilityTest {
         original.enemyHp = 217;
         original.enemyHpMax = 480;
         original.combatRound = 4;
+        original.combatSpellCount = 5;
+        original.combatHeavyMitigationUsed = true;
+        original.combatDawnBarrierUsed = true;
+        original.combatCheatDeathUsed = true;
+        original.combatLastStandUsed = true;
 
         GameState restored = GameState.fromJson(original.toJson());
 
@@ -78,6 +83,11 @@ public class GameStateCompatibilityTest {
         assertEquals(217, restored.enemyHp);
         assertEquals(480, restored.enemyHpMax);
         assertEquals(4, restored.combatRound);
+        assertEquals(5, restored.combatSpellCount);
+        assertTrue(restored.combatHeavyMitigationUsed);
+        assertTrue(restored.combatDawnBarrierUsed);
+        assertTrue(restored.combatCheatDeathUsed);
+        assertTrue(restored.combatLastStandUsed);
     }
 
     @Test public void roundTripPreservesV100ProgressionDifficultyAndEnding() throws Exception {

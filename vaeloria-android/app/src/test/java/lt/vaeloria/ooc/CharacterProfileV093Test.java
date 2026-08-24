@@ -37,4 +37,11 @@ public class CharacterProfileV093Test {
         assertEquals(-5,CharacterCatalogV093.effect(state,"Diplomatija").value);
         assertEquals(0,CharacterCatalogV093.effect(state,"Plaukimas").value);
     }
+
+    @Test public void legacyPersistedBonusExactlyMirrorsOldProfileInitialization(){
+        assertEquals(4,CharacterCatalogV093.legacyPersistedBonus("akademija","sargybinis","Burtų galia","MAGINĖS SAVYBĖS"));
+        assertEquals(8,CharacterCatalogV093.legacyPersistedBonus("akademija","sargybinis","Gynyba","KOVOS MEISTRIŠKUMAS"));
+        assertEquals(12,CharacterCatalogV093.legacyPersistedBonus("gildija","amatininkas","Žinių pritaikymas","SOCIALINĖS IR PRAKTINĖS SAVYBĖS"));
+        assertEquals(0,CharacterCatalogV093.legacyPersistedBonus("akademija","sargybinis","Plaukimas","JUTIMAI IR IŠGYVENIMAS"));
+    }
 }

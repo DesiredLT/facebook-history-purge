@@ -236,8 +236,8 @@ final class WorldRepository {
 
     void applyStructuredChoices(GameState state){QuestStep step=activeMainStep();if(step==null||state.combatActive)return;ArrayList<String> choices=new ArrayList<>();if(step.position==0){choices.add("Ištirti karavano manifestą ir jo laiko žymas");choices.add("Klausti Kaelio apie karavano atvykimą");choices.add("Palyginti manifestą su archyvo įrašais");}else if(step.position==1){choices.add("Patikrinti Meridiano vartų žurnalą");choices.add("Paprašyti Lyros nepriklausomo matavimo");choices.add("Klausti Orino apie ištrintas chartijas");}else if(step.position==2){choices.add("Užfiksuoti Lyros lauko matavimus kaip atramos tašką");choices.add("Patvirtinti Kaelio sargybos žurnalą kaip atramos tašką");choices.add("Vykti į Veyrhold ir tikrinti tranzito įrašą");}else if(step.position==3){choices.add("Pereiti Meridianą ir užmegzti Orisono kontaktą");choices.add("Kalibruoti saugų grįžimo kelią");choices.add("Paprašyti kompaniono saugoti atramos tašką");}else if(step.position==4){choices.add("Priimti Pirmąją Meridiano chartiją");choices.add("Atmesti Pirmąją Meridiano chartiją");choices.add("Siūlyti nepriklausomą Meridiano valdymą");}else if(step.position==5){choices.add("Priimti savo sprendimo pasekmes ir tęsti");choices.add("Aplankyti frakcijų atstovus po sprendimo");choices.add("Patikrinti, kaip pasikeitė pasaulio ekonomika");}if(choices.size()==3){state.choices.clear();state.choices.addAll(choices);}}
 
-    String progressStory(String action,String event,GameState state){
-        QuestStep step=activeMainStep();if(step==null)return"";String q=norm(action);boolean success=event==null||(!event.contains("setback")&&!event.contains("failure"));if(!success)return"";String evidence=null,detail="";
+    String progressStory(String action,String event,GameState state,StatEngine.Check check){
+        QuestStep step=activeMainStep();if(step==null)return"";String q=norm(action);if(!checkAllowsProgress(check,event))return"";String evidence=null,detail="";
         if(step.position==0&&q.contains("manifest")){completeAndActivate(step,1);detail="Manifesto laiko neatitikimas įtrauktas į įrodymų grandinę.";}
         else if(step.position==1&&(q.contains("vart")||q.contains("meridian")||q.contains("lyra")||q.contains("kaeli")||q.contains("orin"))){completeAndActivate(step,2);detail="Vartų žurnalas ir nepriklausomas liudijimas patvirtino poslinkį.";}
         else if(step.position==2){evidence=evidenceId(q);if(evidence!=null){ContentValues v=new ContentValues();v.put("quest_id","Q-MERIDIAN");v.put("evidence_id",evidence);v.put("detail",evidenceDetail(evidence));v.put("source",action);v.put("created_minute",state.worldMinute);long inserted=db().insertWithOnConflict("quest_evidence",null,v,SQLiteDatabase.CONFLICT_IGNORE);int count=evidenceCount();ContentValues p=new ContentValues();p.put("progress",Math.min(3,count));db().update("quest_steps",p,"id=?",new String[]{step.id});if(inserted!=-1)detail="Užfiksuotas nepriklausomas atramos taškas: "+evidenceDetail(evidence)+".";if(count>=3){completeAndActivate(step,3);detail+=" Atramos tinklas užbaigtas.";}}}
@@ -277,7 +277,13 @@ final class WorldRepository {
     List<LocationInfo> locations(){ArrayList<LocationInfo> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT id,name,region,danger,x,y,discovered,visited,last_visit FROM locations ORDER BY discovered DESC,name",null)){while(c.moveToNext()){LocationInfo value=new LocationInfo();value.id=c.getString(0);value.name=c.getString(1);value.region=c.getString(2);value.danger=c.getInt(3);value.x=c.getInt(4);value.y=c.getInt(5);value.discovered=c.getInt(6)==1;value.visited=c.getInt(7)==1;value.lastVisit=c.getLong(8);result.add(value);}}return result;}
 
     Set<String> discoveredLocations(){LinkedHashSet<String> names=new LinkedHashSet<>();for(LocationInfo location:locations())if(location.discovered)names.add(location.name);return names;}
-    boolean isDiscovered(String name){if(name==null)return false;for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(name))return location.discovered;return true;}
+    Set<String> knownLocationNames(){LinkedHashSet<String> names=new LinkedHashSet<>();for(LocationInfo location:locations())names.add(location.name);return names;}
+    boolean isDiscovered(String name){if(name==null)return false;for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(name))return location.discovered;return false;}
+
+    static boolean checkAllowsProgress(StatEngine.Check check,String event){
+        if(event!=null&&(event.contains("setback")||event.contains("failure")))return false;
+        return !AiTurnPolicyV101.isFailure(check);
+    }
 
     void initializeOriginDiscoveries(String originId){
         if("dravenn".equals(originId))discoverById("kharad");else if("pelkynai".equals(originId)){discoverById("pelkynas");discoverById("saltinio");}

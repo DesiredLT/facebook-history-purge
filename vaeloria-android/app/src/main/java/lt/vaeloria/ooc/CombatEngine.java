@@ -68,7 +68,9 @@ final class CombatEngine {
                 .put("enemy_speed", enemy.speed).put("enemy_danger", enemy.danger)
                 .put("enemy_role", enemy.role).put("enemy_trait", enemy.trait)
                 .put("player_combat_status", "Pasiruošęs").put("enemy_combat_effects", "")
-                .put("player_guard", 0).put("combat_ability_cooldown", 0).put("combat_combo", 0)
+                .put("player_guard", 0).put("combat_ability_cooldown", 0).put("combat_combo", 0).put("combat_spell_count", 0)
+                .put("combat_heavy_mitigation_used",false).put("combat_dawn_barrier_used",false)
+                .put("combat_cheat_death_used",false).put("combat_last_stand_used",false)
                 .put("combat_round", 1);
     }
 
@@ -84,6 +86,7 @@ final class CombatEngine {
         boolean dodge = contains(query, "išsisuk", "issisuk", "išveng", "isveng", "šokti į šalį", "sokti i sali");
         boolean spell = contains(query, "gebėj", "gebej", "burt", "magij", "eonin", "relikv", "runa");
         boolean heavy = contains(query, "sunk", "galing", "visa jėga", "visa jega", "pramuš", "pramus");
+        boolean recover = contains(query,"atsikvėp","atsikvep","atgauti kvap","taupyti jėg","taupyti jeg");
 
         int playerSpeed = stat(stats, "Greitis", 45) / 3 + stat(stats, "Reakcijos greitis", 45) / 4 + gear.speed+(talents.contains("scout_step")?7:0);
         int playerDefense = stat(stats, "Gynyba", 45) / 2 + gear.defense+companionDefense+(talents.contains("warrior_guard")&&state.combatRound<=1?8:0);
@@ -95,11 +98,30 @@ final class CombatEngine {
         int dealt = 0, received = 0, guard = 0;
         int cooldown = Math.max(0, state.combatAbilityCooldown - 1);
         int combo = state.combatCombo;
+        int spellCount = state.combatSpellCount;
+        boolean heavyMitigationUsed=state.combatHeavyMitigationUsed;
+        boolean dawnBarrierUsed=state.combatDawnBarrierUsed;
+        boolean cheatDeathUsed=state.combatCheatDeathUsed;
+        boolean lastStandUsed=state.combatLastStandUsed;
         String playerStatus = "Kovoja";
         String enemyEffects = state.enemyCombatEffects;
         StringBuilder scene = new StringBuilder();
 
-        if (escape) {
+        if(!recover&&escape&&state.stamina<5){escape=false;recover=true;scene.append("Ištvermės nepakanka saugiam atsitraukimui. ");}
+        if(!recover&&dodge&&state.stamina<6){dodge=false;recover=true;scene.append("Ištvermės nepakanka išsisukimui. ");}
+        if(!recover&&!escape&&!defend&&!dodge&&!spell&&heavy&&state.stamina<15){
+            if(state.stamina>=7){heavy=false;scene.append("Ištvermės nepakanka sunkiam smūgiui, todėl renkiesi kontroliuojamą ataką. ");}
+            else{recover=true;scene.append("Ištvermės nepakanka atakai. ");}
+        }
+        if(!recover&&!escape&&!defend&&!dodge&&!spell&&!heavy&&state.stamina<7){recover=true;scene.append("Ištvermės nepakanka atakai. ");}
+
+        if(recover){
+            int restored=Math.max(8,Math.min(18,state.staminaMax/8));
+            staminaDelta+=restored;
+            guard=Math.max(4,playerDefense/4);
+            playerStatus="Atgauna kvapą · apsauga "+guard;
+            scene.append("Sutvirtini poziciją, sureguliuoji kvėpavimą ir atgauni ištvermę. ");
+        } else if (escape) {
             int chance = 48 + (playerSpeed - state.enemySpeed) / 2 + outcomeBonus(check)+(talents.contains("scout_escape")?20:0);
             if (random.nextInt(100) < clamp(chance, 15, 90)) {
                 return base(state, "Sėkmingas atsitraukimas",
@@ -112,7 +134,7 @@ final class CombatEngine {
             staminaDelta -= 5;
         } else if (defend) {
             guard = Math.max(8, playerDefense / 2 + outcomeBonus(check));
-            staminaDelta -= 3;
+            staminaDelta -= Math.min(3,state.stamina);
             playerStatus = "Gynybinė pozicija · apsauga " + guard+(talents.contains("warrior_counter")?" · Kontratakos langas":"");
             scene.append("Užimi gynybinę poziciją ir smūgį pasitinki pasiruošęs. ");
         } else if (dodge) {
@@ -131,18 +153,18 @@ final class CombatEngine {
         } else if (spell) {
             int cost = 18;
             if(talents.contains("arcane_efficiency"))cost=Math.max(4,cost-4);
-            if (gear.thirdSpellDiscount && combo > 0 && (combo + 1) % 3 == 0) cost = 8;
+            if (gear.thirdSpellDiscount && (spellCount + 1) % 3 == 0) cost = 8;
             if (cooldown > 0) {
                 scene.append("Kovinis gebėjimas dar neatsistatė, todėl pereini į paprastą puolimą. ");
                 spell = false;
             } else if (state.mana >= cost || state.aeonic >= cost) {
                 if (state.mana >= cost) manaDelta -= cost; else aeonicDelta -= cost;
                 int magic = stat(stats, "Burtų galia", 45) / 2 + stat(stats, "Manos kontrolė", 45) / 4 + gear.magicPower;
-                if(talents.contains("arcane_echo")&&(combo+1)%3==0)magic+=18;
+                if(talents.contains("arcane_echo")&&(spellCount+1)%3==0)magic+=18;
                 dealt = damage(magic + 22, state.enemyDefense, outcomeBonus(check), random, gear, state, true);
                 enemyEffects = magicEffect(query, catalog == null ? state.enemyTrait : catalog.trait);
                 cooldown = 2;
-                combo++;
+                spellCount++;
                 scene.append("Sukoncentruoji energiją ir tiksliai paleidi kovinį gebėjimą. ");
             } else {
                 scene.append("Energijos nepakanka gebėjimui, todėl smūgiuoji ginklu. ");
@@ -150,7 +172,7 @@ final class CombatEngine {
             }
         }
 
-        if (!escape && !defend && !dodge && !spell) {
+        if (!recover && !escape && !defend && !dodge && !spell) {
             int attack = playerAttack + (heavy ? 18 : 0);
             if (heavy) staminaDelta -= 15; else staminaDelta -= 7;
             if (gear.berserk) attack += Math.max(0, (state.hpMax - state.hp) / 6);
@@ -177,23 +199,26 @@ final class CombatEngine {
         int rawIncoming = enemyDamage(state, playerDefense, random);
         if (guard >= 999) received = 0;
         else received = Math.max(0, rawIncoming - guard);
-        if (gear.heavyHitMitigation && received >= 20 && !state.playerCombatStatus.contains("Priesaikos apsauga panaudota")) {
+        if (gear.heavyHitMitigation && received >= 20 && !heavyMitigationUsed) {
             received = Math.max(1, received / 2);
+            heavyMitigationUsed=true;
             playerStatus = playerStatus + " · Priesaikos apsauga panaudota";
         }
         if (gear.dawnBarrier && state.hp - received <= Math.max(1, state.hpMax / 4)
-                && !state.playerCombatStatus.contains("Aušros barjeras panaudotas")) {
+                && !dawnBarrierUsed) {
             received = Math.max(0, received / 3);
+            dawnBarrierUsed=true;
             playerStatus = playerStatus + " · Aušros barjeras panaudotas";
         }
         int statusTick = playerStatusDamage(state.playerCombatStatus, gear, state.enemyDanger);
         received += statusTick;
-        if (state.hp - received <= 0 && gear.cheatDeath && !state.playerCombatStatus.contains("Kapų apsauga panaudota")) {
+        if (state.hp - received <= 0 && gear.cheatDeath && !cheatDeathUsed) {
             received = Math.max(0, state.hp - 1);
+            cheatDeathUsed=true;
             playerStatus = playerStatus + " · Kapų apsauga panaudota";
         }
-        if(state.hp-received<=0&&talents.contains("warrior_last_stand")&&!state.playerCombatStatus.contains("Paskutinis bastionas panaudotas")){
-            received=Math.max(0,state.hp-1);playerStatus=playerStatus+" · Paskutinis bastionas panaudotas";
+        if(state.hp-received<=0&&talents.contains("warrior_last_stand")&&!lastStandUsed){
+            received=Math.max(0,state.hp-1);lastStandUsed=true;playerStatus=playerStatus+" · Paskutinis bastionas panaudotas";
         }
         hpDelta -= received;
         if (received == 0) scene.append("Priešo atsakas tavęs nepasiekia. ");
@@ -209,7 +234,7 @@ final class CombatEngine {
 
         EnemyCatalogV091.Enemy enemy = catalog;
         String telegraph = enemy == null ? genericTelegraph(state, round) : telegraph(enemy, round, enemyHp, state.enemyHpMax);
-        JSONArray choices = combatChoices(telegraph, cooldown);
+        JSONArray choices = combatChoices(telegraph, cooldown,state.stamina+staminaDelta);
         return base(state, "Kovos " + round + " ėjimas", scene.toString(), choices, "combat", true)
                 .put("time_minutes", 2).put("hp_delta", hpDelta).put("mana_delta", manaDelta)
                 .put("stamina_delta", staminaDelta).put("aeonic_delta", aeonicDelta)
@@ -221,7 +246,9 @@ final class CombatEngine {
                 .put("enemy_speed", state.enemySpeed).put("enemy_danger", state.enemyDanger)
                 .put("enemy_role", state.enemyRole).put("enemy_trait", state.enemyTrait)
                 .put("player_combat_status", playerStatus).put("enemy_combat_effects", enemyEffects)
-                .put("player_guard", guard).put("combat_ability_cooldown", cooldown).put("combat_combo", combo)
+                .put("player_guard", guard).put("combat_ability_cooldown", cooldown).put("combat_combo", combo).put("combat_spell_count",spellCount)
+                .put("combat_heavy_mitigation_used",heavyMitigationUsed).put("combat_dawn_barrier_used",dawnBarrierUsed)
+                .put("combat_cheat_death_used",cheatDeathUsed).put("combat_last_stand_used",lastStandUsed)
                 .put("combat_round", round);
     }
 
@@ -265,9 +292,9 @@ final class CombatEngine {
         return norm(trait).contains("atspar") ? "Rezonansas nestabilus" : "Rezonanso žaizda";
     }
 
-    private static JSONArray combatChoices(String telegraph, int cooldown) {
+    private static JSONArray combatChoices(String telegraph, int cooldown,int stamina) {
         JSONArray choices = new JSONArray();
-        choices.put("Atakuoti ir išlaikyti spaudimą");
+        choices.put(stamina<7?"Atgauti kvapą ir saugoti poziciją":"Atakuoti ir išlaikyti spaudimą");
         choices.put(norm(telegraph).contains("sunk") || norm(telegraph).contains("smūg")
                 ? "Blokuoti paruoštą sunkų smūgį" : "Išsisukti iš numatytos atakos");
         choices.put(cooldown == 0 ? "Panaudoti kovinį gebėjimą" : "Atsitraukti iš kovos");

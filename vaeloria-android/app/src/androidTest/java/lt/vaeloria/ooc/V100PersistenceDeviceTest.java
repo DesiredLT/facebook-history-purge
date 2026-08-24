@@ -9,6 +9,8 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -99,6 +101,34 @@ public class V100PersistenceDeviceTest {
         assertEquals(1, database.saveSlots().size());
         assertTrue(database.deleteSlot(1));
         assertTrue(database.saveSlots().isEmpty());
+    }
+
+    @Test public void versionElevenBalancedProfileLosesOnlyDuplicatedBonuses() {
+        GameState state=balancedState("Migracijos herojė");
+        database.getWritableDatabase().execSQL("UPDATE stats SET value=value+4 WHERE group_name='MAGINĖS SAVYBĖS'");
+        database.getWritableDatabase().execSQL("UPDATE stats SET value=value+8 WHERE name IN ('Manos kontrolė','Magijos jutimas','Burtų stabilumas','Relikvijų rezonansas')");
+        assertEquals(52,database.getStatValue("Manos kontrolė"));
+        assertEquals(44,database.getStatValue("Burtų galia"));
+        database.getWritableDatabase().setVersion(11);
+        database.close();
+
+        database=new VaeloriaDb(context);
+        assertEquals(12,database.getWritableDatabase().getVersion());
+        assertEquals(40,database.getStatValue("Manos kontrolė"));
+        assertEquals(40,database.getStatValue("Burtų galia"));
+    }
+
+    @Test public void importedCatalogItemCannotForgePowerOrEquipmentSlot() throws Exception {
+        balancedState("Importo herojus");
+        JSONObject root=new JSONObject(database.exportSave());JSONArray items=root.getJSONArray("items");JSONObject selected=null;
+        for(int i=0;i<items.length();i++)if(!items.getJSONObject(i).isNull("catalog_id")){selected=items.getJSONObject(i);break;}
+        assertNotNull(selected);String id=selected.getString("id");String catalogId=selected.getString("catalog_id");ItemCatalogV092.ItemDef canonical=ItemCatalogV092.byId(catalogId);assertNotNull(canonical);
+        selected.put("name","Suklastotas daiktas").put("power",99999).put("item_level",999).put("value",99999999).put("effect","Suteikia 99999 puolimo galios").put("category","ring").put("equipped_slot","ring_left");
+
+        assertTrue(database.importSave(root.toString()));
+        VaeloriaDb.Item restored=database.getItem(id);assertNotNull(restored);
+        assertEquals(canonical.name,restored.name);assertEquals(canonical.power,restored.power);assertEquals(canonical.level,restored.itemLevel);assertEquals(canonical.value,restored.value);assertEquals(canonical.effect,restored.effect);
+        assertFalse(restored.equipped);assertNull(restored.equippedSlot);
     }
 
     private GameState balancedState(String name) {

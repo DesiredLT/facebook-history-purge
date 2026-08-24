@@ -197,6 +197,26 @@ final class CharacterCatalogV093 {
         return new Effect(value,String.join(", ",sources));
     }
 
+    /**
+     * Grąžina tik v1.0.0 subalansuoto profilio kūrimo metu į bazines savybes
+     * klaidingai įrašytą premiją. v1.0.1 migracija ją pašalina, nes tos pačios
+     * kilmės ir archetipo premijos autoritetingai taikomos {@link #effect}.
+     */
+    static int legacyPersistedBonus(String originId,String archetypeId,String stat,String group){
+        int bonus=0;
+        Origin origin=origin(originId);
+        if(origin!=null){
+            if(contains(origin.groups,group))bonus+=4;
+            if(contains(origin.stats,stat))bonus+=4;
+        }
+        Archetype archetype=archetype(archetypeId);
+        if(archetype!=null){
+            if(contains(archetype.groups,group))bonus+=8;
+            if(contains(archetype.stats,stat))bonus+=8;
+        }
+        return bonus;
+    }
+
     static String traitNames(List<String> ids){
         ArrayList<String> names=new ArrayList<>();for(String id:normalizedTraits(ids)){Trait t=trait(id);if(t!=null)names.add(t.name);}return names.isEmpty()?"nepasirinkti":String.join(", ",names);
     }

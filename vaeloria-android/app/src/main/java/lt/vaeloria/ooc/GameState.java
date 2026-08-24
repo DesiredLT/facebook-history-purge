@@ -55,7 +55,12 @@ public class GameState {
     public int playerGuard = 0;
     public int combatAbilityCooldown = 0;
     public int combatCombo = 0;
+    public int combatSpellCount = 0;
     public int combatRound = 0;
+    public boolean combatHeavyMitigationUsed = false;
+    public boolean combatDawnBarrierUsed = false;
+    public boolean combatCheatDeathUsed = false;
+    public boolean combatLastStandUsed = false;
     public String storyEnding = "";
     public boolean tutorialComplete = false;
     public final List<String> choices = new ArrayList<>();
@@ -116,7 +121,12 @@ public class GameState {
         o.put("playerGuard", playerGuard);
         o.put("combatAbilityCooldown", combatAbilityCooldown);
         o.put("combatCombo", combatCombo);
+        o.put("combatSpellCount", combatSpellCount);
         o.put("combatRound", combatRound);
+        o.put("combatHeavyMitigationUsed", combatHeavyMitigationUsed);
+        o.put("combatDawnBarrierUsed", combatDawnBarrierUsed);
+        o.put("combatCheatDeathUsed", combatCheatDeathUsed);
+        o.put("combatLastStandUsed", combatLastStandUsed);
         o.put("storyEnding", storyEnding);
         o.put("tutorialComplete", tutorialComplete);
         JSONArray c = new JSONArray();
@@ -131,7 +141,7 @@ public class GameState {
     public static GameState fromJson(JSONObject o) throws JSONException {
         GameState s = new GameState();
         boolean legacyProfile = !o.has("characterCreated");
-        s.characterName = o.optString("characterName", s.characterName);
+        s.characterName = compact(o.optString("characterName", s.characterName),32);
         s.chronologicalAge = clamp(o.optInt("chronologicalAge", s.chronologicalAge), 16, 999);
         s.biologicalAge = clamp(o.optInt("biologicalAge", s.biologicalAge), 16, 999);
         s.ageless = o.optBoolean("ageless", s.ageless);
@@ -139,10 +149,10 @@ public class GameState {
         s.characterIdentity = o.optString("characterIdentity", "nenurodyta");
         s.characterOriginId = o.optString("characterOriginId", "");
         s.characterArchetypeId = o.optString("characterArchetypeId", "");
-        s.characterAppearance = o.optString("characterAppearance", "");
+        s.characterAppearance = compact(o.optString("characterAppearance", ""),500);
         s.characterTraitIds.clear();
         JSONArray traits = o.optJSONArray("characterTraitIds");
-        if (traits != null) for (int i=0;i<traits.length();i++) s.characterTraitIds.add(traits.optString(i));
+        if (traits != null) for (int i=0;i<traits.length()&&i<12;i++) s.characterTraitIds.add(traits.optString(i));
         if (legacyProfile && s.characterCreated) {
             if (s.characterOriginId.isEmpty()) s.characterOriginId = "luminara";
             if (s.characterArchetypeId.isEmpty()) s.characterArchetypeId = "sargybinis";
@@ -152,14 +162,14 @@ public class GameState {
                 s.characterTraitIds.add("drausme");
             }
         }
-        s.location = o.optString("location", s.location);
-        s.worldYear = o.optInt("worldYear", s.worldYear);
-        s.worldMinute = o.optLong("worldMinute", s.worldMinute);
-        s.hp = o.optInt("hp", s.hp); s.hpMax = o.optInt("hpMax", s.hpMax);
-        s.mana = o.optInt("mana", s.mana); s.manaMax = o.optInt("manaMax", s.manaMax);
-        s.stamina = o.optInt("stamina", s.stamina); s.staminaMax = o.optInt("staminaMax", s.staminaMax);
-        s.aeonic = o.optInt("aeonic", s.aeonic); s.aeonicMax = o.optInt("aeonicMax", s.aeonicMax);
-        s.crowns = o.optLong("crowns", s.crowns);
+        s.location = compact(o.optString("location", s.location),80);
+        s.worldYear = clamp(o.optInt("worldYear", s.worldYear),0,9999);
+        s.worldMinute = Math.max(0L,o.optLong("worldMinute", s.worldMinute));
+        s.hpMax = clamp(o.optInt("hpMax", s.hpMax),1,10000);s.hp = clamp(o.optInt("hp", s.hp),0,s.hpMax);
+        s.manaMax = clamp(o.optInt("manaMax", s.manaMax),0,10000);s.mana = clamp(o.optInt("mana", s.mana),0,s.manaMax);
+        s.staminaMax = clamp(o.optInt("staminaMax", s.staminaMax),1,10000);s.stamina = clamp(o.optInt("stamina", s.stamina),0,s.staminaMax);
+        s.aeonicMax = clamp(o.optInt("aeonicMax", s.aeonicMax),0,10000);s.aeonic = clamp(o.optInt("aeonic", s.aeonic),0,s.aeonicMax);
+        s.crowns = Math.max(0L,Math.min(1_000_000_000L,o.optLong("crowns", s.crowns)));
         s.level = clamp(o.optInt("level", s.level), 1, 100);
         s.experience = Math.max(0, o.optInt("experience", s.experience));
         s.experienceNext = Math.max(100, o.optInt("experienceNext", s.experienceNext));
@@ -173,15 +183,15 @@ public class GameState {
         s.asterraRelation = o.optString("asterraRelation", s.asterraRelation);
         s.dravennRelation = o.optString("dravennRelation", s.dravennRelation);
         s.lysaraRelation = o.optString("lysaraRelation", s.lysaraRelation);
-        s.questTitle = o.optString("questTitle", s.questTitle);
-        s.objective = o.optString("objective", s.objective);
-        s.sceneTitle = o.optString("sceneTitle", s.sceneTitle);
-        s.scene = o.optString("scene", s.scene);
+        s.questTitle = compact(o.optString("questTitle", s.questTitle),160);
+        s.objective = compact(o.optString("objective", s.objective),500);
+        s.sceneTitle = compact(o.optString("sceneTitle", s.sceneTitle),160);
+        s.scene = compact(o.optString("scene", s.scene),4000);
         s.combatActive = o.optBoolean("combatActive", false);
         s.enemyName = o.optString("enemyName", "");
         s.enemyStatus = o.optString("enemyStatus", "");
         s.enemyTelegraph = o.optString("enemyTelegraph", "");
-        s.combatDistance = o.optString("combatDistance", "mid");
+        String distance=o.optString("combatDistance", "mid");s.combatDistance="close".equals(distance)||"far".equals(distance)?distance:"mid";
         s.combatHazard = o.optString("combatHazard", "");
         s.enemyHp = Math.max(0, o.optInt("enemyHp", 0));
         s.enemyHpMax = Math.max(s.enemyHp, o.optInt("enemyHpMax", s.enemyHp));
@@ -196,16 +206,21 @@ public class GameState {
         s.playerGuard = Math.max(0, o.optInt("playerGuard", 0));
         s.combatAbilityCooldown = Math.max(0, o.optInt("combatAbilityCooldown", 0));
         s.combatCombo = Math.max(0, o.optInt("combatCombo", 0));
+        s.combatSpellCount = Math.max(0, o.optInt("combatSpellCount", 0));
         s.combatRound = Math.max(0, o.optInt("combatRound", 0));
+        s.combatHeavyMitigationUsed = o.optBoolean("combatHeavyMitigationUsed", false);
+        s.combatDawnBarrierUsed = o.optBoolean("combatDawnBarrierUsed", false);
+        s.combatCheatDeathUsed = o.optBoolean("combatCheatDeathUsed", false);
+        s.combatLastStandUsed = o.optBoolean("combatLastStandUsed", false);
         s.storyEnding = o.optString("storyEnding", "");
         s.tutorialComplete = o.optBoolean("tutorialComplete", false);
         s.choices.clear();
         JSONArray c = o.optJSONArray("choices");
-        if (c != null) for (int i=0;i<c.length();i++) s.choices.add(c.optString(i));
+        if (c != null) for (int i=0;i<c.length()&&i<3;i++) s.choices.add(compact(c.optString(i),240));
         while (s.choices.size() < 3) s.choices.add("Apsidairyti ir surinkti daugiau informacijos");
         s.recentTurns.clear();
         JSONArray r = o.optJSONArray("recentTurns");
-        if (r != null) for (int i=0;i<r.length();i++) s.recentTurns.add(r.optString(i));
+        if (r != null) for (int i=Math.max(0,r.length()-30);i<r.length();i++) s.recentTurns.add(compact(r.optString(i),500));
         return s;
     }
 
@@ -246,7 +261,12 @@ public class GameState {
         playerGuard = Math.max(0, result.optInt("player_guard", combatActive ? playerGuard : 0));
         combatAbilityCooldown = Math.max(0, result.optInt("combat_ability_cooldown", combatActive ? combatAbilityCooldown : 0));
         combatCombo = Math.max(0, result.optInt("combat_combo", combatActive ? combatCombo : 0));
+        combatSpellCount = Math.max(0, result.optInt("combat_spell_count", combatActive ? combatSpellCount : 0));
         combatRound = Math.max(0, result.optInt("combat_round", combatActive ? combatRound : 0));
+        combatHeavyMitigationUsed = result.optBoolean("combat_heavy_mitigation_used", combatActive && combatHeavyMitigationUsed);
+        combatDawnBarrierUsed = result.optBoolean("combat_dawn_barrier_used", combatActive && combatDawnBarrierUsed);
+        combatCheatDeathUsed = result.optBoolean("combat_cheat_death_used", combatActive && combatCheatDeathUsed);
+        combatLastStandUsed = result.optBoolean("combat_last_stand_used", combatActive && combatLastStandUsed);
         if (!combatActive) endCombat();
         String note = result.optString("quest_note", "").trim();
         if (!note.isEmpty()) objective = note;
@@ -259,11 +279,13 @@ public class GameState {
     public void endCombat() {
         combatActive=false;enemyName="";enemyStatus="";enemyTelegraph="";combatHazard="";
         combatDistance="mid";enemyHp=0;enemyHpMax=0;enemyAttack=0;enemyDefense=0;enemySpeed=0;enemyDanger=0;
-        enemyRole="";enemyTrait="";playerCombatStatus="";enemyCombatEffects="";playerGuard=0;combatAbilityCooldown=0;combatCombo=0;combatRound=0;
+        enemyRole="";enemyTrait="";playerCombatStatus="";enemyCombatEffects="";playerGuard=0;combatAbilityCooldown=0;combatCombo=0;combatSpellCount=0;combatRound=0;
+        combatHeavyMitigationUsed=false;combatDawnBarrierUsed=false;combatCheatDeathUsed=false;combatLastStandUsed=false;
     }
 
     private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }
     private static String validDifficulty(String value){return "story".equals(value)||"hard".equals(value)||"nightmare".equals(value)?value:"normal";}
     private static String validProgression(String value){return "legendary".equals(value)?value:"balanced";}
+    private static String compact(String value,int max){String clean=value==null?"":value.trim().replaceAll("\\s+"," ");return clean.length()<=max?clean:clean.substring(0,max);}
     private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
 }

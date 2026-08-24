@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.0.0."""
+"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.0.1."""
 
 import hashlib
 from pathlib import Path
@@ -79,8 +79,8 @@ profile = read(JAVA / "CharacterCatalogV093.java")
 language = read(JAVA / "LithuanianNarrative.java")
 
 # Leidimo tapatybė ir saugumas.
-require("versionCode 40" in build and "versionName '1.0.0'" in build, "Android versija yra 40 / 1.0.0")
-require('android:label="Vaeloria OOC 1.0.0"' in manifest, "programėlės etiketė yra v1.0.0")
+require("versionCode 41" in build and "versionName '1.0.1'" in build, "Android versija yra 41 / 1.0.1")
+require('android:label="Vaeloria OOC 1.0.1"' in manifest, "programėlės etiketė yra v1.0.1")
 require("minifyEnabled true" in build and "shrinkResources true" in build, "release buildą optimizuoja R8")
 require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest, "atsarginės kopijos ir nešifruotas ryšys išjungti")
 require(manifest.count("uses-permission") == 1 and "android.permission.INTERNET" in manifest, "šaltinyje prašomas tik interneto leidimas")
@@ -123,7 +123,7 @@ require('companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","Gynėjas","
 require("companionDefenseBonus" in world and "companionVictoryHealing" in world, "kompanionai realiai keičia kovą")
 
 # P3 – moderni mobili sąsaja ir turinio pasiekiamumas.
-require("R.drawable.hero_einoras_v090" in activity and "CharacterAvatarV100View" in activity, "herojaus ekranas jungia premium iliustraciją ir personalizuotą portretą")
+require("canonicalEinoras" in activity and "CharacterAvatarV100View" in activity, "fiksuota Einoro iliustracija nerodoma kitiems sukurtiems veikėjams")
 require("import android.widget.ProgressBar;" in activity, "progresijos juosta turi Android klasės importą")
 for key in ("large_text", "colorblind", "animations", "haptics", "ambient_volume", "sfx_volume"):
     require(key in activity or key in audio, f"yra prieinamumo / garso nustatymas {key}")
@@ -138,13 +138,16 @@ require("AudioTrack" in audio and "ToneGenerator" in audio, "aplinkos ir sąsajo
 require(profile.count("new Origin(") == 6 and profile.count("new Archetype(") == 6 and profile.count("new Trait(") == 12, "veikėjo kūrimas turi 6 kilmes, 6 archetipus ir 12 bruožų")
 require("taisyklinga, natūralia ir rišlia lietuvių kalba" in groq and "antruoju asmeniu" in groq, "DI sutartis reikalauja aiškios rišlios lietuvių kalbos")
 require("polishChoices" in language and "clearlyEnglish" in language, "vietinis filtras sutvarko kalbą ir pasirinkimus")
-require("telefono v0.9.3" not in groq and "telefono v1.0.0" in groq, "DI sutartyje nėra pasenusios runtime versijos")
+require("telefono v0.9.3" not in groq and "telefono v1.0.1" in groq, "DI sutartyje nėra pasenusios runtime versijos")
 
 # Duomenys, testai ir realūs bundled assetai.
-require("private static final int VERSION = 11" in database and 'root.put("version",11)' in database, "SQLite ir eksporto schema yra 11")
-require("migrateV10toV11" in database and "save_slots" in database and "locations" in world, "v10→v11 migracija prideda lizdus ir atlaso atradimus")
+require("private static final int VERSION = 12" in database and 'root.put("version",12)' in database, "SQLite ir eksporto schema yra 12")
+require("migrateV11toV12" in database and "legacyPersistedBonus" in profile, "v11→v12 migracija pašalina dvigubas profilio premijas")
+policy = read(JAVA / "AiTurnPolicyV101.java")
+require("knownLocationNames" in world and "checkAllowsProgress" in world and "exactItem" in policy, "DI pasekmes riboja vietos, patikros ir katalogo politika")
+require("combatHeavyMitigationUsed" in state and "combatSpellCount" in state and "Atgauna kvapą" in combat, "kovos būsena saugo vienkartinius efektus ir neleidžia nemokamų atakų")
 require((ANDROID_TEST / "V100PersistenceDeviceTest.java").is_file(), "yra tikro Android pilnos būsenos atkūrimo testas")
-require("VersionEleven" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v11 migraciją")
+require("VersionTwelve" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v12 migraciją")
 require((TEST / "CombatEngineV100Test.java").is_file() and (TEST / "EquipmentRulesV100Test.java").is_file() and (TEST / "ProgressionEngineV100Test.java").is_file(), "yra v1.0 kovos, įrangos ir progresijos vienetiniai testai")
 item_art = sorted(RES.glob("item_v092_*.webp"))
 monster_art = sorted(RES.glob("monster_v091_*.webp"))
@@ -174,4 +177,4 @@ require(webp_dimensions(quest_art)[0] >= 1_600 and webp_dimensions(quest_art)[1]
 require(webp_dimensions(map_art)[0] >= 1_000 and webp_dimensions(map_art)[1] >= 1_400,
         "atlaso iliustracija yra bent 1000×1400")
 
-print("Vaeloria OOC v1.0.0 P0–P4 priėmimo auditas praėjo")
+print("Vaeloria OOC v1.0.1 P0–P4 priėmimo auditas praėjo")
