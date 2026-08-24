@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Vaeloria v1.0.0 premium mobile presentation over the persistent RPG systems. */
+/** Vaeloria v1.0.1 premium mobile presentation over the persistent RPG systems. */
 public class PolishedActivity extends PremiumActivity {
     private static final int LINE = Color.rgb(43, 59, 68);
     private static final int PANEL = Color.rgb(9, 19, 27);
@@ -426,14 +426,18 @@ public class PolishedActivity extends PremiumActivity {
 
         FrameLayout hero = new FrameLayout(this);
         hero.setBackgroundColor(Color.rgb(2, 7, 11));
-        ImageView artwork = image(R.drawable.hero_einoras_v090);
-        artwork.setContentDescription("Aukštos kokybės Vaelorios herojaus iliustracija");
-        hero.addView(artwork, new FrameLayout.LayoutParams(-1, dp(510)));
-        CharacterAvatarV100View portrait = new CharacterAvatarV100View(this);
-        portrait.setCharacter(state);
-        FrameLayout.LayoutParams portraitParams = new FrameLayout.LayoutParams(dp(104), dp(126), Gravity.TOP | Gravity.END);
-        portraitParams.setMargins(0, dp(14), dp(14), 0);
-        hero.addView(portrait, portraitParams);
+        boolean canonicalEinoras="Einoras".equalsIgnoreCase(state.characterName)
+                &&"nenurodyta".equals(state.characterIdentity)
+                &&(state.characterAppearance==null||state.characterAppearance.trim().isEmpty());
+        if(canonicalEinoras){
+            ImageView artwork = image(R.drawable.hero_einoras_v090);
+            artwork.setContentDescription("Einoro, klasikinio Vaelorios herojaus, iliustracija");
+            hero.addView(artwork, new FrameLayout.LayoutParams(-1, dp(510)));
+        }else{
+            CharacterAvatarV100View portrait = new CharacterAvatarV100View(this);
+            portrait.setCharacter(state);
+            hero.addView(portrait, new FrameLayout.LayoutParams(-1, dp(510)));
+        }
         View shade = new View(this);
         shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{Color.argb(0, 0, 0, 0), Color.argb(8, 0, 0, 0), Color.argb(244, 2, 8, 13)}));

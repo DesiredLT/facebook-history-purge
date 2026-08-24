@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 11;
+    private static final int VERSION = 12;
     private static final String ITEM_COLUMNS = "id,name,type,rarity,description,slot,equipped,synced,equipped_slot,catalog_id,item_level,power,set_id,quantity,value,effect";
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
@@ -72,7 +72,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         if (oldVersion < 8) { migrateV7toV8(db); oldVersion = 8; }
         if (oldVersion < 9) { migrateV8toV9(db); oldVersion = 9; }
         if (oldVersion < 10) { migrateV9toV10(db); oldVersion = 10; }
-        if (oldVersion < 11) migrateV10toV11(db);
+        if (oldVersion < 11) { migrateV10toV11(db); oldVersion = 11; }
+        if (oldVersion < 12) migrateV11toV12(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -199,6 +200,28 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     private void migrateV10toV11(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS save_slots (slot INTEGER PRIMARY KEY CHECK(slot BETWEEN 1 AND 3), name TEXT NOT NULL, snapshot_json TEXT NOT NULL, updated_at INTEGER NOT NULL, location TEXT NOT NULL, level INTEGER NOT NULL)");
         WorldRepository.create(db);GameState current;try{current=loadStateFrom(db);}catch(Exception ignored){current=new GameState();}WorldRepository.seed(db,current);
+    }
+
+    /** Pašalina v1.0.0 dvigubai pritaikytas profilio premijas, neliesdama kitų išsaugojimų. */
+    private void migrateV11toV12(SQLiteDatabase db) {
+        boolean balancedProfile=false;
+        try(Cursor c=db.rawQuery("SELECT 1 FROM items WHERE id='starter-balanced-weapon' OR id='starter-balanced-chest' LIMIT 1",null)){
+            balancedProfile=c.moveToFirst();
+        }catch(Exception ignored){}
+        if(!balancedProfile)return;
+        try{
+            GameState state=loadStateFrom(db);
+            if(!state.characterCreated||!"balanced".equals(state.progressionMode))return;
+            try(Cursor c=db.rawQuery("SELECT name,group_name,value FROM stats",null)){
+                while(c.moveToNext()){
+                    String name=c.getString(0),group=c.getString(1);int value=c.getInt(2);
+                    int legacy=CharacterCatalogV093.legacyPersistedBonus(state.characterOriginId,state.characterArchetypeId,name,group);
+                    if(legacy<=0)continue;
+                    ContentValues fixed=new ContentValues();fixed.put("value",Math.max(0,value-legacy));
+                    db.update("stats",fixed,"name=?",new String[]{name});
+                }
+            }
+        }catch(Exception ignored){}
     }
 
     private void addColumn(SQLiteDatabase db, String sql) {
@@ -390,10 +413,9 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
         try{
             ContentValues base=new ContentValues();base.put("value",40);database.update("stats",base,null,null);
-            CharacterCatalogV093.Origin origin=CharacterCatalogV093.origin(originId);
-            CharacterCatalogV093.Archetype archetype=CharacterCatalogV093.archetype(archetypeId);
-            if(origin!=null){for(String group:origin.groups)addGroupStatBonus(database,group,4);for(String stat:origin.stats)addStatBonus(database,stat,4);}
-            if(archetype!=null){for(String group:archetype.groups)addGroupStatBonus(database,group,8);for(String stat:archetype.stats)addStatBonus(database,stat,8);}
+            // Kilmės (+3) ir archetipo (+5) premijas kiekvienai patikrai taiko
+            // CharacterCatalogV093.effect. Bazėje laikoma tik tikroji bazinė reikšmė,
+            // todėl pakeitus profilį nelieka seno archetipo paslėptų premijų.
             ContentValues mastery=new ContentValues();mastery.put("level",0);mastery.put("xp",0);mastery.put("next_xp",masteryNext(0));database.update("mastery",mastery,null,null);
 
             database.delete("items",null,null);database.delete("abilities",null,null);
@@ -420,8 +442,6 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         }catch(Exception ignored){}finally{database.endTransaction();}
     }
 
-    private void addGroupStatBonus(SQLiteDatabase database,String group,int bonus){database.execSQL("UPDATE stats SET value=MIN(cap,value+?) WHERE group_name=?",new Object[]{bonus,group});}
-    private void addStatBonus(SQLiteDatabase database,String stat,int bonus){database.execSQL("UPDATE stats SET value=MIN(cap,value+?) WHERE name=?",new Object[]{bonus,stat});}
     private ItemCatalogV092.ItemDef starterWeapon(String archetype){
         if("arkanistas".equals(archetype)){ItemCatalogV092.ItemDef staff=lowestItem("weapon","wand");return staff==null?lowestItem("weapon","staff"):staff;}
         if("zvalgas".equals(archetype))return lowestItem("weapon","dagger");
@@ -639,14 +659,15 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",11); root.put("state",loadState().toJson());
+            JSONObject root=new JSONObject(); root.put("version",12); root.put("state",loadState().toJson());
             JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("synced",i.synced);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items);JSONArray abilities=new JSONArray();for(String[] ability:getAbilities()){JSONObject entry=new JSONObject();entry.put("name",ability[0]);entry.put("type",ability[1]);entry.put("description",ability[2]);abilities.put(entry);}root.put("abilities",abilities); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery);root.put("world",world().exportState()); return root.toString();
         } catch(Exception e){return "";}
     }
 
     public boolean importSave(String raw) {
         try {
-            JSONObject root=new JSONObject(raw);GameState.fromJson(root.getJSONObject("state"));
+            if(raw==null||raw.length()>5_000_000)return false;
+            JSONObject root=new JSONObject(raw);int version=root.optInt("version",0);if(version<1||version>VERSION)return false;GameState.fromJson(root.getJSONObject("state"));
             SQLiteDatabase db=getWritableDatabase(); db.beginTransaction();
             try {
                 restoreCore(db,root);
@@ -657,12 +678,51 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     private void restoreCore(SQLiteDatabase db,JSONObject root)throws Exception{
         GameState restored=GameState.fromJson(root.getJSONObject("state"));ContentValues st=new ContentValues();st.put("json",restored.toJson().toString());db.update("state",st,"id=1",null);
-        JSONArray items=root.optJSONArray("items");if(items!=null){db.delete("items",null,null);for(int i=0;i<items.length();i++){JSONObject o=items.getJSONObject(i);String id=o.optString("id","");if(id.isEmpty())continue;String catalogId=o.isNull("catalog_id")?null:o.optString("catalog_id",null);ItemCatalogV092.ItemDef known=ItemCatalogV092.byId(catalogId);ContentValues add=known==null?new ContentValues():catalogValues(known,Math.max(1,o.optInt("quantity",1)));add.put("id",id);add.put("name",o.optString("name",known==null?"Nežinomas daiktas":known.name));add.put("type",o.optString("type",known==null?"imported":known.subtype));add.put("rarity",o.optString("rarity",known==null?"common":known.rarity));add.put("description",o.optString("description",known==null?"":known.description));String cat=o.optString("category","artifact");String importedSlot=equipmentSlotForCategory(cat);if(importedSlot==null)add.putNull("slot");else add.put("slot",importedSlot);String target=o.isNull("equipped_slot")?null:o.optString("equipped_slot",null);add.put("equipped",target==null?0:1);add.put("synced",o.optBoolean("synced",false)?1:0);if(target==null)add.putNull("equipped_slot");else add.put("equipped_slot",target);if(catalogId==null)add.putNull("catalog_id");else add.put("catalog_id",catalogId);add.put("item_level",Math.max(1,o.optInt("item_level",known==null?1:known.level)));add.put("power",Math.max(0,o.optInt("power",known==null?0:known.power)));String setId=o.isNull("set_id")?null:o.optString("set_id",null);if(setId==null)add.putNull("set_id");else add.put("set_id",setId);add.put("quantity",Math.max(1,o.optInt("quantity",1)));add.put("value",Math.max(0,o.optInt("value",known==null?0:known.value)));add.put("effect",o.optString("effect",known==null?"":known.effect));db.insertOrThrow("items",null,add);}}
-        JSONArray stats=root.optJSONArray("stats");if(stats!=null){db.delete("stats",null,null);for(int i=0;i<stats.length();i++){JSONObject o=stats.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("group_name",groupForStat(o.getString("name")));value.put("value",Math.max(0,Math.min(100,o.optInt("value",45))));value.put("cap",100);db.insertOrThrow("stats",null,value);}}
-        JSONArray abilities=root.optJSONArray("abilities");if(abilities!=null){db.delete("abilities",null,null);for(int i=0;i<abilities.length();i++){JSONObject o=abilities.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("type",o.optString("type","bazinis_gebėjimas"));value.put("description",o.optString("description",""));db.insertOrThrow("abilities",null,value);}}
-        JSONArray mastery=root.optJSONArray("mastery");if(mastery!=null){db.delete("mastery",null,null);for(int i=0;i<mastery.length();i++){JSONObject o=mastery.optJSONObject(i);if(o==null||o.optString("name","").isEmpty())continue;int level=Math.max(0,Math.min(100,o.optInt("level",0)));ContentValues value=new ContentValues();value.put("name",o.getString("name"));value.put("level",level);value.put("xp",Math.max(0,o.optInt("xp",0)));value.put("next_xp",Math.max(1,o.optInt("next_xp",masteryNext(level))));db.insertOrThrow("mastery",null,value);}}
+        JSONArray items=root.optJSONArray("items");
+        if(items!=null){
+            if(items.length()>5000)throw new IllegalArgumentException("Per daug daiktų");
+            db.delete("items",null,null);java.util.HashSet<String> usedTargets=new java.util.HashSet<>();
+            for(int i=0;i<items.length();i++){
+                JSONObject o=items.optJSONObject(i);if(o==null)continue;
+                String id=compactImported(o.optString("id",""),128);if(id.isEmpty())continue;
+                int quantity=Math.max(1,Math.min(999,o.optInt("quantity",1)));
+                String catalogId=o.isNull("catalog_id")?null:o.optString("catalog_id",null);
+                ItemCatalogV092.ItemDef known=ItemCatalogV092.byId(catalogId);
+                ContentValues add;String category;
+                if(known!=null){
+                    add=catalogValues(known,quantity);category=known.slot;
+                }else{
+                    add=new ContentValues();category=equipmentSlotForCategory(o.optString("category","artifact"));
+                    add.put("name",compactImported(o.optString("name","Nežinomas daiktas"),80));
+                    add.put("type","imported_artifact");
+                    String rarity=o.optString("rarity","common").toLowerCase(Locale.ROOT);add.put("rarity",isAllowedRarity(rarity)?rarity:"common");
+                    add.put("description",compactImported(o.optString("description",""),1000));
+                    if(category==null)add.putNull("slot");else add.put("slot",category);
+                    add.putNull("catalog_id");add.put("item_level",1);add.put("power",0);add.putNull("set_id");
+                    add.put("quantity",quantity);add.put("value",0);add.put("effect","");
+                }
+                String target=o.isNull("equipped_slot")?null:o.optString("equipped_slot",null);
+                boolean equipped=target!=null&&validEquipmentTarget(target)&&category!=null
+                        &&category.equals(categoryForTarget(target))&&usedTargets.add(target);
+                add.put("id",id);add.put("equipped",equipped?1:0);add.put("synced",o.optBoolean("synced",false)?1:0);
+                if(equipped)add.put("equipped_slot",target);else add.putNull("equipped_slot");
+                db.insertOrThrow("items",null,add);
+            }
+        }
+        JSONArray stats=root.optJSONArray("stats");if(stats!=null){if(stats.length()>500)throw new IllegalArgumentException("Per daug savybių");db.delete("stats",null,null);seedStats(db);for(int i=0;i<stats.length();i++){JSONObject o=stats.optJSONObject(i);if(o==null)continue;String name=o.optString("name","");if(!knownStat(name))continue;ContentValues value=new ContentValues();value.put("value",Math.max(0,Math.min(100,o.optInt("value",45))));db.update("stats",value,"name=?",new String[]{name});}}
+        JSONArray abilities=root.optJSONArray("abilities");if(abilities!=null){if(abilities.length()>100)throw new IllegalArgumentException("Per daug gebėjimų");db.delete("abilities",null,null);for(int i=0;i<abilities.length();i++){JSONObject o=abilities.optJSONObject(i);if(o==null)continue;String name=compactImported(o.optString("name",""),80);if(!allowedAbilityName(name))continue;ContentValues value=new ContentValues();value.put("name",name);value.put("type",compactImported(o.optString("type","bazinis_gebėjimas"),60));value.put("description",compactImported(o.optString("description",""),1000));db.insertWithOnConflict("abilities",null,value,SQLiteDatabase.CONFLICT_IGNORE);}}
+        JSONArray mastery=root.optJSONArray("mastery");if(mastery!=null){if(mastery.length()>500)throw new IllegalArgumentException("Per daug meistriškumo įrašų");db.delete("mastery",null,null);seedMastery(db);for(int i=0;i<mastery.length();i++){JSONObject o=mastery.optJSONObject(i);if(o==null)continue;String name=o.optString("name","");if(!knownStat(name))continue;int level=Math.max(0,Math.min(100,o.optInt("level",0)));int next=masteryNext(level);ContentValues value=new ContentValues();value.put("level",level);value.put("xp",Math.max(0,Math.min(next-1,o.optInt("xp",0))));value.put("next_xp",level>=100?1:next);db.update("mastery",value,"name=?",new String[]{name});}}
         world().restoreState(db,root.optJSONObject("world"));
     }
+
+    private boolean validEquipmentTarget(String target){if(target==null)return false;for(String slot:EQUIPMENT_SLOTS)if(slot.equals(target))return true;return false;}
+    private boolean knownStat(String name){for(BaseStatCatalog.Group group:BaseStatCatalog.GROUPS)for(String stat:group.stats)if(stat.equals(name))return true;return false;}
+    private boolean allowedAbilityName(String name){
+        if("Archetipinis pasirengimas".equals(name)||"Lauko improvizacija".equals(name))return true;
+        for(String allowed:new String[]{"Eoninis Bastionas","Tęstinumo Gardelė","Katastrofinė Regeneracija","Nuliui Prisitaikanti Fiziologija","Refleksinis Erdvinis Išsisukimas","Prisitaikantis Kontrapynimas","Relikvijų Simbiozė","Laiko Paralakso Atskyrimas","Nežinomų Taisyklių Kalibravimas","Pasidalytas Meistriškumas","Sąlyginio Priežastingumo Struktūra","Santarvės Adapterio Struktūra"})if(allowed.equals(name))return true;
+        return false;
+    }
+    private String compactImported(String value,int max){String clean=value==null?"":value.trim().replaceAll("\\s+"," ");return clean.length()<=max?clean:clean.substring(0,max);}
 
     private void restoreLegacyCheckpoint(SQLiteDatabase db,String state,JSONArray equipment)throws Exception{
         ContentValues st=new ContentValues();st.put("json",state);db.update("state",st,"id=1",null);ContentValues off=new ContentValues();off.put("equipped",0);off.putNull("equipped_slot");db.update("items",off,null,null);for(int i=0;i<equipment.length();i++){Object raw=equipment.get(i);String itemId;String target;if(raw instanceof JSONObject){JSONObject o=(JSONObject)raw;itemId=o.getString("id");target=o.optString("slot",null);}else{itemId=String.valueOf(raw);target=null;}if(target!=null&&!target.isEmpty()){ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",target);db.update("items",on,"id=?",new String[]{itemId});}}
