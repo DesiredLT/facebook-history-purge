@@ -2,7 +2,7 @@ name: Build and release Vaeloria OOC v1.0.1
 
 on:
   pull_request:
-    branches: [agent/vaeloria-v101-p0]
+    branches: [agent/vaeloria-v100-asset-quality, agent/vaeloria-v101-p0]
     paths:
       - '.github/workflows/vaeloria-v100-release.yml'
       - 'v100/**'
@@ -10,7 +10,7 @@ on:
       - 'vaeloria-android/build.gradle'
       - 'vaeloria-android/settings.gradle'
   push:
-    branches: [agent/vaeloria-v101-p0]
+    branches: [agent/vaeloria-v100-asset-quality, agent/vaeloria-v101-p0]
     paths:
       - '.github/workflows/vaeloria-v100-release.yml'
       - 'v100/**'
