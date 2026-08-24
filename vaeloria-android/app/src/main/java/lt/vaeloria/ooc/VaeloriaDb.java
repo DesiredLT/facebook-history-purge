@@ -17,7 +17,7 @@ import java.util.UUID;
 
 public class VaeloriaDb extends SQLiteOpenHelper {
     private static final String DB = "vaeloria.db";
-    private static final int VERSION = 12;
+    private static final int VERSION = 13;
     private static final String ITEM_COLUMNS = "id,name,type,rarity,description,slot,equipped,synced,equipped_slot,catalog_id,item_level,power,set_id,quantity,value,effect";
 
     public static final String[] EQUIPMENT_SLOTS = new String[]{
@@ -73,7 +73,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         if (oldVersion < 9) { migrateV8toV9(db); oldVersion = 9; }
         if (oldVersion < 10) { migrateV9toV10(db); oldVersion = 10; }
         if (oldVersion < 11) { migrateV10toV11(db); oldVersion = 11; }
-        if (oldVersion < 12) migrateV11toV12(db);
+        if (oldVersion < 12) { migrateV11toV12(db); oldVersion = 12; }
+        if (oldVersion < 13) migrateV12toV13(db);
     }
 
     private void migrateV1(SQLiteDatabase db) {
@@ -224,6 +225,35 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         }catch(Exception ignored){}
     }
 
+    /** Įdiegia P1 receptus, savybių taškus ir pataiso senus viršlygius startinius daiktus. */
+    private void migrateV12toV13(SQLiteDatabase db) {
+        WorldRepository.migrateV13(db);
+        try {
+            GameState state=loadStateFrom(db);
+            if(state.characterCreated&&"balanced".equals(state.progressionMode)){
+                replaceStarter(db,"starter-balanced-weapon",starterWeapon(state.characterArchetypeId),"weapon");
+                replaceStarter(db,"starter-balanced-chest",ItemCatalogV092.byId("I092-101"),"chest");
+                if("sargybinis".equals(state.characterArchetypeId))replaceStarter(db,"starter-balanced-offhand",ItemCatalogV092.byId("I092-054"),"offhand");
+                refreshStarterConsumable(db,"starter-I092-201",ItemCatalogV092.byId("I092-201"));
+                refreshStarterConsumable(db,"starter-I092-203",ItemCatalogV092.byId("I092-203"));
+                refreshStarterConsumable(db,"starter-I092-204",ItemCatalogV092.byId("I092-204"));
+            }
+            ContentValues saved=new ContentValues();saved.put("json",state.toJson().toString());db.update("state",saved,"id=1",null);
+        } catch (Exception ignored) {}
+    }
+
+    private void replaceStarter(SQLiteDatabase db,String id,ItemCatalogV092.ItemDef item,String target){
+        if(item==null)return;int quantity=1;boolean exists=false;
+        try(Cursor c=db.rawQuery("SELECT quantity FROM items WHERE id=?",new String[]{id})){if(c.moveToFirst()){exists=true;quantity=Math.max(1,c.getInt(0));}}
+        if(!exists)return;ContentValues values=catalogValues(item,quantity);values.put("id",id);values.put("equipped",1);values.put("equipped_slot",target);
+        db.insertWithOnConflict("items",null,values,SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
+    private void refreshStarterConsumable(SQLiteDatabase db,String id,ItemCatalogV092.ItemDef item){
+        if(item==null)return;int quantity=0;try(Cursor c=db.rawQuery("SELECT quantity FROM items WHERE id=?",new String[]{id})){if(c.moveToFirst())quantity=Math.max(1,c.getInt(0));}
+        if(quantity==0)return;ContentValues values=catalogValues(item,quantity);values.put("id",id);db.insertWithOnConflict("items",null,values,SQLiteDatabase.CONFLICT_REPLACE);
+    }
+
     private void addColumn(SQLiteDatabase db, String sql) {
         try { db.execSQL(sql); } catch (Exception ignored) {}
     }
@@ -340,6 +370,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         try {
             GameState s=loadStateFrom(getReadableDatabase());
             localizeState(s);
+            if(syncEquipmentCapacity(s,equipmentStats()))saveState(s);
             return s;
         } catch (Exception ignored) {}
         return new GameState();
@@ -400,13 +431,28 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         return getWritableDatabase().update("stats", v, "name=?", new String[]{name}) > 0;
     }
 
+    /** Vienas savybės taškas suteikia +2 pasirinktai bazinei savybei iki 100 ribos. */
+    public String spendAttributePoint(String name,GameState state){
+        if(state==null||!knownStat(name))return"Savybė nerasta";
+        if(state.attributePoints<=0)return"Nėra laisvų savybių taškų";
+        int current=getStatValue(name);if(current>=100)return name+" jau pasiekė bazinę 100 ribą";
+        SQLiteDatabase database=getWritableDatabase();database.beginTransaction();
+        try{
+            ContentValues value=new ContentValues();value.put("value",Math.min(100,current+2));database.update("stats",value,"name=?",new String[]{name});
+            state.attributePoints--;ContentValues saved=new ContentValues();saved.put("json",state.toJson().toString());database.update("state",saved,"id=1",null);
+            database.setTransactionSuccessful();return name+" padidinta iki "+Math.min(100,current+2)+" · liko "+state.attributePoints+" savybių tšk.";
+        }catch(Exception error){return"Nepavyko paskirstyti savybės taško";}finally{database.endTransaction();}
+    }
+
     /** Vienkartinė naujo veikėjo ekonomikos ir galios kreivė. Esamų išsaugojimų nemažina. */
     public void initializeCharacterProgression(GameState state,String requestedMode,String originId,String archetypeId){
         String mode="legendary".equals(requestedMode)?"legendary":"balanced";
+        state.hpMax=Math.max(1,state.hpMax-state.equipmentHpBonus);state.hp=Math.min(state.hp,state.hpMax);state.manaMax=Math.max(0,state.manaMax-state.equipmentManaBonus);state.mana=Math.min(state.mana,state.manaMax);state.equipmentHpBonus=0;state.equipmentManaBonus=0;
         state.progressionMode=mode;
         if("legendary".equals(mode)){
-            state.level=100;state.experience=0;state.experienceNext=1;state.talentPoints=Math.max(20,state.talentPoints);
-            state.hp=state.hpMax=100;state.mana=state.manaMax=100;state.stamina=state.staminaMax=100;state.aeonic=Math.max(180,state.aeonic);state.aeonicMax=Math.max(900,state.aeonicMax);
+            state.level=100;state.experience=0;state.experienceNext=1;state.talentPoints=Math.max(75,state.talentPoints);
+            state.attributePoints=0;
+            state.hp=state.hpMax=100;state.mana=state.manaMax=100;state.stamina=state.staminaMax=100;state.aeonic=Math.max(180,state.aeonic);state.aeonicMax=Math.max(900,state.aeonicMax);syncEquipmentCapacity(state,equipmentStats());
             saveState(state);return;
         }
 
@@ -432,22 +478,21 @@ public class VaeloriaDb extends SQLiteOpenHelper {
             database.execSQL("UPDATE companions SET recruited=0,active=0,loyalty=20");
             world().initializeOriginDiscoveries(originId);
 
-            state.level=1;state.experience=0;state.experienceNext=ProgressionEngine.experienceForNext(1);state.talentPoints=1;
+            state.level=1;state.experience=0;state.experienceNext=ProgressionEngine.experienceForNext(1);state.talentPoints=1;state.attributePoints=0;
             state.crowns=650;state.aeonic=30;state.aeonicMax=100;
             state.hpMax="sargybinis".equals(archetypeId)?120:"arkanistas".equals(archetypeId)?88:100;state.hp=state.hpMax;
             state.staminaMax="klajunas".equals(archetypeId)?120:"arkanistas".equals(archetypeId)?90:100;state.stamina=state.staminaMax;
-            state.manaMax="arkanistas".equals(archetypeId)?110:"amatininkas".equals(archetypeId)?65:45;state.mana=state.manaMax;
+            state.manaMax="arkanistas".equals(archetypeId)?110:"amatininkas".equals(archetypeId)?65:45;state.mana=state.manaMax;syncEquipmentCapacity(state,equipmentStats());
             ContentValues saved=new ContentValues();saved.put("json",state.toJson().toString());database.update("state",saved,"id=1",null);
             database.setTransactionSuccessful();
         }catch(Exception ignored){}finally{database.endTransaction();}
     }
 
     private ItemCatalogV092.ItemDef starterWeapon(String archetype){
-        if("arkanistas".equals(archetype)){ItemCatalogV092.ItemDef staff=lowestItem("weapon","wand");return staff==null?lowestItem("weapon","staff"):staff;}
-        if("zvalgas".equals(archetype))return lowestItem("weapon","dagger");
-        if("klajunas".equals(archetype))return lowestItem("weapon","bow");
-        if("amatininkas".equals(archetype))return lowestItem("weapon","hammer");
-        return lowestItem("weapon","sword");
+        if("zvalgas".equals(archetype))return ItemCatalogV092.byId("I092-026");
+        // Visi kiti archetipai pradeda nuo tikro L1 ginklo. Specializuotas lazdas,
+        // lankus ir kūjus jie gauna per progresiją, o ne apeidami daikto lygį.
+        return ItemCatalogV092.byId("I092-003");
     }
     private ItemCatalogV092.ItemDef lowestItem(String category,String subtype){ItemCatalogV092.ItemDef best=null;for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL)if(category.equals(item.category)&&(subtype==null||subtype.equals(item.subtype))&&(best==null||item.level<best.level))best=item;return best;}
     private void insertStarter(SQLiteDatabase database,ItemCatalogV092.ItemDef item,int quantity,String id,String target){if(item==null)return;ContentValues values=catalogValues(item,quantity);values.put("id",id);if(target!=null){values.put("equipped",1);values.put("equipped_slot",target);}database.insertWithOnConflict("items",null,values,SQLiteDatabase.CONFLICT_REPLACE);}
@@ -513,31 +558,48 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     }
 
     public boolean equipToSlot(String itemId,String targetSlot){
+        GameState current=loadState();return equipToSlot(itemId,targetSlot,current.level);
+    }
+
+    public boolean equipToSlot(String itemId,String targetSlot,int playerLevel){
         SQLiteDatabase db=getWritableDatabase();
-        String category=null;
-        try(Cursor c=db.rawQuery("SELECT slot FROM items WHERE id=?",new String[]{itemId})){if(c.moveToFirst())category=c.isNull(0)?null:c.getString(0);}
-        if(category==null || !category.equals(categoryForTarget(targetSlot)))return false;
+        String category=null;int requiredLevel=Integer.MAX_VALUE;
+        try(Cursor c=db.rawQuery("SELECT slot,item_level FROM items WHERE id=?",new String[]{itemId})){if(c.moveToFirst()){category=c.isNull(0)?null:c.getString(0);requiredLevel=Math.max(1,c.getInt(1));}}
+        if(category==null || !category.equals(categoryForTarget(targetSlot)) || Math.max(1,playerLevel)<requiredLevel)return false;
+        GameState current=loadState();
         db.beginTransaction();
         try{
             ContentValues clearTarget=new ContentValues();clearTarget.put("equipped",0);clearTarget.putNull("equipped_slot");db.update("items",clearTarget,"equipped_slot=?",new String[]{targetSlot});
             ContentValues clearItem=new ContentValues();clearItem.put("equipped",0);clearItem.putNull("equipped_slot");db.update("items",clearItem,"id=?",new String[]{itemId});
             ContentValues on=new ContentValues();on.put("equipped",1);on.put("equipped_slot",targetSlot);db.update("items",on,"id=?",new String[]{itemId});
+            syncEquipmentCapacity(current,equipmentStats());ContentValues saved=new ContentValues();saved.put("json",current.toJson().toString());db.update("state",saved,"id=1",null);
             db.setTransactionSuccessful();return true;
-        }finally{db.endTransaction();}
+        }catch(Exception ignored){return false;}finally{db.endTransaction();}
     }
 
     public boolean unequipSlot(String targetSlot){
-        ContentValues v=new ContentValues();v.put("equipped",0);v.putNull("equipped_slot");
-        return getWritableDatabase().update("items",v,"equipped_slot=?",new String[]{targetSlot})>0;
+        SQLiteDatabase database=getWritableDatabase();GameState current=loadState();database.beginTransaction();try{ContentValues v=new ContentValues();v.put("equipped",0);v.putNull("equipped_slot");int changed=database.update("items",v,"equipped_slot=?",new String[]{targetSlot});if(changed<=0)return false;syncEquipmentCapacity(current,equipmentStats());ContentValues saved=new ContentValues();saved.put("json",current.toJson().toString());database.update("state",saved,"id=1",null);database.setTransactionSuccessful();return true;}catch(Exception ignored){return false;}finally{database.endTransaction();}
     }
 
     public boolean toggleEquip(String itemId) {
+        return toggleEquip(itemId,loadState().level);
+    }
+
+    public boolean toggleEquip(String itemId,int playerLevel) {
         Item found=null;for(Item i:getItems())if(i.id.equals(itemId)){found=i;break;}
         if(found==null||found.slot==null)return false;
         if(found.equipped&&found.equippedSlot!=null)return unequipSlot(found.equippedSlot);
         String target=firstFreeTarget(found.slot);
-        return target!=null&&equipToSlot(itemId,target);
+        return target!=null&&equipToSlot(itemId,target,playerLevel);
     }
+
+    public String equipRequirement(Item item,int playerLevel){
+        if(item==null||item.slot==null)return"Šio daikto negalima įrengti";
+        if(Math.max(1,playerLevel)<Math.max(1,item.itemLevel))return"Reikia "+item.itemLevel+" veikėjo lygio";
+        return"";
+    }
+
+    private boolean syncEquipmentCapacity(GameState state,EquipmentRules.Stats equipment){int hpDelta=equipment.maxHp-state.equipmentHpBonus,manaDelta=equipment.maxMana-state.equipmentManaBonus;if(hpDelta==0&&manaDelta==0)return false;state.hpMax=Math.max(1,state.hpMax+hpDelta);state.hp=Math.max(0,Math.min(state.hpMax,state.hp));state.manaMax=Math.max(0,state.manaMax+manaDelta);state.mana=Math.max(0,Math.min(state.manaMax,state.mana));state.equipmentHpBonus=equipment.maxHp;state.equipmentManaBonus=equipment.maxMana;return true;}
 
     private String firstFreeTarget(String category){
         if("ring".equals(category)){if(getEquippedAt("ring_left")==null)return"ring_left";if(getEquippedAt("ring_right")==null)return"ring_right";return"ring_left";}
@@ -596,23 +658,63 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String consumeItem(String itemId,GameState state){
         Item owned=getItem(itemId);if(owned==null)return null;ItemCatalogV092.ItemDef item=owned.catalogId==null?ItemCatalogV092.find(owned.name):ItemCatalogV092.byId(owned.catalogId);
-        if(item==null||!item.consumable)return null;
-        int oldHp=state.hp,oldMana=state.mana,oldStamina=state.stamina,oldAeonic=state.aeonic;
-        state.hp=Math.min(state.hpMax,state.hp+item.hpRestore);state.mana=Math.min(state.manaMax,state.mana+item.manaRestore);
-        state.stamina=Math.min(state.staminaMax,state.stamina+item.staminaRestore);state.aeonic=Math.min(state.aeonicMax,state.aeonic+item.aeonicRestore);
-        String defeatedEnemy="";ArrayList<String> drops=new ArrayList<>();int damage=0;
-        if(state.combatActive&&"combat_consumable".equals(item.category)){
-            damage=Math.max(8,item.power/2);state.enemyHp=Math.max(0,state.enemyHp-damage);
-            if(state.enemyHp==0){int danger=state.enemyDanger;defeatedEnemy=state.enemyName;for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+item.id.hashCode())){addCatalogLoot(drop,1);drops.add(drop.name);}int companionHeal=world().companionVictoryHealing();state.hp=Math.min(state.hpMax,state.hp+companionHeal);ProgressionEngine.award(state,"combat_victory",null,danger);world().recordCompanionTurn(item.name,"combat_victory",state);state.endCombat();}
-            else state.enemyStatus="Paveiktas reikmens · gyvybė "+state.enemyHp+"/"+state.enemyHpMax;
+        if(item==null||!item.consumable)return"Šio daikto negalima sunaudoti";
+        if(state.level<item.level)return"Negalima naudoti · reikia "+item.level+" veikėjo lygio";
+        ConsumableRulesV110.Effect use=ConsumableRulesV110.effect(item);
+        if(use.requiresCombat&&!state.combatActive)return"Šį kovos reikmenį galima naudoti tik aktyvioje kovoje";
+        if(!use.usableInCombat&&state.combatActive)return"Maistą galima vartoti tik ne kovos metu";
+        if(!ConsumableRulesV110.useful(use,state))return"Daiktas nepanaudotas · jo poveikis dabar nieko nepakeistų";
+        boolean combatUse=state.combatActive;int oldHp=state.hp,oldMana=state.mana,oldStamina=state.stamina,oldAeonic=state.aeonic;
+        state.hp=Math.min(state.hpMax,state.hp+use.hp);state.mana=Math.min(state.manaMax,state.mana+use.mana);
+        state.stamina=Math.min(state.staminaMax,state.stamina+use.stamina);state.aeonic=Math.min(state.aeonicMax,state.aeonic+use.aeonic);
+        if(use.cleanse)state.playerCombatStatus="";
+        state.applyTemporaryEffect(use);
+        String defeatedEnemy="";ArrayList<String> drops=new ArrayList<>();int damage=0,incoming=0;boolean escaped=false,defeatedPlayer=false;
+        if(state.combatActive){
+            state.worldMinute+=2;state.turnNumber++;state.combatRound=Math.max(1,state.combatRound)+1;
+            if(use.escape){escaped=true;state.endCombat();}
+            else{
+                damage=Math.max(0,use.directDamage);
+                String enemyText=(state.enemyName+" "+state.enemyRole+" "+state.enemyTrait).toLowerCase(Locale.forLanguageTag("lt-LT"));
+                if(use.enemyEffect.contains("Pašventintas")&&(enemyText.contains("nekro")||enemyText.contains("mirusi")||enemyText.contains("šmėkl")||enemyText.contains("smekl")))damage+=Math.max(12,item.power);
+                if(damage>0)damage=Math.max(3,damage-Math.max(0,state.enemyDefense)/6);
+                state.enemyHp=Math.max(0,state.enemyHp-damage);
+                if(!use.enemyEffect.isEmpty()){state.enemyCombatEffects=use.enemyEffect;state.enemyEffectTurns=Math.max(1,use.enemyEffectTurns);}
+                if(state.enemyHp==0){
+                    int danger=state.enemyDanger;defeatedEnemy=state.enemyName;
+                    for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+item.id.hashCode())){addCatalogLoot(drop,1);drops.add(drop.name);}
+                    int companionHeal=world().companionVictoryHealing();state.hp=Math.min(state.hpMax,state.hp+companionHeal);
+                    ProgressionEngine.award(state,"combat_victory",null,danger);world().recordCompanionTurn(item.name,"combat_victory",state);state.endCombat();
+                }else{
+                    EquipmentRules.Stats gear=equipmentStats();int companion=world().companionDefenseBonus(state.combatRound);
+                    int defense=Math.max(0,gear.defense+companion+state.temporaryDefenseBonus);
+                    incoming=Math.max(1,Math.round((state.enemyAttack-defense*.24f)*combatDifficulty(state.difficulty)));
+                    String control=state.enemyCombatEffects.toLowerCase(Locale.forLanguageTag("lt-LT"));
+                    if(control.contains("apakint"))incoming=0;else if(control.contains("sulėt")||control.contains("sulet")||control.contains("įkalint")||control.contains("ikalint")||control.contains("sutrik"))incoming=Math.max(0,incoming*2/3);
+                    incoming=use.guard>=999?0:Math.max(0,incoming-use.guard);
+                    if(gear.heavyHitMitigation&&incoming>=20&&!state.combatHeavyMitigationUsed){incoming=Math.max(1,incoming/2);state.combatHeavyMitigationUsed=true;}
+                    if(gear.dawnBarrier&&state.hp-incoming<=Math.max(1,state.hpMax/4)&&!state.combatDawnBarrierUsed){incoming=Math.max(0,incoming/3);state.combatDawnBarrierUsed=true;}
+                    java.util.Set<String> talents=world().unlockedTalentIds();
+                    if(state.hp-incoming<=0&&gear.cheatDeath&&!state.combatCheatDeathUsed){incoming=Math.max(0,state.hp-1);state.combatCheatDeathUsed=true;}
+                    if(state.hp-incoming<=0&&talents.contains("warrior_last_stand")&&!state.combatLastStandUsed){incoming=Math.max(0,state.hp-1);state.combatLastStandUsed=true;}
+                    state.hp=Math.max(0,state.hp-incoming);
+                    if(state.hp<=0){state.hp=1;state.crowns=Math.max(0,state.crowns-Math.min(state.crowns,50L*Math.max(1,state.enemyDanger)));defeatedPlayer=true;state.endCombat();}
+                    else{state.playerCombatStatus=incoming==0?"Reikmens priedanga · atsako išvengta":"Po reikmens panaudojimo gauta "+incoming+" žalos";state.enemyStatus="Paveiktas reikmens · gyvybė "+state.enemyHp+"/"+state.enemyHpMax;}
+                }
+            }
         }
+        if(combatUse){state.tickTemporaryEffect();if(state.combatActive&&state.enemyEffectTurns>0){state.enemyEffectTurns--;if(state.enemyEffectTurns==0)state.enemyCombatEffects="";}}
         SQLiteDatabase db=getWritableDatabase();if(owned.quantity>1){ContentValues q=new ContentValues();q.put("quantity",owned.quantity-1);db.update("items",q,"id=?",new String[]{owned.id});}else db.delete("items","id=?",new String[]{owned.id});
         saveState(state);StringBuilder text=new StringBuilder("Panaudota: ").append(item.name);
         appendDelta(text,"gyvybė",state.hp-oldHp);appendDelta(text,"mana",state.mana-oldMana);appendDelta(text,"ištvermė",state.stamina-oldStamina);appendDelta(text,"eoninė",state.aeonic-oldAeonic);
-        if(damage>0)text.append(" · priešui -").append(damage).append(" gyvybės");if(!defeatedEnemy.isEmpty())text.append(" · nugalėtas ").append(defeatedEnemy);if(!drops.isEmpty())text.append(" · grobis: ").append(String.join(", ",drops));return text.toString();
+        if(use.hasBuff())text.append(" · ").append(use.name).append(" (").append(state.temporaryEffectTurns).append(" ėj. liko)");
+        if(damage>0)text.append(" · priešui -").append(damage).append(" gyvybės");if(incoming>0)text.append(" · priešo atsakas -").append(incoming).append(" gyvybės");
+        if(escaped)text.append(" · kova saugiai nutraukta");if(defeatedPlayer)text.append(" · pralaimėta kova, atsitraukei su 1 gyvybe");
+        if(!defeatedEnemy.isEmpty())text.append(" · nugalėtas ").append(defeatedEnemy);if(!drops.isEmpty())text.append(" · grobis: ").append(String.join(", ",drops));return text.toString();
     }
 
     private void appendDelta(StringBuilder text,String label,int value){if(value>0)text.append(" · +").append(value).append(' ').append(label);}
+    private float combatDifficulty(String value){if("story".equals(value))return .78f;if("hard".equals(value))return 1.18f;if("nightmare".equals(value))return 1.38f;return 1f;}
     private String equipmentSlotForCategory(String category){return java.util.Arrays.asList("weapon","offhand","head","chest","hands","legs","feet","belt","neck","ring","utility","relic").contains(category)?category:null;}
     private boolean isAllowedCategory(String c){return c!=null&&java.util.Arrays.asList(ItemCatalogV092.CATEGORIES).contains(c);}
     private boolean isAllowedRarity(String r){return r!=null&&java.util.Arrays.asList(ItemCatalogV092.RARITIES).contains(r.toLowerCase(Locale.ROOT));}
@@ -659,7 +761,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
 
     public String exportSave() {
         try {
-            JSONObject root=new JSONObject(); root.put("version",12); root.put("state",loadState().toJson());
+            JSONObject root=new JSONObject(); root.put("version",13); root.put("state",loadState().toJson());
             JSONArray items=new JSONArray(); for(Item i:getItems()){JSONObject o=new JSONObject();o.put("id",i.id);o.put("name",i.name);o.put("type",i.type);o.put("category",i.slot==null?"artifact":i.slot);o.put("rarity",i.rarity);o.put("description",i.description);o.put("equipped_slot",i.equippedSlot==null?JSONObject.NULL:i.equippedSlot);o.put("synced",i.synced);o.put("catalog_id",i.catalogId==null?JSONObject.NULL:i.catalogId);o.put("item_level",i.itemLevel);o.put("power",i.power);o.put("set_id",i.setId==null?JSONObject.NULL:i.setId);o.put("quantity",i.quantity);o.put("value",i.value);o.put("effect",i.effect);items.put(o);} root.put("items",items);JSONArray abilities=new JSONArray();for(String[] ability:getAbilities()){JSONObject entry=new JSONObject();entry.put("name",ability[0]);entry.put("type",ability[1]);entry.put("description",ability[2]);abilities.put(entry);}root.put("abilities",abilities); JSONArray stats=new JSONArray();for(java.util.Map.Entry<String,Integer> e:getStatValues().entrySet()){JSONObject so=new JSONObject();so.put("name",e.getKey());so.put("value",e.getValue());stats.put(so);}root.put("stats",stats); JSONArray mastery=new JSONArray();for(java.util.Map.Entry<String,Mastery> e:getMasteries().entrySet()){JSONObject mo=new JSONObject();mo.put("name",e.getKey());mo.put("level",e.getValue().level);mo.put("xp",e.getValue().xp);mo.put("next_xp",e.getValue().nextXp);mastery.put(mo);}root.put("mastery",mastery);root.put("world",world().exportState()); return root.toString();
         } catch(Exception e){return "";}
     }
@@ -703,7 +805,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
                 }
                 String target=o.isNull("equipped_slot")?null:o.optString("equipped_slot",null);
                 boolean equipped=target!=null&&validEquipmentTarget(target)&&category!=null
-                        &&category.equals(categoryForTarget(target))&&usedTargets.add(target);
+                        &&category.equals(categoryForTarget(target))&&(known==null||known.level<=restored.level)&&usedTargets.add(target);
                 add.put("id",id);add.put("equipped",equipped?1:0);add.put("synced",o.optBoolean("synced",false)?1:0);
                 if(equipped)add.put("equipped_slot",target);else add.putNull("equipped_slot");
                 db.insertOrThrow("items",null,add);
@@ -713,6 +815,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         JSONArray abilities=root.optJSONArray("abilities");if(abilities!=null){if(abilities.length()>100)throw new IllegalArgumentException("Per daug gebėjimų");db.delete("abilities",null,null);for(int i=0;i<abilities.length();i++){JSONObject o=abilities.optJSONObject(i);if(o==null)continue;String name=compactImported(o.optString("name",""),80);if(!allowedAbilityName(name))continue;ContentValues value=new ContentValues();value.put("name",name);value.put("type",compactImported(o.optString("type","bazinis_gebėjimas"),60));value.put("description",compactImported(o.optString("description",""),1000));db.insertWithOnConflict("abilities",null,value,SQLiteDatabase.CONFLICT_IGNORE);}}
         JSONArray mastery=root.optJSONArray("mastery");if(mastery!=null){if(mastery.length()>500)throw new IllegalArgumentException("Per daug meistriškumo įrašų");db.delete("mastery",null,null);seedMastery(db);for(int i=0;i<mastery.length();i++){JSONObject o=mastery.optJSONObject(i);if(o==null)continue;String name=o.optString("name","");if(!knownStat(name))continue;int level=Math.max(0,Math.min(100,o.optInt("level",0)));int next=masteryNext(level);ContentValues value=new ContentValues();value.put("level",level);value.put("xp",Math.max(0,Math.min(next-1,o.optInt("xp",0))));value.put("next_xp",level>=100?1:next);db.update("mastery",value,"name=?",new String[]{name});}}
         world().restoreState(db,root.optJSONObject("world"));
+        if(root.optInt("version",1)<13)WorldRepository.migrateV13(db);
     }
 
     private boolean validEquipmentTarget(String target){if(target==null)return false;for(String slot:EQUIPMENT_SLOTS)if(slot.equals(target))return true;return false;}

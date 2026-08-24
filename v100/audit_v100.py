@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.0.1."""
+"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.1.0."""
 
 import hashlib
 from pathlib import Path
@@ -77,10 +77,11 @@ groq = read(JAVA / "GroqClient.java")
 audio = read(JAVA / "VaeloriaAudio.java")
 profile = read(JAVA / "CharacterCatalogV093.java")
 language = read(JAVA / "LithuanianNarrative.java")
+consumables = read(JAVA / "ConsumableRulesV110.java")
 
 # Leidimo tapatybė ir saugumas.
-require("versionCode 41" in build and "versionName '1.0.1'" in build, "Android versija yra 41 / 1.0.1")
-require('android:label="Vaeloria OOC 1.0.1"' in manifest, "programėlės etiketė yra v1.0.1")
+require("versionCode 42" in build and "versionName '1.1.0'" in build, "Android versija yra 42 / 1.1.0")
+require('android:label="Vaeloria OOC 1.1.0"' in manifest, "programėlės etiketė yra v1.1.0")
 require("minifyEnabled true" in build and "shrinkResources true" in build, "release buildą optimizuoja R8")
 require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest, "atsarginės kopijos ir nešifruotas ryšys išjungti")
 require(manifest.count("uses-permission") == 1 and "android.permission.INTERNET" in manifest, "šaltinyje prašomas tik interneto leidimas")
@@ -102,7 +103,7 @@ require("restoreCore" in database and 'snapshot_json' in database and "DELETE FR
 
 # P1 – struktūrizuotas gyvas pasaulis.
 for table in ("quests", "quest_steps", "quest_evidence", "npcs", "shops", "shop_stock", "factions",
-              "faction_relations", "settlements", "world_events", "economy", "recipes", "businesses", "hired_npcs"):
+              "faction_relations", "settlements", "world_events", "economy", "recipes", "recipe_ingredients", "businesses", "hired_npcs"):
     require(f"CREATE TABLE IF NOT EXISTS {table}" in world, f"SQLite turi {table} sistemą")
 require(world.count('seedStep(db,"QM-') == 6, "pagrindinė istorija turi 6 nuoseklius etapus")
 require(world.count("seedSideQuest(") >= 6, "yra bent 5 šalutinės užduotys")
@@ -110,12 +111,12 @@ require("applyEndingConsequences" in world and all(value in world for value in (
 require("recordNpcInteraction" in world and "memory_json" in world and "scheduleAvailable" in world, "NPC turi atmintį, santykius ir tvarkaraščius")
 
 # P2 – progresija, talentai, sunkumas ir kompanionai.
-require(progression.count("new TalentDef(") == 20, "talentų medyje yra 20 mechaninių talentų")
+require(progression.count("new TalentDef(") == 25, "talentų medyje yra 25 mechaniniai talentai iki 90 lygio")
 for branch in ("KARYS", "ŽVALGAS", "ARKANISTAS", "LYDERIS", "MEISTRAS"):
     require(branch in progression, f"talentų medis turi šaką {branch}")
 for mode in ("story", "normal", "hard", "nightmare"):
     require(f'"{mode}"' in activity, f"sąsajoje yra sunkumas {mode}")
-require("progressionMode" in state and all(field in state for field in ("experienceNext", "talentPoints", "storyEnding")), "progresija ir baigtis išsaugomos GameState")
+require("progressionMode" in state and all(field in state for field in ("experienceNext", "talentPoints", "attributePoints", "storyEnding")), "progresija, savybių taškai ir baigtis išsaugomi GameState")
 for companion in ("Lyra", "Kaelis", "Mirel"):
     require(companion in world, f"pasaulyje yra kompanionas {companion}")
 require('companion(db,"comp-kaelis","npc-kaelis","Kapitonas Kaelis","Gynėjas","+6 gynybai pirmame kovos ėjime")' in world,
@@ -138,16 +139,19 @@ require("AudioTrack" in audio and "ToneGenerator" in audio, "aplinkos ir sąsajo
 require(profile.count("new Origin(") == 6 and profile.count("new Archetype(") == 6 and profile.count("new Trait(") == 12, "veikėjo kūrimas turi 6 kilmes, 6 archetipus ir 12 bruožų")
 require("taisyklinga, natūralia ir rišlia lietuvių kalba" in groq and "antruoju asmeniu" in groq, "DI sutartis reikalauja aiškios rišlios lietuvių kalbos")
 require("polishChoices" in language and "clearlyEnglish" in language, "vietinis filtras sutvarko kalbą ir pasirinkimus")
-require("telefono v0.9.3" not in groq and "telefono v1.0.1" in groq, "DI sutartyje nėra pasenusios runtime versijos")
+require("telefono v0.9.3" not in groq and "telefono v1.1.0" in groq, "DI sutartyje nėra pasenusios runtime versijos")
 
 # Duomenys, testai ir realūs bundled assetai.
-require("private static final int VERSION = 12" in database and 'root.put("version",12)' in database, "SQLite ir eksporto schema yra 12")
-require("migrateV11toV12" in database and "legacyPersistedBonus" in profile, "v11→v12 migracija pašalina dvigubas profilio premijas")
+require("private static final int VERSION = 13" in database and 'root.put("version",13)' in database, "SQLite ir eksporto schema yra 13")
+require("migrateV11toV12" in database and "migrateV12toV13" in database and "legacyPersistedBonus" in profile, "v11→v12 ir v12→v13 migracijos išsaugo vientisumą")
+require(world.count("seedRecipeV110(db,") >= 27 and "required_talent" in world and "station" in world, "yra bent 27 kelių reagentų, lygių, darbo vietų ir talentų receptai")
+require("state.level<item.level" in database and "equipRequirement" in database and "state.level<selected.level" in world, "daiktų lygiai riboja naudojimą, įrangą ir pirkimą")
+require(all(token in consumables for token in ("directDamage", "enemyEffectTurns", "poisonResistance", "usableInCombat", "description")), "potionai ir kovos reikmenys turi struktūrizuotą mechaniką")
 policy = read(JAVA / "AiTurnPolicyV101.java")
 require("knownLocationNames" in world and "checkAllowsProgress" in world and "exactItem" in policy, "DI pasekmes riboja vietos, patikros ir katalogo politika")
 require("combatHeavyMitigationUsed" in state and "combatSpellCount" in state and "Atgauna kvapą" in combat, "kovos būsena saugo vienkartinius efektus ir neleidžia nemokamų atakų")
 require((ANDROID_TEST / "V100PersistenceDeviceTest.java").is_file(), "yra tikro Android pilnos būsenos atkūrimo testas")
-require("VersionTwelve" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v12 migraciją")
+require("VersionThirteen" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v13 migraciją")
 require((TEST / "CombatEngineV100Test.java").is_file() and (TEST / "EquipmentRulesV100Test.java").is_file() and (TEST / "ProgressionEngineV100Test.java").is_file(), "yra v1.0 kovos, įrangos ir progresijos vienetiniai testai")
 item_art = sorted(RES.glob("item_v092_*.webp"))
 monster_art = sorted(RES.glob("monster_v091_*.webp"))
@@ -177,4 +181,4 @@ require(webp_dimensions(quest_art)[0] >= 1_600 and webp_dimensions(quest_art)[1]
 require(webp_dimensions(map_art)[0] >= 1_000 and webp_dimensions(map_art)[1] >= 1_400,
         "atlaso iliustracija yra bent 1000×1400")
 
-print("Vaeloria OOC v1.0.1 P0–P4 priėmimo auditas praėjo")
+print("Vaeloria OOC v1.1.0 P0–P4 priėmimo auditas praėjo")

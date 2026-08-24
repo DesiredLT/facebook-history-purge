@@ -68,6 +68,7 @@ final class CombatEngine {
                 .put("enemy_speed", enemy.speed).put("enemy_danger", enemy.danger)
                 .put("enemy_role", enemy.role).put("enemy_trait", enemy.trait)
                 .put("player_combat_status", "Pasiruošęs").put("enemy_combat_effects", "")
+                .put("enemy_effect_turns",0)
                 .put("player_guard", 0).put("combat_ability_cooldown", 0).put("combat_combo", 0).put("combat_spell_count", 0)
                 .put("combat_heavy_mitigation_used",false).put("combat_dawn_barrier_used",false)
                 .put("combat_cheat_death_used",false).put("combat_last_stand_used",false)
@@ -88,9 +89,11 @@ final class CombatEngine {
         boolean heavy = contains(query, "sunk", "galing", "visa jėga", "visa jega", "pramuš", "pramus");
         boolean recover = contains(query,"atsikvėp","atsikvep","atgauti kvap","taupyti jėg","taupyti jeg");
 
-        int playerSpeed = stat(stats, "Greitis", 45) / 3 + stat(stats, "Reakcijos greitis", 45) / 4 + gear.speed+(talents.contains("scout_step")?7:0);
-        int playerDefense = stat(stats, "Gynyba", 45) / 2 + gear.defense+companionDefense+(talents.contains("warrior_guard")&&state.combatRound<=1?8:0);
-        int playerAttack = stat(stats, "Ginklų valdymas", 45) / 3 + stat(stats, "Atakos tikslumas", 45) / 4 + gear.attack+(talents.contains("warrior_edge")?6:0);
+        if(talents.contains("scout_predator"))gear.criticalChance=Math.min(75,gear.criticalChance+10);
+
+        int playerSpeed = stat(stats, "Greitis", 45) / 3 + stat(stats, "Reakcijos greitis", 45) / 4 + gear.speed+state.temporarySpeedBonus+(talents.contains("scout_step")?7:0)+(talents.contains("scout_predator")?12:0);
+        int playerDefense = stat(stats, "Gynyba", 45) / 2 + gear.defense+state.temporaryDefenseBonus+companionDefense+(talents.contains("warrior_guard")&&state.combatRound<=1?8:0)+(talents.contains("warrior_unbroken")?8:0)+(gear.ambushProtection&&state.combatRound<=1?10:0);
+        int playerAttack = stat(stats, "Ginklų valdymas", 45) / 3 + stat(stats, "Atakos tikslumas", 45) / 4 + gear.attack+state.temporaryAttackBonus+(talents.contains("warrior_edge")?6:0);
         if(talents.contains("scout_ambush")&&state.combatRound<=1)playerAttack+=12;
         if(talents.contains("warrior_counter")&&state.playerCombatStatus.contains("Kontratakos langas"))playerAttack+=10;
         int enemyHp = state.enemyHp;
@@ -105,6 +108,7 @@ final class CombatEngine {
         boolean lastStandUsed=state.combatLastStandUsed;
         String playerStatus = "Kovoja";
         String enemyEffects = state.enemyCombatEffects;
+        int enemyEffectTurns=state.enemyEffectTurns;
         StringBuilder scene = new StringBuilder();
 
         if(!recover&&escape&&state.stamina<5){escape=false;recover=true;scene.append("Ištvermės nepakanka saugiam atsitraukimui. ");}
@@ -135,7 +139,7 @@ final class CombatEngine {
         } else if (defend) {
             guard = Math.max(8, playerDefense / 2 + outcomeBonus(check));
             staminaDelta -= Math.min(3,state.stamina);
-            playerStatus = "Gynybinė pozicija · apsauga " + guard+(talents.contains("warrior_counter")?" · Kontratakos langas":"");
+            playerStatus = "Gynybinė pozicija · apsauga " + guard+(talents.contains("warrior_counter")||gear.blockCounter?" · Kontratakos langas":"");
             scene.append("Užimi gynybinę poziciją ir smūgį pasitinki pasiruošęs. ");
         } else if (dodge) {
             int chance = 55 + (playerSpeed - state.enemySpeed) / 2 + outcomeBonus(check);
@@ -159,10 +163,11 @@ final class CombatEngine {
                 spell = false;
             } else if (state.mana >= cost || state.aeonic >= cost) {
                 if (state.mana >= cost) manaDelta -= cost; else aeonicDelta -= cost;
-                int magic = stat(stats, "Burtų galia", 45) / 2 + stat(stats, "Manos kontrolė", 45) / 4 + gear.magicPower;
+                int magic = stat(stats, "Burtų galia", 45) / 2 + stat(stats, "Manos kontrolė", 45) / 4 + gear.magicPower+state.temporaryMagicBonus+(talents.contains("arcane_overflow")?15:0);
                 if(talents.contains("arcane_echo")&&(spellCount+1)%3==0)magic+=18;
-                dealt = damage(magic + 22, state.enemyDefense, outcomeBonus(check), random, gear, state, true);
+                dealt = damage(magic + 22, effectiveEnemyDefense(state.enemyDefense,enemyEffects,enemyEffectTurns), outcomeBonus(check), random, gear, state, true);
                 enemyEffects = magicEffect(query, catalog == null ? state.enemyTrait : catalog.trait);
+                enemyEffectTurns=3;
                 cooldown = 2;
                 spellCount++;
                 scene.append("Sukoncentruoji energiją ir tiksliai paleidi kovinį gebėjimą. ");
@@ -177,12 +182,12 @@ final class CombatEngine {
             if (heavy) staminaDelta -= 15; else staminaDelta -= 7;
             if (gear.berserk) attack += Math.max(0, (state.hpMax - state.hp) / 6);
             if (combo >= 2 && gear.dodgeEmpowersAttack) { attack += 18; combo = 0; }
-            dealt = damage(attack, state.enemyDefense, outcomeBonus(check), random, gear, state, false);
+            dealt = damage(attack, effectiveEnemyDefense(state.enemyDefense,enemyEffects,enemyEffectTurns), outcomeBonus(check), random, gear, state, false);
             combo++;
             scene.append(heavy ? "Sutelkęs jėgą mėgini pralaužti priešo gynybą. " : "Smūgiuoji kontroliuojamai ir saugai savo poziciją. ");
         }
 
-        int effectDamage = damageOverTime(enemyEffects, state.enemyDanger);
+        int effectDamage = enemyEffectTurns>0?damageOverTime(enemyEffects, state.enemyDanger):0;
         if (effectDamage > 0) { dealt += effectDamage; scene.append("Ankstesnis poveikis toliau žeidžia priešą. "); }
         enemyHp = Math.max(0, enemyHp - dealt);
         if (enemyHp == 0) {
@@ -197,6 +202,8 @@ final class CombatEngine {
         }
 
         int rawIncoming = enemyDamage(state, playerDefense, random);
+        String normalizedEnemyEffect=norm(enemyEffects);
+        if(enemyEffectTurns>0&&(normalizedEnemyEffect.contains("sulėt")||normalizedEnemyEffect.contains("sutrik")||normalizedEnemyEffect.contains("apak")))rawIncoming=Math.max(0,rawIncoming*65/100);
         if (guard >= 999) received = 0;
         else received = Math.max(0, rawIncoming - guard);
         if (gear.heavyHitMitigation && received >= 20 && !heavyMitigationUsed) {
@@ -210,7 +217,7 @@ final class CombatEngine {
             dawnBarrierUsed=true;
             playerStatus = playerStatus + " · Aušros barjeras panaudotas";
         }
-        int statusTick = playerStatusDamage(state.playerCombatStatus, gear, state.enemyDanger);
+        int statusTick = playerStatusDamage(state.playerCombatStatus, gear, state, state.enemyDanger);
         received += statusTick;
         if (state.hp - received <= 0 && gear.cheatDeath && !cheatDeathUsed) {
             received = Math.max(0, state.hp - 1);
@@ -221,6 +228,7 @@ final class CombatEngine {
             received=Math.max(0,state.hp-1);lastStandUsed=true;playerStatus=playerStatus+" · Paskutinis bastionas panaudotas";
         }
         hpDelta -= received;
+        if(enemyEffectTurns>0){enemyEffectTurns--;if(enemyEffectTurns==0)enemyEffects="";}
         if (received == 0) scene.append("Priešo atsakas tavęs nepasiekia. ");
         else scene.append("Priešo atsakas padaro ").append(received).append(" žalos. ");
         if (state.hp + hpDelta <= 0) {
@@ -246,6 +254,7 @@ final class CombatEngine {
                 .put("enemy_speed", state.enemySpeed).put("enemy_danger", state.enemyDanger)
                 .put("enemy_role", state.enemyRole).put("enemy_trait", state.enemyTrait)
                 .put("player_combat_status", playerStatus).put("enemy_combat_effects", enemyEffects)
+                .put("enemy_effect_turns",enemyEffectTurns)
                 .put("player_guard", guard).put("combat_ability_cooldown", cooldown).put("combat_combo", combo).put("combat_spell_count",spellCount)
                 .put("combat_heavy_mitigation_used",heavyMitigationUsed).put("combat_dawn_barrier_used",dawnBarrierUsed)
                 .put("combat_cheat_death_used",cheatDeathUsed).put("combat_last_stand_used",lastStandUsed)
@@ -256,10 +265,12 @@ final class CombatEngine {
                               EquipmentRules.Stats gear, GameState state, boolean magic) {
         int variance = random.nextInt(11) - 5;
         int value = attack + checkBonus + variance - Math.round(defense * (magic ? .28f : .42f));
-        boolean critical = random.nextInt(100) < gear.criticalChance + Math.max(0, checkBonus / 3);
+        boolean critical = random.nextInt(100) < gear.criticalChance + state.temporaryCriticalBonus + Math.max(0, checkBonus / 3);
         if (critical) value += Math.max(5, Math.round(value * gear.criticalDamage / 100f));
         return Math.max(3, value);
     }
+
+    private static int effectiveEnemyDefense(int defense,String effects,int turns){return turns>0&&norm(effects).contains("šarvai suardyti")?Math.max(0,defense-18):defense;}
 
     private static int enemyDamage(GameState state, int defense, Random random) {
         float difficulty = difficulty(state.difficulty);
@@ -268,10 +279,10 @@ final class CombatEngine {
         return Math.max(1, value);
     }
 
-    private static int playerStatusDamage(String status, EquipmentRules.Stats gear, int danger) {
+    private static int playerStatusDamage(String status, EquipmentRules.Stats gear, GameState state, int danger) {
         String value = norm(status);
-        if (value.contains("nuod")) return Math.max(0, Math.round((3 + danger) * (100 - gear.poisonResistance) / 100f));
-        if (value.contains("nekrot")) return Math.max(0, Math.round((4 + danger) * (100 - gear.necroticResistance) / 100f));
+        if (value.contains("nuod")) return Math.max(0, Math.round((3 + danger) * (100 - Math.min(90,gear.poisonResistance+state.temporaryPoisonResistance)) / 100f));
+        if (value.contains("nekrot")) return Math.max(0, Math.round((4 + danger) * (100 - Math.min(90,gear.necroticResistance+state.temporaryNecroticResistance)) / 100f));
         if (value.contains("dega")) return 3 + danger / 2;
         return 0;
     }

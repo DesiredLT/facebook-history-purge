@@ -26,7 +26,13 @@ public class GameState {
     public int stamina = 100, staminaMax = 100;
     public int aeonic = 180, aeonicMax = 900;
     public long crowns = 1_062_400L;
-    public int level = 1, experience = 0, experienceNext = 350, talentPoints = 1;
+    public int level = 1, experience = 0, experienceNext = 350, talentPoints = 1, attributePoints = 0;
+    public String temporaryEffectName = "";
+    public int temporaryEffectTurns = 0;
+    public int temporaryAttackBonus = 0, temporaryDefenseBonus = 0, temporarySpeedBonus = 0;
+    public int temporaryMagicBonus = 0, temporaryCheckBonus = 0, temporaryCriticalBonus = 0;
+    public int temporaryPoisonResistance = 0, temporaryNecroticResistance = 0;
+    public int equipmentHpBonus = 0, equipmentManaBonus = 0;
     public String difficulty = "normal";
     public String progressionMode = "balanced";
     public long turnNumber = 0L;
@@ -52,6 +58,7 @@ public class GameState {
     public String enemyTrait = "";
     public String playerCombatStatus = "";
     public String enemyCombatEffects = "";
+    public int enemyEffectTurns = 0;
     public int playerGuard = 0;
     public int combatAbilityCooldown = 0;
     public int combatCombo = 0;
@@ -94,7 +101,12 @@ public class GameState {
         o.put("stamina", stamina); o.put("staminaMax", staminaMax);
         o.put("aeonic", aeonic); o.put("aeonicMax", aeonicMax);
         o.put("crowns", crowns);
-        o.put("level", level); o.put("experience", experience); o.put("experienceNext", experienceNext); o.put("talentPoints", talentPoints);
+        o.put("level", level); o.put("experience", experience); o.put("experienceNext", experienceNext); o.put("talentPoints", talentPoints); o.put("attributePoints", attributePoints);
+        o.put("temporaryEffectName", temporaryEffectName); o.put("temporaryEffectTurns", temporaryEffectTurns);
+        o.put("temporaryAttackBonus", temporaryAttackBonus); o.put("temporaryDefenseBonus", temporaryDefenseBonus); o.put("temporarySpeedBonus", temporarySpeedBonus);
+        o.put("temporaryMagicBonus", temporaryMagicBonus); o.put("temporaryCheckBonus", temporaryCheckBonus); o.put("temporaryCriticalBonus", temporaryCriticalBonus);
+        o.put("temporaryPoisonResistance", temporaryPoisonResistance); o.put("temporaryNecroticResistance", temporaryNecroticResistance);
+        o.put("equipmentHpBonus", equipmentHpBonus); o.put("equipmentManaBonus", equipmentManaBonus);
         o.put("difficulty", difficulty); o.put("progressionMode", progressionMode); o.put("turnNumber", turnNumber);
         o.put("asterraInfluence", asterraInfluence); o.put("dravennInfluence", dravennInfluence); o.put("lysaraInfluence", lysaraInfluence);
         o.put("asterraRelation", asterraRelation); o.put("dravennRelation", dravennRelation); o.put("lysaraRelation", lysaraRelation);
@@ -118,6 +130,7 @@ public class GameState {
         o.put("enemyTrait", enemyTrait);
         o.put("playerCombatStatus", playerCombatStatus);
         o.put("enemyCombatEffects", enemyCombatEffects);
+        o.put("enemyEffectTurns", enemyEffectTurns);
         o.put("playerGuard", playerGuard);
         o.put("combatAbilityCooldown", combatAbilityCooldown);
         o.put("combatCombo", combatCombo);
@@ -174,6 +187,22 @@ public class GameState {
         s.experience = Math.max(0, o.optInt("experience", s.experience));
         s.experienceNext = Math.max(100, o.optInt("experienceNext", s.experienceNext));
         s.talentPoints = Math.max(0, o.optInt("talentPoints", s.talentPoints));
+        s.attributePoints = o.has("attributePoints")
+                ? clamp(o.optInt("attributePoints", 0), 0, 1000)
+                : ProgressionEngine.attributePointsThroughLevel(s.level);
+        s.temporaryEffectName = compact(o.optString("temporaryEffectName", ""),120);
+        s.temporaryEffectTurns = clamp(o.optInt("temporaryEffectTurns", 0),0,100);
+        s.temporaryAttackBonus = clamp(o.optInt("temporaryAttackBonus", 0),-100,100);
+        s.temporaryDefenseBonus = clamp(o.optInt("temporaryDefenseBonus", 0),-100,100);
+        s.temporarySpeedBonus = clamp(o.optInt("temporarySpeedBonus", 0),-100,100);
+        s.temporaryMagicBonus = clamp(o.optInt("temporaryMagicBonus", 0),-100,100);
+        s.temporaryCheckBonus = clamp(o.optInt("temporaryCheckBonus", 0),-100,100);
+        s.temporaryCriticalBonus = clamp(o.optInt("temporaryCriticalBonus", 0),-100,100);
+        s.temporaryPoisonResistance = clamp(o.optInt("temporaryPoisonResistance", 0),0,90);
+        s.temporaryNecroticResistance = clamp(o.optInt("temporaryNecroticResistance", 0),0,90);
+        s.equipmentHpBonus = clamp(o.optInt("equipmentHpBonus", 0),0,1000);
+        s.equipmentManaBonus = clamp(o.optInt("equipmentManaBonus", 0),0,1000);
+        if (s.temporaryEffectTurns == 0) s.clearTemporaryEffect();
         s.difficulty = validDifficulty(o.optString("difficulty", s.difficulty));
         s.progressionMode = validProgression(o.optString("progressionMode", s.progressionMode));
         s.turnNumber = Math.max(0L, o.optLong("turnNumber", s.turnNumber));
@@ -203,6 +232,7 @@ public class GameState {
         s.enemyTrait = o.optString("enemyTrait", "");
         s.playerCombatStatus = o.optString("playerCombatStatus", "");
         s.enemyCombatEffects = o.optString("enemyCombatEffects", "");
+        s.enemyEffectTurns = clamp(o.optInt("enemyEffectTurns", 0),0,20);
         s.playerGuard = Math.max(0, o.optInt("playerGuard", 0));
         s.combatAbilityCooldown = Math.max(0, o.optInt("combatAbilityCooldown", 0));
         s.combatCombo = Math.max(0, o.optInt("combatCombo", 0));
@@ -258,6 +288,7 @@ public class GameState {
         enemyTrait = result.optString("enemy_trait", combatActive ? enemyTrait : "");
         playerCombatStatus = result.optString("player_combat_status", combatActive ? playerCombatStatus : "");
         enemyCombatEffects = result.optString("enemy_combat_effects", combatActive ? enemyCombatEffects : "");
+        enemyEffectTurns = clamp(result.optInt("enemy_effect_turns", combatActive ? enemyEffectTurns : 0),0,20);
         playerGuard = Math.max(0, result.optInt("player_guard", combatActive ? playerGuard : 0));
         combatAbilityCooldown = Math.max(0, result.optInt("combat_ability_cooldown", combatActive ? combatAbilityCooldown : 0));
         combatCombo = Math.max(0, result.optInt("combat_combo", combatActive ? combatCombo : 0));
@@ -279,8 +310,34 @@ public class GameState {
     public void endCombat() {
         combatActive=false;enemyName="";enemyStatus="";enemyTelegraph="";combatHazard="";
         combatDistance="mid";enemyHp=0;enemyHpMax=0;enemyAttack=0;enemyDefense=0;enemySpeed=0;enemyDanger=0;
-        enemyRole="";enemyTrait="";playerCombatStatus="";enemyCombatEffects="";playerGuard=0;combatAbilityCooldown=0;combatCombo=0;combatSpellCount=0;combatRound=0;
+        enemyRole="";enemyTrait="";playerCombatStatus="";enemyCombatEffects="";enemyEffectTurns=0;playerGuard=0;combatAbilityCooldown=0;combatCombo=0;combatSpellCount=0;combatRound=0;
         combatHeavyMitigationUsed=false;combatDawnBarrierUsed=false;combatCheatDeathUsed=false;combatLastStandUsed=false;
+    }
+
+    public void applyTemporaryEffect(ConsumableRulesV110.Effect effect) {
+        if (effect == null || !effect.hasBuff()) return;
+        temporaryEffectName = compact(effect.name,120);
+        temporaryEffectTurns = clamp(effect.turns,1,100);
+        temporaryAttackBonus = clamp(effect.attack,-100,100);
+        temporaryDefenseBonus = clamp(effect.defense,-100,100);
+        temporarySpeedBonus = clamp(effect.speed,-100,100);
+        temporaryMagicBonus = clamp(effect.magic,-100,100);
+        temporaryCheckBonus = clamp(effect.check,-100,100);
+        temporaryCriticalBonus = clamp(effect.critical,-100,100);
+        temporaryPoisonResistance = clamp(effect.poisonResistance,0,90);
+        temporaryNecroticResistance = clamp(effect.necroticResistance,0,90);
+    }
+
+    public void tickTemporaryEffect() {
+        if (temporaryEffectTurns <= 0) { clearTemporaryEffect(); return; }
+        temporaryEffectTurns--;
+        if (temporaryEffectTurns == 0) clearTemporaryEffect();
+    }
+
+    public void clearTemporaryEffect() {
+        temporaryEffectName="";temporaryEffectTurns=0;temporaryAttackBonus=0;temporaryDefenseBonus=0;
+        temporarySpeedBonus=0;temporaryMagicBonus=0;temporaryCheckBonus=0;temporaryCriticalBonus=0;
+        temporaryPoisonResistance=0;temporaryNecroticResistance=0;
     }
 
     private static String relationFor(int v,boolean hostile){ if(hostile)return v>=70?"ĮTAMPA":v>=45?"ATSARGI":"NEUTRALI"; return v>=70?"SĄJUNGINĖ":v>=45?"PALANKI":"NEUTRALI"; }

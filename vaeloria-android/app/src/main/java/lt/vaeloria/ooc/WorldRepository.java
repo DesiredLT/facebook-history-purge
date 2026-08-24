@@ -21,7 +21,7 @@ final class WorldRepository {
     static final String[] TABLES = {
             "quests", "quest_steps", "quest_evidence", "npcs", "shops", "shop_stock",
             "factions", "faction_relations", "settlements", "world_events", "economy", "recipes",
-            "businesses", "hired_npcs", "companions", "talents", "locations"
+            "recipe_ingredients", "businesses", "hired_npcs", "companions", "talents", "locations"
     };
 
     static final class Quest {
@@ -76,9 +76,15 @@ final class WorldRepository {
     }
 
     static final class Recipe {
-        String id, name, resultCatalogId, ingredientCatalogId, ingredientName;
-        int ingredientQty, fee;
+        String id, name, resultCatalogId, station, requiredTalent;
+        int requiredLevel, resultQuantity, fee;
+        final List<Ingredient> ingredients=new ArrayList<>();
         boolean unlocked;
+    }
+
+    static final class Ingredient {
+        String catalogId, name;
+        int quantity, owned;
     }
 
     static final class Companion {
@@ -128,12 +134,31 @@ final class WorldRepository {
         db.execSQL("CREATE TABLE IF NOT EXISTS settlements (id TEXT PRIMARY KEY, name TEXT NOT NULL, region TEXT NOT NULL, faction TEXT NOT NULL, prosperity INTEGER NOT NULL, security INTEGER NOT NULL, autonomy INTEGER NOT NULL, rival_id TEXT NOT NULL DEFAULT '')");
         db.execSQL("CREATE TABLE IF NOT EXISTS world_events (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL, detail TEXT NOT NULL, region TEXT NOT NULL, type TEXT NOT NULL, severity INTEGER NOT NULL, active INTEGER NOT NULL DEFAULT 1, price_modifier INTEGER NOT NULL DEFAULT 0, created_minute INTEGER NOT NULL, expires_minute INTEGER NOT NULL)");
         db.execSQL("CREATE TABLE IF NOT EXISTS economy (id TEXT PRIMARY KEY, label TEXT NOT NULL, region TEXT NOT NULL, supply INTEGER NOT NULL, demand INTEGER NOT NULL, price_index INTEGER NOT NULL, updated_minute INTEGER NOT NULL)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, name TEXT NOT NULL, result_catalog_id TEXT NOT NULL, ingredient_catalog_id TEXT NOT NULL, ingredient_qty INTEGER NOT NULL, fee INTEGER NOT NULL, unlocked INTEGER NOT NULL DEFAULT 1)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, name TEXT NOT NULL, result_catalog_id TEXT NOT NULL, ingredient_catalog_id TEXT NOT NULL DEFAULT '', ingredient_qty INTEGER NOT NULL DEFAULT 0, fee INTEGER NOT NULL, unlocked INTEGER NOT NULL DEFAULT 1, required_level INTEGER NOT NULL DEFAULT 1, station TEXT NOT NULL DEFAULT 'field', result_quantity INTEGER NOT NULL DEFAULT 1, required_talent TEXT NOT NULL DEFAULT '')");
+        db.execSQL("CREATE TABLE IF NOT EXISTS recipe_ingredients (recipe_id TEXT NOT NULL, catalog_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(recipe_id,catalog_id))");
         db.execSQL("CREATE TABLE IF NOT EXISTS businesses (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, location TEXT NOT NULL, level INTEGER NOT NULL DEFAULT 1, revenue INTEGER NOT NULL, upkeep INTEGER NOT NULL, price INTEGER NOT NULL, next_payout INTEGER NOT NULL DEFAULT 0, owned INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS hired_npcs (npc_id TEXT PRIMARY KEY, job TEXT NOT NULL, wage INTEGER NOT NULL, loyalty INTEGER NOT NULL DEFAULT 25, active INTEGER NOT NULL DEFAULT 1, hired_minute INTEGER NOT NULL, next_pay INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS companions (id TEXT PRIMARY KEY, npc_id TEXT NOT NULL, name TEXT NOT NULL, role TEXT NOT NULL, perk TEXT NOT NULL, loyalty INTEGER NOT NULL DEFAULT 20, recruited INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS talents (id TEXT PRIMARY KEY, unlocked INTEGER NOT NULL DEFAULT 0, unlocked_minute INTEGER NOT NULL DEFAULT 0)");
         db.execSQL("CREATE TABLE IF NOT EXISTS locations (id TEXT PRIMARY KEY, name TEXT UNIQUE NOT NULL, region TEXT NOT NULL, danger INTEGER NOT NULL, x INTEGER NOT NULL, y INTEGER NOT NULL, discovered INTEGER NOT NULL DEFAULT 0, visited INTEGER NOT NULL DEFAULT 0, last_visit INTEGER NOT NULL DEFAULT 0)");
+    }
+
+    static void migrateV13(SQLiteDatabase db){
+        create(db);
+        addColumn(db,"ALTER TABLE recipes ADD COLUMN required_level INTEGER NOT NULL DEFAULT 1");
+        addColumn(db,"ALTER TABLE recipes ADD COLUMN station TEXT NOT NULL DEFAULT 'field'");
+        addColumn(db,"ALTER TABLE recipes ADD COLUMN result_quantity INTEGER NOT NULL DEFAULT 1");
+        addColumn(db,"ALTER TABLE recipes ADD COLUMN required_talent TEXT NOT NULL DEFAULT ''");
+        db.execSQL("CREATE TABLE IF NOT EXISTS recipe_ingredients (recipe_id TEXT NOT NULL, catalog_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, position INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(recipe_id,catalog_id))");
+        db.delete("recipe_ingredients",null,null);db.delete("recipes",null,null);seedCraftingV110(db);
+        seedShop(db,"smith","Brynjos kalvė","npc-brynja","Luminara",11200,5200,new String[]{"weapon","tool"});
+        seedShop(db,"armor","Tareno šarvų dirbtuvė","npc-tarenas","Luminara",11400,5000,new String[]{"head","chest","hands","legs","feet","belt","offhand"});
+        seedShop(db,"runes","Ysros runų namai","npc-ysra","Luminara",11800,4800,new String[]{"ring","neck","relic","material"});
+        seedShop(db,"pharmacy","Elen vaistinė","npc-elen","Luminara",11000,4200,new String[]{"potion","combat_consumable"});
+        seedShop(db,"general","Oreno prekyvietė","npc-orenas","Luminara",10800,4600,new String[]{"food","material","utility","tool"});
+        seedShop(db,"inn","Žibinto poilsio užeiga","npc-mara","Luminara",10500,3000,new String[]{"food"});
+        seedShop(db,"stable","Nestos arklidės","npc-nesta","Luminara",11000,3500,new String[]{"utility"});
+        for(ProgressionEngine.TalentDef talent:ProgressionEngine.TALENTS)seedTalent(db,talent.id);
     }
 
     static void seed(SQLiteDatabase db, GameState state) {
@@ -190,13 +215,7 @@ final class WorldRepository {
         economy(db,"eco-necro","Nekropolio radiniai","PELENŲ NEKROPOLIS",18,49,131);
         economy(db,"eco-coast","Pakrantės prekės","BEDUGNĖS PAKRANTĖ",54,52,99);
 
-        seedRecipe(db,"recipe-heal","Stipresnis gydymo potionas","I092-202","I092-276",2,90);
-        seedRecipe(db,"recipe-mana","Manos potionas","I092-203","I092-278",2,100);
-        seedRecipe(db,"recipe-fire","Liepsnos bomba","I092-227","I092-284",2,125);
-        seedRecipe(db,"recipe-upgrade","Runų dviašmenis","I092-005","I092-277",3,280);
-        seedLockedRecipe(db,"recipe-master-mythic","Liepsnos kardas","I092-022","I092-284",8,5200);
-        seedLockedRecipe(db,"recipe-master-ancient","Šešėlių kardas","I092-024","I092-289",10,12500);
-        seedLockedRecipe(db,"recipe-master-unique","Dangaus spindulio kardas","I092-025","I092-290",14,26000);
+        seedCraftingV110(db);
         business(db,"biz-forge","Mažoji kalvė","craft","Luminara",420,120,8500);
         business(db,"biz-caravan","Karavano dalis","trade","Luminara",760,260,14500);
         business(db,"biz-inn","Užeigos kambarys","hospitality","Luminara",330,95,6200);
@@ -256,17 +275,61 @@ final class WorldRepository {
 
     Shop shopForNpc(String npcName){Npc npc=findNpc(npcName);if(npc==null||!npc.service.startsWith("shop:"))return null;String id=npc.service.substring(5);try(Cursor c=db().rawQuery("SELECT id,name,npc_id,location,markup,buyback FROM shops WHERE id=?",new String[]{id})){if(c.moveToFirst()){Shop s=new Shop();s.id=c.getString(0);s.name=c.getString(1);s.npcId=c.getString(2);s.location=c.getString(3);s.markup=c.getInt(4);s.buyback=c.getInt(5);return s;}}return null;}
 
-    List<Stock> stock(Shop shop,GameState state){if(shop==null)return new ArrayList<>();restock(shop,state.worldMinute);int index=priceIndex(shop.location);Npc npc=npcById(shop.npcId);int discount=npc==null?0:Math.max(0,npc.relationship/5);boolean tradeTalent=unlockedTalentIds().contains("leader_trade");ArrayList<Stock> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT s.shop_id,s.catalog_id,s.quantity,s.base_price,s.level FROM shop_stock s WHERE s.shop_id=? AND s.quantity>0 ORDER BY s.level,s.catalog_id",new String[]{shop.id})){while(c.moveToNext()){ItemCatalogV092.ItemDef item=ItemCatalogV092.byId(c.getString(1));if(item==null)continue;Stock stock=new Stock();stock.shopId=c.getString(0);stock.catalogId=c.getString(1);stock.quantity=c.getInt(2);long calculated=(long)c.getInt(3)*index*shop.markup/10000L/100L-discount;if(tradeTalent)calculated=calculated*92L/100L;stock.price=(int)Math.max(1,Math.min(Integer.MAX_VALUE,calculated));stock.level=c.getInt(4);stock.name=item.name;stock.category=item.category;stock.rarity=item.rarity;result.add(stock);}}return result;}
+    List<Stock> stock(Shop shop,GameState state){
+        if(shop==null)return new ArrayList<>();
+        restock(shop,state.worldMinute);int index=priceIndex(shop.location);Npc npc=npcById(shop.npcId);
+        int discount=npc==null?0:Math.max(0,npc.relationship/5);boolean tradeTalent=unlockedTalentIds().contains("leader_trade");
+        ArrayList<Stock> result=new ArrayList<>();
+        try(Cursor c=db().rawQuery("SELECT s.shop_id,s.catalog_id,s.quantity,s.base_price,s.level FROM shop_stock s WHERE s.shop_id=? AND s.quantity>0 ORDER BY CASE WHEN s.level<=? THEN 0 ELSE 1 END,ABS(s.level-?),s.level,s.catalog_id LIMIT 24",new String[]{shop.id,String.valueOf(state.level),String.valueOf(state.level)})){
+            while(c.moveToNext()){
+                ItemCatalogV092.ItemDef item=ItemCatalogV092.byId(c.getString(1));if(item==null)continue;
+                Stock stock=new Stock();stock.shopId=c.getString(0);stock.catalogId=c.getString(1);stock.quantity=c.getInt(2);
+                long calculated=(long)c.getInt(3)*index*shop.markup/10000L/100L-discount;if(tradeTalent)calculated=calculated*92L/100L;
+                stock.price=(int)Math.max(1,Math.min(Integer.MAX_VALUE,calculated));stock.level=c.getInt(4);stock.name=item.name;stock.category=item.category;stock.rarity=item.rarity;result.add(stock);
+            }
+        }
+        return result;
+    }
 
-    TransactionResult buy(Shop shop,String catalogId,GameState state){if(shop==null)return new TransactionResult(false,"Parduotuvė nerasta");Stock selected=null;for(Stock stock:stock(shop,state))if(stock.catalogId.equals(catalogId)){selected=stock;break;}if(selected==null)return new TransactionResult(false,"Prekės nebėra sandėlyje");if(state.crowns<selected.price)return new TransactionResult(false,"Nepakanka karūnų · reikia "+selected.price);ItemCatalogV092.ItemDef item=ItemCatalogV092.byId(catalogId);if(item==null)return new TransactionResult(false,"Daikto aprašas nerastas");SQLiteDatabase db=db();db.beginTransaction();try{ContentValues q=new ContentValues();q.put("quantity",selected.quantity-1);db.update("shop_stock",q,"shop_id=? AND catalog_id=?",new String[]{shop.id,catalogId});owner.addCatalogLoot(item,1);state.crowns-=selected.price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Nupirkta: "+item.name+" · -"+selected.price+" karūnų");}finally{db.endTransaction();}}
+    TransactionResult buy(Shop shop,String catalogId,GameState state){if(shop==null)return new TransactionResult(false,"Parduotuvė nerasta");Stock selected=null;for(Stock stock:stock(shop,state))if(stock.catalogId.equals(catalogId)){selected=stock;break;}if(selected==null)return new TransactionResult(false,"Prekės nebėra sandėlyje");if(state.level<selected.level)return new TransactionResult(false,"Daiktas skirtas nuo "+selected.level+" lygio · tavo lygis "+state.level);if(state.crowns<selected.price)return new TransactionResult(false,"Nepakanka karūnų · reikia "+selected.price);ItemCatalogV092.ItemDef item=ItemCatalogV092.byId(catalogId);if(item==null)return new TransactionResult(false,"Daikto aprašas nerastas");SQLiteDatabase db=db();db.beginTransaction();try{ContentValues q=new ContentValues();q.put("quantity",selected.quantity-1);db.update("shop_stock",q,"shop_id=? AND catalog_id=?",new String[]{shop.id,catalogId});owner.addCatalogLoot(item,1);state.crowns-=selected.price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Nupirkta: "+item.name+" · -"+selected.price+" karūnų");}finally{db.endTransaction();}}
 
     TransactionResult sell(Shop shop,String itemId,GameState state){VaeloriaDb.Item item=owner.getItem(itemId);if(shop==null||item==null)return new TransactionResult(false,"Sandoris negalimas");if(item.equipped||item.synced||"quest".equals(item.slot)||"quest".equals(item.type))return new TransactionResult(false,"Šio daikto parduoti negalima");int index=priceIndex(shop.location);long calculated=(long)item.value*index*shop.buyback/10000L/100L;if(unlockedTalentIds().contains("leader_trade"))calculated=calculated*108L/100L;int price=(int)Math.max(1,Math.min(Integer.MAX_VALUE,calculated));SQLiteDatabase db=db();db.beginTransaction();try{if(item.quantity>1){ContentValues v=new ContentValues();v.put("quantity",item.quantity-1);db.update("items",v,"id=?",new String[]{item.id});}else db.delete("items","id=?",new String[]{item.id});state.crowns+=price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Parduota: "+item.name+" · +"+price+" karūnų");}finally{db.endTransaction();}}
 
-    List<Recipe> recipes(){ArrayList<Recipe> result=new ArrayList<>();boolean saver=unlockedTalentIds().contains("craft_saver");try(Cursor c=db().rawQuery("SELECT id,name,result_catalog_id,ingredient_catalog_id,ingredient_qty,fee,unlocked FROM recipes ORDER BY fee",null)){while(c.moveToNext()){Recipe r=new Recipe();r.id=c.getString(0);r.name=c.getString(1);r.resultCatalogId=c.getString(2);r.ingredientCatalogId=c.getString(3);r.ingredientQty=c.getInt(4);r.fee=saver?Math.max(1,c.getInt(5)*80/100):c.getInt(5);r.unlocked=c.getInt(6)==1;ItemCatalogV092.ItemDef ingredient=ItemCatalogV092.byId(r.ingredientCatalogId);r.ingredientName=ingredient==null?r.ingredientCatalogId:ingredient.name;result.add(r);}}return result;}
+    List<Recipe> recipes(){
+        ArrayList<Recipe> result=new ArrayList<>();Set<String> talents=unlockedTalentIds();boolean saver=talents.contains("craft_saver");
+        try(Cursor c=db().rawQuery("SELECT id,name,result_catalog_id,fee,unlocked,required_level,station,result_quantity,required_talent FROM recipes ORDER BY required_level,fee,id",null)){
+            while(c.moveToNext()){
+                Recipe r=new Recipe();r.id=c.getString(0);r.name=c.getString(1);r.resultCatalogId=c.getString(2);r.fee=saver?Math.max(1,c.getInt(3)*80/100):c.getInt(3);r.unlocked=c.getInt(4)==1;r.requiredLevel=c.getInt(5);r.station=c.getString(6);r.resultQuantity=Math.max(1,c.getInt(7));r.requiredTalent=c.getString(8)==null?"":c.getString(8);
+                if(!r.requiredTalent.isEmpty())r.unlocked=talents.contains(r.requiredTalent);
+                try(Cursor ingredient=db().rawQuery("SELECT catalog_id,quantity FROM recipe_ingredients WHERE recipe_id=? ORDER BY position,catalog_id",new String[]{r.id})){
+                    while(ingredient.moveToNext()){Ingredient value=new Ingredient();value.catalogId=ingredient.getString(0);value.quantity=ingredient.getInt(1);value.owned=ownedCatalogQuantity(value.catalogId);ItemCatalogV092.ItemDef definition=ItemCatalogV092.byId(value.catalogId);value.name=definition==null?value.catalogId:definition.name;r.ingredients.add(value);}
+                }
+                result.add(r);
+            }
+        }
+        return result;
+    }
 
     int ownedCatalogQuantity(String catalogId){try(Cursor c=db().rawQuery("SELECT COALESCE(SUM(quantity),0) FROM items WHERE catalog_id=?",new String[]{catalogId})){return c.moveToFirst()?c.getInt(0):0;}}
 
-    TransactionResult craft(String recipeId,GameState state){Recipe recipe=null;for(Recipe candidate:recipes())if(candidate.id.equals(recipeId)){recipe=candidate;break;}if(recipe==null||!recipe.unlocked)return new TransactionResult(false,"Receptas neatrakintas");if(ownedCatalogQuantity(recipe.ingredientCatalogId)<recipe.ingredientQty)return new TransactionResult(false,"Trūksta: "+recipe.ingredientName+" ×"+recipe.ingredientQty);if(state.crowns<recipe.fee)return new TransactionResult(false,"Nepakanka karūnų · reikia "+recipe.fee);ItemCatalogV092.ItemDef result=ItemCatalogV092.byId(recipe.resultCatalogId);if(result==null)return new TransactionResult(false,"Rezultato aprašas nerastas");boolean quality=unlockedTalentIds().contains("craft_quality");SQLiteDatabase db=db();db.beginTransaction();try{consumeCatalog(db,recipe.ingredientCatalogId,recipe.ingredientQty);state.crowns-=recipe.fee;owner.addCatalogLoot(result,1);if(quality)owner.awardMastery("Amatų meistriškumas",50);owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Pagaminta: "+result.name+" · sunaudota "+recipe.ingredientName+" ×"+recipe.ingredientQty+" · -"+recipe.fee+" karūnų"+(quality?" · +50 amatų meistriškumo patirties":""));}finally{db.endTransaction();}}
+    TransactionResult craft(String recipeId,GameState state){Recipe recipe=findRecipe(recipeId);return recipe==null?new TransactionResult(false,"Receptas nerastas"):craft(recipeId,state,recipe.station);}
+
+    TransactionResult craft(String recipeId,GameState state,String station){
+        Recipe recipe=findRecipe(recipeId);if(recipe==null)return new TransactionResult(false,"Receptas nerastas");
+        if(!recipe.unlocked)return new TransactionResult(false,recipe.requiredTalent.isEmpty()?"Receptas neatrakintas":"Reikia talento: "+talentName(recipe.requiredTalent));
+        if(state.level<recipe.requiredLevel)return new TransactionResult(false,"Reikia "+recipe.requiredLevel+" veikėjo lygio");
+        if(station==null||!recipe.station.equals(station))return new TransactionResult(false,"Reikia darbo vietos: "+stationLabel(recipe.station));
+        for(Ingredient ingredient:recipe.ingredients)if(ownedCatalogQuantity(ingredient.catalogId)<ingredient.quantity)return new TransactionResult(false,"Trūksta: "+ingredient.name+" ×"+ingredient.quantity);
+        if(state.crowns<recipe.fee)return new TransactionResult(false,"Nepakanka karūnų · reikia "+recipe.fee);
+        ItemCatalogV092.ItemDef result=ItemCatalogV092.byId(recipe.resultCatalogId);if(result==null)return new TransactionResult(false,"Rezultato aprašas nerastas");boolean quality=unlockedTalentIds().contains("craft_quality");
+        SQLiteDatabase database=db();database.beginTransaction();try{
+            for(Ingredient ingredient:recipe.ingredients)consumeCatalog(database,ingredient.catalogId,ingredient.quantity);
+            state.crowns-=recipe.fee;owner.addCatalogLoot(result,recipe.resultQuantity);if(quality)owner.awardMastery("Amatų meistriškumas",50);owner.saveState(state);database.setTransactionSuccessful();
+            return new TransactionResult(true,"Pagaminta: "+result.name+(recipe.resultQuantity>1?" ×"+recipe.resultQuantity:"")+" · -"+recipe.fee+" karūnų"+(quality?" · +50 amatų meistriškumo patirties":""));
+        }finally{database.endTransaction();}
+    }
+
+    private Recipe findRecipe(String id){for(Recipe recipe:recipes())if(recipe.id.equals(id))return recipe;return null;}
 
     List<Event> activeEvents(){ArrayList<Event> result=new ArrayList<>();try(Cursor c=db().rawQuery("SELECT id,title,detail,region,type,severity,active,price_modifier,expires_minute FROM world_events WHERE active=1 ORDER BY severity DESC,id DESC",null)){while(c.moveToNext()){Event e=new Event();e.id=c.getLong(0);e.title=c.getString(1);e.detail=c.getString(2);e.region=c.getString(3);e.type=c.getString(4);e.severity=c.getInt(5);e.active=c.getInt(6)==1;e.priceModifier=c.getInt(7);e.expiresMinute=c.getLong(8);result.add(e);}}return result;}
 
@@ -355,11 +418,11 @@ final class WorldRepository {
 
     int companionCheckBonus(String action){
         Companion active=activeCompanion();if(active==null||!"comp-lyra".equals(active.id))return 0;
-        String query=norm(action);return query.contains("tirt")||query.contains("iešk")||query.contains("iesk")||query.contains("meridian")||query.contains("analiz")?4:0;
+        String query=norm(action);int value=query.contains("tirt")||query.contains("iešk")||query.contains("iesk")||query.contains("meridian")||query.contains("analiz")?4:0;return unlockedTalentIds().contains("leader_command")?value*2:value;
     }
 
-    int companionDefenseBonus(int round){Companion active=activeCompanion();return active!=null&&"comp-kaelis".equals(active.id)&&round<=1?6:0;}
-    int companionVictoryHealing(){Companion active=activeCompanion();return active!=null&&"comp-mirel".equals(active.id)?8:0;}
+    int companionDefenseBonus(int round){Companion active=activeCompanion();int value=active!=null&&"comp-kaelis".equals(active.id)&&round<=1?6:0;return unlockedTalentIds().contains("leader_command")?value*2:value;}
+    int companionVictoryHealing(){Companion active=activeCompanion();int value=active!=null&&"comp-mirel".equals(active.id)?8:0;return unlockedTalentIds().contains("leader_command")?value*2:value;}
 
     String recordCompanionTurn(String action,String event,GameState state){
         Companion active=activeCompanion();if(active==null)return"";int delta="setback".equals(event)?-2:("combat_victory".equals(event)||norm(action).contains(active.name.toLowerCase(Locale.forLanguageTag("lt-LT")))?2:1);
@@ -385,7 +448,10 @@ final class WorldRepository {
         if(state.talentPoints<talent.cost)return new TransactionResult(false,"Trūksta talentų taškų · reikia "+talent.cost);
         state.talentPoints-=talent.cost;ContentValues values=new ContentValues();values.put("unlocked",1);values.put("unlocked_minute",state.worldMinute);db().update("talents",values,"id=?",new String[]{id});
         if("arcane_reserve".equals(id)){state.manaMax+=20;state.mana+=20;}
-        if("craft_masterpiece".equals(id))db().execSQL("UPDATE recipes SET unlocked=1 WHERE id LIKE 'recipe-master-%'");
+        if("arcane_overflow".equals(id)){state.manaMax+=25;state.mana+=25;}
+        if("warrior_unbroken".equals(id)){state.hpMax+=25;state.hp+=25;}
+        if("craft_masterpiece".equals(id))db().execSQL("UPDATE recipes SET unlocked=1 WHERE required_talent='craft_masterpiece'");
+        if("craft_legend".equals(id))db().execSQL("UPDATE recipes SET unlocked=1 WHERE required_talent='craft_legend'");
         owner.saveState(state);return new TransactionResult(true,"Atrakintas talentas: "+talent.name+" · "+talent.description);
     }
 
@@ -426,19 +492,54 @@ final class WorldRepository {
     private static void seedSideQuest(SQLiteDatabase db,String id,String title,String detail){seedQuest(db,id,title,"side","available");seedStep(db,id+"-01",id,0,detail,"available",1);}
     private static void seedStep(SQLiteDatabase db,String id,String quest,int position,String title,String status,int target){ContentValues v=new ContentValues();v.put("id",id);v.put("quest_id",quest);v.put("position",position);v.put("title",title);v.put("status",status);v.put("target",target);db.insertWithOnConflict("quest_steps",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void seedNpc(SQLiteDatabase db,String id,String name,String role,String location,String service){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("role",role);v.put("location",location);v.put("service",service);db.insertWithOnConflict("npcs",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
-    private static void seedShop(SQLiteDatabase db,String id,String name,String npc,String location,int markup,int buyback,String[] categories){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("npc_id",npc);v.put("location",location);v.put("markup",markup);v.put("buyback",buyback);db.insertWithOnConflict("shops",null,v,SQLiteDatabase.CONFLICT_IGNORE);int added=0;List<String> allowed=Arrays.asList(categories);for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){if(!allowed.contains(item.category)||"quest".equals(item.category))continue;ContentValues stock=new ContentValues();stock.put("shop_id",id);stock.put("catalog_id",item.id);stock.put("quantity",2+Math.abs(item.id.hashCode()%4));stock.put("base_price",Math.max(1,item.value));stock.put("level",item.level);db.insertWithOnConflict("shop_stock",null,stock,SQLiteDatabase.CONFLICT_IGNORE);if(++added>=14)break;}}
+    private static void seedShop(SQLiteDatabase db,String id,String name,String npc,String location,int markup,int buyback,String[] categories){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("npc_id",npc);v.put("location",location);v.put("markup",markup);v.put("buyback",buyback);db.insertWithOnConflict("shops",null,v,SQLiteDatabase.CONFLICT_IGNORE);List<String> allowed=Arrays.asList(categories);for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){if(!allowed.contains(item.category)||"quest".equals(item.category))continue;ContentValues stock=new ContentValues();stock.put("shop_id",id);stock.put("catalog_id",item.id);stock.put("quantity",2+Math.abs(item.id.hashCode()%4));stock.put("base_price",Math.max(1,item.value));stock.put("level",item.level);db.insertWithOnConflict("shop_stock",null,stock,SQLiteDatabase.CONFLICT_IGNORE);}}
     private static void seedFaction(SQLiteDatabase db,String id,String name,int influence,String relation,int treasury,int territory,int tension){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("influence",influence);v.put("relation",relation);v.put("treasury",treasury);v.put("territory",territory);v.put("tension",tension);db.insertWithOnConflict("factions",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void relation(SQLiteDatabase db,String a,String b,int standing,int tension,String treaty){ContentValues v=new ContentValues();v.put("faction_a",a);v.put("faction_b",b);v.put("standing",standing);v.put("tension",tension);v.put("treaty",treaty);db.insertWithOnConflict("faction_relations",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void settlement(SQLiteDatabase db,String id,String name,String region,String faction,int prosperity,int security,int autonomy,String rival){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("region",region);v.put("faction",faction);v.put("prosperity",prosperity);v.put("security",security);v.put("autonomy",autonomy);v.put("rival_id",rival);db.insertWithOnConflict("settlements",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void economy(SQLiteDatabase db,String id,String label,String region,int supply,int demand,int index){ContentValues v=new ContentValues();v.put("id",id);v.put("label",label);v.put("region",region);v.put("supply",supply);v.put("demand",demand);v.put("price_index",index);db.insertWithOnConflict("economy",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
-    private static void seedRecipe(SQLiteDatabase db,String id,String name,String result,String ingredient,int qty,int fee){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("result_catalog_id",result);v.put("ingredient_catalog_id",ingredient);v.put("ingredient_qty",qty);v.put("fee",fee);db.insertWithOnConflict("recipes",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
-    private static void seedLockedRecipe(SQLiteDatabase db,String id,String name,String result,String ingredient,int qty,int fee){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("result_catalog_id",result);v.put("ingredient_catalog_id",ingredient);v.put("ingredient_qty",qty);v.put("fee",fee);v.put("unlocked",0);db.insertWithOnConflict("recipes",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
+    private static void seedCraftingV110(SQLiteDatabase db){
+        seedRecipeV110(db,"recipe-small-heal","Mažieji gydymo potionai","I092-201",1,"alchemy",2,"",45,new String[][]{{"I092-277","1"}});
+        seedRecipeV110(db,"recipe-mana","Manos potionai","I092-203",1,"alchemy",2,"",55,new String[][]{{"I092-277","1"}});
+        seedRecipeV110(db,"recipe-stamina","Ištvermės potionai","I092-204",1,"alchemy",2,"",60,new String[][]{{"I092-277","1"}});
+        seedRecipeV110(db,"recipe-fire-bomb","Liepsnos bombos","I092-226",3,"alchemy",2,"",80,new String[][]{{"I092-277","1"},{"I092-278","1"}});
+        seedRecipeV110(db,"recipe-frost-bomb","Šerkšno bombos","I092-227",11,"alchemy",2,"",125,new String[][]{{"I092-277","2"},{"I092-278","1"}});
+        seedRecipeV110(db,"recipe-greater-heal","Didysis gydymo potionas","I092-202",16,"alchemy",1,"",160,new String[][]{{"I092-276","2"},{"I092-278","1"}});
+        seedRecipeV110(db,"recipe-aeonic","Eoninės energijos potionas","I092-205",19,"alchemy",1,"",210,new String[][]{{"I092-279","1"},{"I092-278","2"}});
+        seedRecipeV110(db,"recipe-holy-water","Šventinto vandens kolbos","I092-231",20,"alchemy",2,"",240,new String[][]{{"I092-277","2"},{"I092-278","1"}});
+        seedRecipeV110(db,"recipe-rune-blade","Runų dviašmenis","I092-005",23,"forge",1,"",420,new String[][]{{"I092-276","3"},{"I092-279","1"}});
+        seedRecipeV110(db,"recipe-acid","Rūgšties kolbos","I092-232",28,"alchemy",2,"",310,new String[][]{{"I092-279","2"},{"I092-280","1"}});
+        seedRecipeV110(db,"recipe-war-axe","Karo kirvis","I092-006",31,"forge",1,"",540,new String[][]{{"I092-276","4"},{"I092-283","1"}});
+        seedRecipeV110(db,"recipe-stone-skin","Akmens odos eliksyras","I092-212",32,"alchemy",1,"",600,new String[][]{{"I092-281","1"},{"I092-279","2"}});
+        seedRecipeV110(db,"recipe-vanguard-chest","Plieno Avangardo krūtinės šarvai","I092-103",35,"forge",1,"",760,new String[][]{{"I092-276","5"},{"I092-281","2"}});
+        seedRecipeV110(db,"recipe-strength","Jėgos eliksyras","I092-213",40,"alchemy",1,"",900,new String[][]{{"I092-284","1"},{"I092-283","2"}});
+        seedRecipeV110(db,"recipe-fire-scroll","Liepsnos burtų ritinys","I092-236",44,"runic",1,"",1050,new String[][]{{"I092-284","2"},{"I092-280","2"}});
+        seedRecipeV110(db,"recipe-arcane","Arkaninės galios eliksyras","I092-215",45,"alchemy",1,"",1150,new String[][]{{"I092-288","2"},{"I092-280","2"}});
+        seedRecipeV110(db,"recipe-frost-scroll","Šerkšno burtų ritinys","I092-237",52,"runic",1,"",1450,new String[][]{{"I092-285","2"},{"I092-281","2"}});
+        seedRecipeV110(db,"recipe-full-flask","Visiško atsigavimo kolba","I092-216",53,"alchemy",1,"",1750,new String[][]{{"I092-286","1"},{"I092-287","3"},{"I092-288","2"}});
+        seedRecipeV110(db,"recipe-skull-mace","Kaukolės smogtuvas","I092-014",63,"forge",1,"",2400,new String[][]{{"I092-286","3"},{"I092-284","4"}});
+        seedRecipeV110(db,"recipe-speed","Greitumo eliksyras","I092-214",68,"alchemy",1,"",2900,new String[][]{{"I092-289","2"},{"I092-288","3"}});
+        seedRecipeV110(db,"recipe-phoenix-focus","Fenikso židinys","I092-308",70,"runic",1,"",3600,new String[][]{{"I092-286","4"},{"I092-284","5"}});
+        seedRecipeV110(db,"recipe-mirror-shard","Veidrodžio šukė","I092-270",76,"runic",1,"",4800,new String[][]{{"I092-290","4"},{"I092-289","3"}});
+        seedRecipeV110(db,"recipe-ghost","Šmėklos esencijos potionas","I092-219",82,"alchemy",1,"",5500,new String[][]{{"I092-290","3"},{"I092-289","4"}});
+        seedRecipeV110(db,"recipe-master-mythic","Liepsnos kardas","I092-022",87,"forge",1,"craft_masterpiece",7200,new String[][]{{"I092-290","6"},{"I092-284","8"}});
+        seedRecipeV110(db,"recipe-void-staff","Tuštumos lazda","I092-304",90,"runic",1,"craft_masterpiece",8600,new String[][]{{"I092-290","7"},{"I092-289","5"}});
+        seedRecipeV110(db,"recipe-master-ancient","Šešėlių kardas","I092-024",94,"forge",1,"craft_legend",14500,new String[][]{{"I092-290","10"},{"I092-289","8"}});
+        seedRecipeV110(db,"recipe-master-unique","Dangaus spindulio kardas","I092-025",100,"forge",1,"craft_legend",28000,new String[][]{{"I092-290","14"},{"I092-289","10"}});
+    }
+
+    private static void seedRecipeV110(SQLiteDatabase db,String id,String name,String result,int level,String station,int resultQuantity,String requiredTalent,int fee,String[][] ingredients){
+        ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("result_catalog_id",result);v.put("ingredient_catalog_id",ingredients.length==0?"":ingredients[0][0]);v.put("ingredient_qty",ingredients.length==0?0:Integer.parseInt(ingredients[0][1]));v.put("fee",fee);v.put("unlocked",requiredTalent.isEmpty()?1:0);v.put("required_level",level);v.put("station",station);v.put("result_quantity",resultQuantity);v.put("required_talent",requiredTalent);db.insertWithOnConflict("recipes",null,v,SQLiteDatabase.CONFLICT_REPLACE);
+        for(int position=0;position<ingredients.length;position++){ContentValues ingredient=new ContentValues();ingredient.put("recipe_id",id);ingredient.put("catalog_id",ingredients[position][0]);ingredient.put("quantity",Integer.parseInt(ingredients[position][1]));ingredient.put("position",position);db.insertWithOnConflict("recipe_ingredients",null,ingredient,SQLiteDatabase.CONFLICT_REPLACE);}
+    }
     private static void business(SQLiteDatabase db,String id,String name,String type,String location,int revenue,int upkeep,int price){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("type",type);v.put("location",location);v.put("revenue",revenue);v.put("upkeep",upkeep);v.put("price",price);db.insertWithOnConflict("businesses",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void companion(SQLiteDatabase db,String id,String npc,String name,String role,String perk){ContentValues v=new ContentValues();v.put("id",id);v.put("npc_id",npc);v.put("name",name);v.put("role",role);v.put("perk",perk);db.insertWithOnConflict("companions",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void seedTalent(SQLiteDatabase db,String id){ContentValues v=new ContentValues();v.put("id",id);db.insertWithOnConflict("talents",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void seedLocation(SQLiteDatabase db,String id,String name,String region,int danger,int x,int y,boolean discovered){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("region",region);v.put("danger",danger);v.put("x",x);v.put("y",y);v.put("discovered",discovered?1:0);db.insertWithOnConflict("locations",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static boolean scheduleAvailable(String service,long minute){long hour=(minute%1440)/60;if(service.contains("guard"))return true;if(service.contains("inn"))return hour>=6||hour<2;return hour>=7&&hour<22;}
     private static void removeFirst(JSONArray array){JSONArray copy=new JSONArray();for(int i=1;i<array.length();i++)copy.put(array.opt(i));while(array.length()>0)array.remove(array.length()-1);for(int i=0;i<copy.length();i++)array.put(copy.opt(i));}
+    static String stationLabel(String value){if("alchemy".equals(value))return"alchemijos stalas";if("forge".equals(value))return"kalvė";if("runic".equals(value))return"runų stalas";return"lauko darbastalis";}
+    private static String talentName(String id){ProgressionEngine.TalentDef talent=ProgressionEngine.byId(id);return talent==null?id:talent.name;}
+    private static void addColumn(SQLiteDatabase db,String sql){try{db.execSQL(sql);}catch(Exception ignored){}}
     private static String compact(String value,int max){String result=value==null?"":value.trim().replaceAll("\\s+"," ");return result.length()>max?result.substring(0,max-1)+"…":result;}
     private static String norm(String value){return value==null?"":value.toLowerCase(Locale.forLanguageTag("lt-LT"));}
     private static int clamp(int value,int min,int max){return Math.max(min,Math.min(max,value));}

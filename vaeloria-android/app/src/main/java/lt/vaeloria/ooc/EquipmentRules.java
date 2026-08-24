@@ -4,13 +4,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /** Autoritetingas v1.0 įrangos ir setų poveikių vertimas į žaidimo skaičiavimus. */
 final class EquipmentRules {
-    private static final Pattern NUMBER = Pattern.compile("(\\d+)");
-
     static final class Stats {
         int attack;
         int defense;
@@ -69,34 +65,41 @@ final class EquipmentRules {
 
     static String itemMechanic(VaeloriaDb.Item item) {
         if (item == null) return "Poveikis neaktyvus";
-        int value = effectValue(item);
+        int value = mechanicalPower(item);
         String category = item.slot == null ? "" : item.slot;
-        if ("weapon".equals(category)) return "+" + legacyOr(value, item.power, legacyAttack(item)) + " puolimo galios";
-        if (isArmor(category) || "offhand".equals(category)) return "+" + legacyOr(value, item.power, legacyDefense(item)) + " fizinės gynybos";
-        if ("ring".equals(category) || "neck".equals(category) || "relic".equals(category)) return "+" + Math.max(1, legacyOr(value, item.power, 8)) + " rezonanso galios";
+        if ("weapon".equals(category)) return "+" + legacyOr(value, legacyAttack(item)) + " puolimo galios";
+        if (isArmor(category) || "offhand".equals(category)) return "+" + legacyOr(value, legacyDefense(item)) + " fizinės gynybos arba fokuso galios";
+        if ("ring".equals(category) || "neck".equals(category) || "relic".equals(category)) return "+" + Math.max(1, legacyOr(value, 8)) + " rezonanso galios";
         if (item.effect != null && !item.effect.isEmpty()) return item.effect;
         return "Galia " + Math.max(0, item.power) + " naudojama žaidimo patikrose";
     }
 
     private static void applyItem(Stats result, VaeloriaDb.Item item) {
         String category = item.slot == null ? "" : item.slot;
-        int value = effectValue(item);
+        int value = mechanicalPower(item);
+        String subtype = subtype(item);
         if ("weapon".equals(category)) {
-            result.attack += legacyOr(value, item.power, legacyAttack(item));
+            result.attack += legacyOr(value, legacyAttack(item));
             String name = lower(item.name);
             if (name.contains("durkl")) { result.speed += 5; result.criticalChance += 4; }
             else if (name.contains("lank")) result.criticalChance += 3;
             else if (name.contains("kūj") || name.contains("kuj") || name.contains("kirv")) result.criticalDamage += 12;
+            if ("staff".equals(subtype) || "wand".equals(subtype)) result.magicPower += Math.max(2, value / 2);
         } else if (isArmor(category) || "offhand".equals(category)) {
-            result.defense += legacyOr(value, item.power, legacyDefense(item));
-            if ("feet".equals(category) || "hands".equals(category)) result.speed += Math.max(1, item.power / 18);
+            int resolved=legacyOr(value, legacyDefense(item));
+            if ("offhand".equals(category) && !"shield".equals(subtype)) {
+                result.defense += Math.max(1,resolved/4);
+                result.magicPower += Math.max(2,resolved/2);
+                result.resonance += Math.max(1,resolved/3);
+            } else result.defense += resolved;
+            if ("feet".equals(category) || "hands".equals(category)) result.speed += Math.max(1, value / 18);
         } else if ("ring".equals(category) || "neck".equals(category) || "relic".equals(category)) {
-            int resonance = legacyOr(value, item.power, legacyResonance(item));
+            int resonance = legacyOr(value, legacyResonance(item));
             result.resonance += resonance;
             result.magicPower += Math.max(1, resonance / 3);
         } else if ("utility".equals(category)) {
-            result.speed += Math.max(2, item.power / 12);
-            result.checkBonus += Math.max(1, item.power / 30);
+            result.speed += Math.max(2, value / 12);
+            result.checkBonus += Math.max(1, value / 30);
         }
     }
 
@@ -114,24 +117,24 @@ final class EquipmentRules {
             if (pieces >= 4) { result.attack += 4; result.defense += 4; }
             if (pieces >= 6) result.blockCounter = true;
         } else if ("set_girios_seklys".equals(setId)) {
-            if (pieces >= 2) result.speed += 8;
+            if (pieces >= 2) { result.speed += 8; result.checkBonus += 2; }
             if (pieces >= 4) result.checkBonus += 4;
             if (pieces >= 6) result.ambushProtection = true;
         } else if ("set_nakties_asmuo".equals(setId)) {
             if (pieces >= 2) result.criticalDamage += 12;
-            if (pieces >= 4) result.speed += 5;
+            if (pieces >= 4) { result.speed += 5; result.checkBonus += 5; }
             if (pieces >= 6) result.dodgeEmpowersAttack = true;
         } else if ("set_meridiano_arkanistas".equals(setId)) {
             if (pieces >= 2) result.maxMana += 20;
-            if (pieces >= 4) { result.magicPower += 5; result.checkBonus += 2; }
+            if (pieces >= 4) { result.magicPower += 5; result.checkBonus += 5; }
             if (pieces >= 6) result.thirdSpellDiscount = true;
         } else if ("set_ausros_paladinas".equals(setId)) {
             if (pieces >= 2) { result.maxHp += 15; result.defense += 15; }
-            if (pieces >= 4) { result.defense += 6; result.checkBonus += 3; }
+            if (pieces >= 4) { result.defense += 6; result.checkBonus += 6; }
             if (pieces >= 6) result.dawnBarrier = true;
         } else if ("set_siaures_berserkas".equals(setId)) {
             if (pieces >= 2) result.attack += 18;
-            if (pieces >= 4) result.attack += 6;
+            if (pieces >= 4) { result.attack += 6; result.checkBonus += 6; }
             if (pieces >= 6) result.berserk = true;
         } else if ("set_gyvasaknes_sergas".equals(setId)) {
             if (pieces >= 2) result.poisonResistance += 20;
@@ -139,14 +142,26 @@ final class EquipmentRules {
             if (pieces >= 6) result.postCombatRegeneration = true;
         } else if ("set_kapu_valdovas".equals(setId)) {
             if (pieces >= 2) result.necroticResistance += 25;
-            if (pieces >= 4) { result.magicPower += 10; result.checkBonus += 5; }
+            if (pieces >= 4) { result.magicPower += 10; result.checkBonus += 10; }
             if (pieces >= 6) result.cheatDeath = true;
         }
     }
 
-    private static int effectValue(VaeloriaDb.Item item) {
-        Matcher matcher = NUMBER.matcher(item.effect == null ? "" : item.effect);
-        return matcher.find() ? parse(matcher.group(1)) : 0;
+    private static int mechanicalPower(VaeloriaDb.Item item) {
+        ItemCatalogV092.ItemDef definition=definition(item);
+        if(definition!=null)return Math.max(0,definition.power);
+        return Math.max(0,item.power);
+    }
+
+    private static String subtype(VaeloriaDb.Item item){
+        ItemCatalogV092.ItemDef definition=definition(item);
+        return definition==null?(item.type==null?"":item.type):definition.subtype;
+    }
+
+    private static ItemCatalogV092.ItemDef definition(VaeloriaDb.Item item){
+        if(item==null)return null;
+        ItemCatalogV092.ItemDef definition=item.catalogId==null?null:ItemCatalogV092.byId(item.catalogId);
+        return definition==null?ItemCatalogV092.find(item.name):definition;
     }
 
     private static int legacyAttack(VaeloriaDb.Item item) {
@@ -170,8 +185,7 @@ final class EquipmentRules {
         return 8;
     }
 
-    private static int legacyOr(int parsed, int power, int legacy) {
-        if (parsed > 0) return parsed;
+    private static int legacyOr(int power, int legacy) {
         if (power > 0) return power;
         return Math.max(0, legacy);
     }
@@ -181,7 +195,6 @@ final class EquipmentRules {
                 || "legs".equals(category) || "feet".equals(category) || "belt".equals(category);
     }
 
-    private static int parse(String value) { try { return Integer.parseInt(value); } catch (Exception ignored) { return 0; } }
     private static String lower(String value) { return value == null ? "" : value.toLowerCase(Locale.forLanguageTag("lt-LT")); }
     private static int clamp(int value, int min, int max) { return Math.max(min, Math.min(max, value)); }
     private EquipmentRules() {}

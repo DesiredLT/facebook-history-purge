@@ -34,7 +34,7 @@ public class V083DatabaseMigrationDeviceTest {
         context.deleteDatabase("vaeloria.db");
     }
 
-    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionTwelve() throws Exception {
+    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionThirteen() throws Exception {
         File path = context.getDatabasePath("vaeloria.db");
         File parent = path.getParentFile();
         assertNotNull(parent);
@@ -73,7 +73,7 @@ public class V083DatabaseMigrationDeviceTest {
 
         VaeloriaDb upgraded = new VaeloriaDb(context);
         SQLiteDatabase database = upgraded.getWritableDatabase();
-        assertEquals(12, database.getVersion());
+        assertEquals(13, database.getVersion());
         GameState restored = upgraded.loadState();
         assertEquals("Veyrhold", restored.location);
         assertEquals(73, restored.hp);
@@ -88,11 +88,12 @@ public class V083DatabaseMigrationDeviceTest {
         assertTrue(tableExists(database, "stats"));
         assertTrue(tableExists(database, "mastery"));
         for(String table:new String[]{"quests","quest_steps","quest_evidence","npcs","shops","shop_stock",
-                "factions","faction_relations","settlements","world_events","economy","recipes","businesses",
+                "factions","faction_relations","settlements","world_events","economy","recipes","recipe_ingredients","businesses",
                 "hired_npcs","companions","talents","locations","save_slots"})assertTrue(tableExists(database,table));
         assertFalse(upgraded.world().locations().isEmpty());
         assertTrue(upgraded.world().isDiscovered("Luminara"));
         for(String column:new String[]{"catalog_id","item_level","power","set_id","quantity","value","effect"})assertTrue(columnExists(database,"items",column));
+        for(String column:new String[]{"required_level","station","result_quantity","required_talent"})assertTrue(columnExists(database,"recipes",column));
         upgraded.close();
     }
 
