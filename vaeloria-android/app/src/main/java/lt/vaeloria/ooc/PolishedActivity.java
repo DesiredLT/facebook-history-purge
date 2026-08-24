@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Vaeloria v1.0.1 premium mobile presentation over the persistent RPG systems. */
+/** Vaeloria v1.1.0 premium mobile presentation over the persistent RPG systems. */
 public class PolishedActivity extends PremiumActivity {
     private static final int LINE = Color.rgb(43, 59, 68);
     private static final int PANEL = Color.rgb(9, 19, 27);
@@ -471,7 +471,8 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout progression=panel(true);progression.addView(section("LYGIS IR TALENTAI"));
         progression.addView(serif("Lygis "+state.level+" · "+state.experience+" / "+state.experienceNext+" patirties",18,PARCH,true));
         ProgressBar xp=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);xp.setMax(Math.max(1,state.experienceNext));xp.setProgress(state.experience);xp.setProgressTintList(android.content.res.ColorStateList.valueOf(GOLD2));xp.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(36,50,58)));progression.addView(xp,new LinearLayout.LayoutParams(-1,dp(8)));
-        progression.addView(txt("Laisvi talentų taškai: "+state.talentPoints+" · atrakinta "+db.world().unlockedTalentIds().size()+" / "+ProgressionEngine.TALENTS.length,10,SUB,false),sp(dp(6)));
+        progression.addView(txt("Laisvi talentų taškai: "+state.talentPoints+" · savybių taškai: "+state.attributePoints+" · atrakinta "+db.world().unlockedTalentIds().size()+" / "+ProgressionEngine.TALENTS.length,10,SUB,false),sp(dp(6)));
+        if(state.temporaryEffectTurns>0)progression.addView(txt("AKTYVUS POVEIKIS · "+state.temporaryEffectName+" · liko "+state.temporaryEffectTurns+" ėj.",9,GREEN,true),sp(dp(5)));
         Button talents=gold("ATVERTI TALENTŲ MEDĮ");talents.setMinHeight(dp(48));talents.setOnClickListener(view->talentDialog());progression.addView(talents);column.addView(progression,sp(dp(9)));
 
         LinearLayout companions=panel(false);companions.addView(section("KOMPANIONAI"));WorldRepository.Companion activeCompanion=db.world().activeCompanion();
@@ -669,12 +670,12 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     private View catalogCard(ItemCatalogV092.ItemDef item) {
-        LinearLayout card = col();int color = rarity(item.rarity);card.setPadding(dp(8), dp(8), dp(8), dp(8));
+        LinearLayout card = col();int color = rarity(item.rarity);boolean locked=state.level<item.level;card.setPadding(dp(8), dp(8), dp(8), dp(8));
         card.setBackground(round(PANEL_2, 13, Color.argb(160, Color.red(color), Color.green(color), Color.blue(color))));
         ItemArtView artwork = new ItemArtView(this);artwork.setItem(item.name, item.category, item.rarity);
         card.addView(artwork, new LinearLayout.LayoutParams(-1, dp(112)));
         TextView name = serif(item.name, 11, PARCH, true);name.setMaxLines(2);card.addView(name, sp(dp(3)));
-        card.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT) + " · L" + item.level, 7, color, true));
+        card.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT) + " · L" + item.level+(locked?" · UŽRAKINTA":""), 7, locked?Color.rgb(215,154,91):color, true));
         card.addView(txt("GALIA " + item.power + " · " + ItemCatalogV092.categoryLabel(item.category), 7, SUB, false));
         card.setContentDescription(item.name + ". " + rarityLabel(item.rarity) + ". Lygis " + item.level);
         card.setOnClickListener(view -> catalogItemDialog(item));return card;
@@ -687,7 +688,8 @@ public class PolishedActivity extends PremiumActivity {
         content.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT) + " · LYGIS " + item.level + " · GALIA " + item.power, 9, rarity(item.rarity), true), sp(dp(6)));
         content.addView(txt(ItemCatalogV092.categoryLabel(item.category) + " · vertė " + item.value + " karūnų", 9, GOLD2, true), sp(dp(6)));
         content.addView(txt(item.description, 11, Color.rgb(218, 223, 218), false));
-        if (!item.effect.isEmpty()) content.addView(txt("POVEIKIS · " + item.effect, 10, GREEN, true), sp(dp(7)));
+        if (!item.effect.isEmpty()) content.addView(txt("MECHANIKA · " + (item.consumable?ConsumableRulesV110.description(item):item.effect), 10, GREEN, true), sp(dp(7)));
+        content.addView(txt(state.level<item.level?"UŽRAKINTA · galima naudoti ar įrengti nuo "+item.level+" lygio":"LYGIO REIKALAVIMAS ĮVYKDYTAS",9,state.level<item.level?Color.rgb(215,154,91):GREEN,true),sp(dp(6)));
         content.addView(txt("KILMĖ · " + item.region, 9, SUB, true), sp(dp(6)));
         if (!item.setId.isEmpty()) {ItemCatalogV092.SetDef set = ItemCatalogV092.setById(item.setId);if (set != null) content.addView(txt("SETO DALIS · " + set.name, 10, rarity(set.rarity), true), sp(dp(6)));}
         new AlertDialog.Builder(this).setView(scroll).setPositiveButton("UŽDARYTI", null).show();
@@ -976,15 +978,17 @@ public class PolishedActivity extends PremiumActivity {
     private void shopDialog(WorldRepository.Shop shop){
         ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);
         column.addView(serif(shop.name,22,PARCH,true));column.addView(txt("Turimos karūnos · "+state.crowns+" · kainos priklauso nuo pasiūlos, pasaulio įvykių ir santykio su pardavėju.",9,SUB,false),sp(dp(8)));
-        LinearLayout actions=row();Button sell=outline("PARDUOTI");sell.setMinHeight(dp(48));sell.setOnClickListener(view->sellDialog(shop));actions.addView(sell,new LinearLayout.LayoutParams(0,dp(48),1));Space gap=new Space(this);actions.addView(gap,new LinearLayout.LayoutParams(dp(7),1));Button craft=outline("GAMINTI");craft.setMinHeight(dp(48));craft.setOnClickListener(view->craftDialog());actions.addView(craft,new LinearLayout.LayoutParams(0,dp(48),1));column.addView(actions,sp(dp(9)));
+        LinearLayout actions=row();Button sell=outline("PARDUOTI");sell.setMinHeight(dp(48));sell.setOnClickListener(view->sellDialog(shop));actions.addView(sell,new LinearLayout.LayoutParams(0,dp(48),1));Space gap=new Space(this);actions.addView(gap,new LinearLayout.LayoutParams(dp(7),1));Button craft=outline("GAMINTI");craft.setMinHeight(dp(48));craft.setOnClickListener(view->craftDialog(shop));actions.addView(craft,new LinearLayout.LayoutParams(0,dp(48),1));column.addView(actions,sp(dp(9)));
         List<WorldRepository.Stock> stock=db.world().stock(shop,state);if(stock.isEmpty())column.addView(txt("Atsargos išpirktos. Parduotuvė pasipildys kitą pasaulio dieną.",10,SUB,false));
-        for(WorldRepository.Stock entry:stock){LinearLayout item=panel(false);LinearLayout header=row();header.setGravity(Gravity.CENTER_VERTICAL);header.addView(serif(entry.name,13,PARCH,true),new LinearLayout.LayoutParams(0,-2,1));header.addView(chip(rarityLabel(entry.rarity).toUpperCase(Locale.ROOT),rarity(entry.rarity)));item.addView(header);item.addView(txt(ItemCatalogV092.categoryLabel(entry.category)+" · L"+entry.level+" · liko "+entry.quantity,8,SUB,false));Button buy=gold("PIRKTI · "+entry.price+" KARŪNŲ");buy.setMinHeight(dp(46));buy.setEnabled(state.crowns>=entry.price);buy.setOnClickListener(view->new AlertDialog.Builder(this).setTitle(entry.name).setMessage("Pirkti už "+entry.price+" karūnų?").setNegativeButton("NE",null).setPositiveButton("PIRKTI",(dialog,which)->{db.checkpoint("prieš pirkimą",state);WorldRepository.TransactionResult result=db.world().buy(shop,entry.catalogId,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();shopDialog(shop);}).show());item.addView(buy,sp(dp(2)));column.addView(item,sp(dp(6)));}
+        for(WorldRepository.Stock entry:stock){boolean levelReady=state.level>=entry.level;LinearLayout item=panel(false);LinearLayout header=row();header.setGravity(Gravity.CENTER_VERTICAL);header.addView(serif(entry.name,13,PARCH,true),new LinearLayout.LayoutParams(0,-2,1));header.addView(chip(rarityLabel(entry.rarity).toUpperCase(Locale.ROOT),rarity(entry.rarity)));item.addView(header);item.addView(txt(ItemCatalogV092.categoryLabel(entry.category)+" · L"+entry.level+" · liko "+entry.quantity+(levelReady?"":" · REIKIA L"+entry.level),8,levelReady?SUB:Color.rgb(215,154,91),!levelReady));Button buy=gold(levelReady?"PIRKTI · "+entry.price+" KARŪNŲ":"UŽRAKINTA IKI L"+entry.level);buy.setMinHeight(dp(46));buy.setEnabled(levelReady&&state.crowns>=entry.price);buy.setOnClickListener(view->new AlertDialog.Builder(this).setTitle(entry.name).setMessage("Pirkti už "+entry.price+" karūnų?").setNegativeButton("NE",null).setPositiveButton("PIRKTI",(dialog,which)->{db.checkpoint("prieš pirkimą",state);WorldRepository.TransactionResult result=db.world().buy(shop,entry.catalogId,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();shopDialog(shop);}).show());item.addView(buy,sp(dp(2)));column.addView(item,sp(dp(6)));}
         new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();
     }
 
     private void sellDialog(WorldRepository.Shop shop){ArrayList<VaeloriaDb.Item> sellable=new ArrayList<>();for(VaeloriaDb.Item item:db.getItems())if(!item.equipped&&!item.synced&&item.value>0&&!"quest".equals(item.type))sellable.add(item);if(sellable.isEmpty()){Toast.makeText(this,"Nėra parduodamų daiktų",Toast.LENGTH_SHORT).show();return;}String[] names=new String[sellable.size()];for(int i=0;i<sellable.size();i++){VaeloriaDb.Item item=sellable.get(i);names[i]=item.name+(item.quantity>1?" ×"+item.quantity:"")+" · bazinė vertė "+item.value;}new AlertDialog.Builder(this).setTitle("Parduoti vieną daiktą").setItems(names,(dialog,which)->{VaeloriaDb.Item item=sellable.get(which);db.checkpoint("prieš pardavimą",state);WorldRepository.TransactionResult result=db.world().sell(shop,item.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");}).setNegativeButton("UŽDARYTI",null).show();}
 
-    private void craftDialog(){ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);column.addView(serif("GAMYBA IR PATOBULINIMAI",21,PARCH,true));column.addView(txt("Receptai sunaudoja tikrus inventoriaus reagentus ir karūnas. Atšaukimas grąžina visą sandorio būseną.",9,SUB,false),sp(dp(8)));for(WorldRepository.Recipe recipe:db.world().recipes()){int owned=db.world().ownedCatalogQuantity(recipe.ingredientCatalogId);Button button=dark(recipe.name+"\n"+recipe.ingredientName+" "+owned+"/"+recipe.ingredientQty+" · "+recipe.fee+" karūnų");button.setAllCaps(false);button.setMinHeight(dp(58));button.setEnabled(recipe.unlocked&&owned>=recipe.ingredientQty&&state.crowns>=recipe.fee);button.setOnClickListener(view->{db.checkpoint("prieš gamybą",state);WorldRepository.TransactionResult result=db.world().craft(recipe.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");});column.addView(button,sp(dp(5)));}new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();}
+    private void craftDialog(WorldRepository.Shop shop){String station=stationForShop(shop);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);column.addView(serif("GAMYBA · "+WorldRepository.stationLabel(station).toUpperCase(Locale.forLanguageTag("lt-LT")),21,PARCH,true));column.addView(txt("Receptai tikrina veikėjo lygį, talentą, darbo vietą, visus reagentus ir karūnas vienoje atšaukiamoje operacijoje.",9,SUB,false),sp(dp(8)));int shown=0;for(WorldRepository.Recipe recipe:db.world().recipes()){if(!station.equals(recipe.station))continue;shown++;boolean ingredientsReady=true;StringBuilder ingredients=new StringBuilder();for(WorldRepository.Ingredient ingredient:recipe.ingredients){if(ingredients.length()>0)ingredients.append(" · ");ingredients.append(ingredient.name).append(' ').append(ingredient.owned).append('/').append(ingredient.quantity);if(ingredient.owned<ingredient.quantity)ingredientsReady=false;}boolean levelReady=state.level>=recipe.requiredLevel;boolean ready=recipe.unlocked&&levelReady&&ingredientsReady&&state.crowns>=recipe.fee;String lock=!recipe.unlocked?"REIKIA TALENTO":!levelReady?"REIKIA L"+recipe.requiredLevel:!ingredientsReady?"TRŪKSTA REAGENTŲ":state.crowns<recipe.fee?"TRŪKSTA KARŪNŲ":"PARUOŠTA";Button button=dark(recipe.name+(recipe.resultQuantity>1?" ×"+recipe.resultQuantity:"")+" · L"+recipe.requiredLevel+"\n"+ingredients+"\n"+recipe.fee+" karūnų · "+lock);button.setAllCaps(false);button.setMinHeight(dp(76));button.setEnabled(ready);button.setOnClickListener(view->{db.checkpoint("prieš gamybą",state);WorldRepository.TransactionResult result=db.world().craft(recipe.id,state,station);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");});column.addView(button,sp(dp(5)));}if(shown==0)column.addView(txt("Šioje darbo vietoje receptų nėra.",10,SUB,false));new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();}
+
+    private String stationForShop(WorldRepository.Shop shop){if(shop==null)return"field";if("smith".equals(shop.id)||"armor".equals(shop.id))return"forge";if("pharmacy".equals(shop.id))return"alchemy";if("runes".equals(shop.id))return"runic";return"field";}
 
     private void businessesDialog(){
         ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);
@@ -1277,13 +1281,15 @@ public class PolishedActivity extends PremiumActivity {
         content.addView(txt("LYGIS " + item.itemLevel + " · GALIA " + item.power + " · VERTĖ " + item.value + (item.quantity > 1 ? " · KIEKIS ×" + item.quantity : ""), 9, GOLD2, true), sp(dp(5)));
         content.addView(txt(itemDescriptor(item), 9, GOLD2, true), sp(dp(5)));
         content.addView(txt(item.description, 11, Color.rgb(218, 223, 218), false));
-        if (item.effect != null && !item.effect.isEmpty()) content.addView(txt("POVEIKIS · " + item.effect, 10, GREEN, true), sp(dp(7)));
+        if (item.effect != null && !item.effect.isEmpty()) content.addView(txt("MECHANIKA · " + (definitionFor(item)!=null&&definitionFor(item).consumable?ConsumableRulesV110.description(definitionFor(item)):item.effect), 10, GREEN, true), sp(dp(7)));
         if (item.setId != null && !item.setId.isEmpty()) {ItemCatalogV092.SetDef set=ItemCatalogV092.setById(item.setId);if(set!=null)content.addView(txt("SETAS · "+set.name,10,rarity(set.rarity),true),sp(dp(6)));}
         ItemCatalogV092.ItemDef definition=item.catalogId==null?ItemCatalogV092.find(item.name):ItemCatalogV092.byId(item.catalogId);
         AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(content).setNegativeButton("UŽDARYTI",null);
-        if(definition!=null&&definition.consumable)builder.setPositiveButton("NAUDOTI",(dialog,which)->{db.checkpoint("prieš daikto naudojimą",state);boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});
+        if(definition!=null&&definition.consumable){boolean levelReady=state.level>=definition.level;builder.setPositiveButton(levelReady?"NAUDOTI":"REIKIA L"+definition.level,(dialog,which)->{if(!levelReady){feedback="Negalima naudoti · reikia "+definition.level+" veikėjo lygio";show("items");return;}db.checkpoint("prieš daikto naudojimą",state);boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});}
         builder.show();
     }
+
+    private ItemCatalogV092.ItemDef definitionFor(VaeloriaDb.Item item){return item.catalogId==null?ItemCatalogV092.find(item.name):ItemCatalogV092.byId(item.catalogId);}
 
     private LinearLayout panel(boolean gold) {
         LinearLayout panel = col();

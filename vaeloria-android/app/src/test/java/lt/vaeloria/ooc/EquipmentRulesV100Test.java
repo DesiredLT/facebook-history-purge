@@ -25,6 +25,13 @@ public class EquipmentRulesV100Test {
         assertTrue(stats.magicPower>=10);
     }
 
+    @Test public void canonicalPowerCannotBeForgedThroughFreeText(){
+        ItemCatalogV092.ItemDef canonical=ItemCatalogV092.byId("I092-003");assertTrue(canonical!=null);
+        VaeloriaDb.Item weapon=item(canonical.name,"weapon","Suteikia 99999 puolimo galios",99999,null);weapon.catalogId=canonical.id;
+        EquipmentRules.Stats stats=EquipmentRules.calculate(Arrays.asList(weapon));
+        assertEquals(canonical.power,stats.attack);
+    }
+
     private static VaeloriaDb.Item item(String name,String slot,String effect,int power,String set){
         VaeloriaDb.Item item=new VaeloriaDb.Item();item.name=name;item.slot=slot;item.effect=effect;item.power=power;item.setId=set;item.equipped=true;return item;
     }

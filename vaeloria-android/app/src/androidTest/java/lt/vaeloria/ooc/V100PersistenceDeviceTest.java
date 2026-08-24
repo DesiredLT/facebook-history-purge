@@ -103,7 +103,7 @@ public class V100PersistenceDeviceTest {
         assertTrue(database.saveSlots().isEmpty());
     }
 
-    @Test public void versionElevenBalancedProfileLosesOnlyDuplicatedBonuses() {
+    @Test public void versionElevenBalancedProfileUpgradesThroughVersionThirteen() {
         GameState state=balancedState("Migracijos herojė");
         database.getWritableDatabase().execSQL("UPDATE stats SET value=value+4 WHERE group_name='MAGINĖS SAVYBĖS'");
         database.getWritableDatabase().execSQL("UPDATE stats SET value=value+8 WHERE name IN ('Manos kontrolė','Magijos jutimas','Burtų stabilumas','Relikvijų rezonansas')");
@@ -113,9 +113,23 @@ public class V100PersistenceDeviceTest {
         database.close();
 
         database=new VaeloriaDb(context);
-        assertEquals(12,database.getWritableDatabase().getVersion());
+        assertEquals(13,database.getWritableDatabase().getVersion());
         assertEquals(40,database.getStatValue("Manos kontrolė"));
         assertEquals(40,database.getStatValue("Burtų galia"));
+    }
+
+    @Test public void itemUseAndEquipmentRespectCharacterLevel(){
+        GameState state=balancedState("Lygių herojė");assertEquals(1,state.level);
+        ItemCatalogV092.ItemDef unique=ItemCatalogV092.byId("I092-025");String weaponId=database.addCatalogLoot(unique,1);
+        assertFalse(database.equipToSlot(weaponId,"weapon",state.level));assertFalse(database.getItem(weaponId).equipped);
+        ItemCatalogV092.ItemDef highPotion=ItemCatalogV092.byId("I092-225");String potionId=database.addCatalogLoot(highPotion,2);int before=database.getItem(potionId).quantity;
+        assertTrue(database.consumeItem(potionId,state).contains("reikia"));assertEquals(before,database.getItem(potionId).quantity);
+    }
+
+    @Test public void attributePointsAndMultiIngredientRecipesAreRealMechanics(){
+        GameState state=balancedState("Amatininkė");state.attributePoints=1;database.saveState(state);int before=database.getStatValue("Jėga");
+        assertTrue(database.spendAttributePoint("Jėga",state).contains("padidinta"));assertEquals(Math.min(100,before+2),database.getStatValue("Jėga"));assertEquals(0,state.attributePoints);
+        assertTrue(database.world().recipes().size()>=27);boolean foundMulti=false;for(WorldRepository.Recipe recipe:database.world().recipes())if(recipe.ingredients.size()>=2){foundMulti=true;break;}assertTrue(foundMulti);
     }
 
     @Test public void importedCatalogItemCannotForgePowerOrEquipmentSlot() throws Exception {
