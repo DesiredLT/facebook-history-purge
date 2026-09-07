@@ -104,7 +104,7 @@ final class LithuanianNarrative {
         return pattern.matcher(text).replaceAll(Matcher.quoteReplacement(replacement));
     }
 
-    private static boolean clearlyEnglish(String text){
+    static boolean clearlyEnglish(String text){
         if(text==null||text.isEmpty())return false;int count=0;
         String[] words=text.toLowerCase(Locale.ROOT).replaceAll("[^a-z ]"," ").split("\\s+");
         for(String word:words)if(ENGLISH_MARKERS.contains(word)&&++count>=4)return true;

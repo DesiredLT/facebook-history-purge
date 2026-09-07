@@ -197,6 +197,7 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     @Override void show(String id) {
+        if(!allowScreen(id))return;
         if (!state.characterCreated && !"character".equals(id)) id = "character";
         screen = id;
         nav();
@@ -214,6 +215,7 @@ public class PolishedActivity extends PremiumActivity {
             view = errorView(error);
         }
         content.addView(view);
+        updatePendingControls();
         if(audio!=null)audio.startAmbient(state.location);
         if (pref("animations", true)) {
             view.setAlpha(0);
@@ -310,7 +312,7 @@ public class PolishedActivity extends PremiumActivity {
             haptic();show("game");
         });
         column.addView(save, sp(dp(7)));
-        if(editing){Button cancel=dark("GRĮŽTI NEIŠSAUGOJUS");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->show("hero"));column.addView(cancel);}
+        if(editing){Button cancel=dark("GRĮŽTI NEIŠSAUGOJUS");cancel.setTag("cancel_narration");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->show("hero"));column.addView(cancel);}
         return scroll;
     }
 
@@ -392,8 +394,8 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout freeHeader = row();
         freeHeader.setGravity(Gravity.CENTER_VERTICAL);
         freeHeader.addView(section("LAISVAS VEIKSMAS"), new LinearLayout.LayoutParams(0, -2, 1));
-        boolean ai = !SecureKeyStore.load(this).isEmpty();
-        freeHeader.addView(chip(ai ? "GYVAS PASAULIS" : "VIETINIS", ai ? GREEN : BLUE));
+        boolean ai = !OpenAiSettings.LOCAL.equals(OpenAiSettings.provider(this));
+        freeHeader.addView(chip(ai ? (OpenAiSettings.OPENAI.equals(OpenAiSettings.provider(this))?"OPENAI":"GROQ") : "VIETINIS", ai ? GREEN : BLUE));
         free.addView(freeHeader);
         EditText input = new EditText(this);
         input.setHint("Aprašyk bet kokį veiksmą…");
@@ -413,7 +415,7 @@ public class PolishedActivity extends PremiumActivity {
             if (!action.isEmpty()) act(action);
         });
         free.addView(send);
-        if(busy){Button cancel=outline("ATŠAUKTI SPRENDIMĄ");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->cancelPendingAction());free.addView(cancel,sp(dp(5)));}
+        if(busy){Button cancel=outline("ATŠAUKTI SPRENDIMĄ");cancel.setTag("cancel_narration");cancel.setMinHeight(dp(48));cancel.setOnClickListener(view->cancelPendingAction());free.addView(cancel,sp(dp(5)));}
         column.addView(free);
         return scroll;
     }
@@ -855,10 +857,7 @@ public class PolishedActivity extends PremiumActivity {
         String[][] modes={{"story","ISTORIJA · lengvesnės patikros ir 28 % mažesnė žala"},{"normal","NORMALUS · numatytas balansas"},{"hard","SUNKUS · griežtesnės patikros ir 22 % didesnė žala"},{"nightmare","KOŠMARAS · ekstremalios patikros ir 48 % didesnė žala"}};
         for(String[] mode:modes){Button button=mode[0].equals(state.difficulty)?gold("◆ "+mode[1]):dark("◇ "+mode[1]);button.setAllCaps(false);button.setMinHeight(dp(48));button.setOnClickListener(view->{db.checkpoint("prieš sunkumo pakeitimą",state);state.difficulty=mode[0];db.saveState(state);feedback="Sunkumo režimas: "+mode[1];show("settings");});difficulty.addView(button,sp(dp(5)));}column.addView(difficulty,sp(dp(9)));
 
-        LinearLayout ai=panel(false);ai.addView(section("DI ŽAIDIMO MEISTRAS"));boolean has=!SecureKeyStore.load(this).isEmpty();
-        ai.addView(txt(has?"Groq raktas saugomas Android raktų saugykloje":"Groq raktas nenustatytas",12,has?GREEN:SUB,true));
-        ai.addView(txt("Atsakymai prašomi taisyklinga, aiškia ir rišlia lietuvių kalba, o prieš rodymą papildomai sutvarkomi telefone.",9,SUB,false),sp(dp(6)));
-        Button key=gold(has?"PAKEISTI API RAKTĄ":"ĮVESTI API RAKTĄ");key.setMinHeight(dp(48));key.setOnClickListener(view->key());ai.addView(key);column.addView(ai,sp(dp(9)));
+        column.addView(aiSettingsPanel(),sp(dp(9)));
 
         LinearLayout presentation=panel(false);presentation.addView(section("PATEIKIMAS IR PRIEINAMUMAS"));presentation.addView(toggle("Sklandūs ekranų perėjimai (išjungti mažesniam judesiui)","animations",true));presentation.addView(toggle("Haptinis grįžtamasis ryšys","haptics",true));
         Switch largeText=toggle("Didesnis tekstas","large_text",false);largeText.setOnCheckedChangeListener((button,checked)->{getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putBoolean("large_text",checked).apply();show("settings");});presentation.addView(largeText);
@@ -873,7 +872,7 @@ public class PolishedActivity extends PremiumActivity {
         Button undo=dark("ATŠAUKTI PASKUTINĮ ĖJIMĄ");undo.setMinHeight(dp(48));undo.setOnClickListener(view->{if(db.undo()){state=db.loadState();feedback="Atkurtas ankstesnis kontrolinis taškas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Nėra ankstesnio kontrolinio taško",Toast.LENGTH_SHORT).show();});saves.addView(undo,sp(dp(5)));
         Button export=dark("EKSPORTUOTI IŠSAUGOJIMĄ");export.setMinHeight(dp(48));export.setOnClickListener(view->export());saves.addView(export,sp(dp(5)));
         Button importButton=dark("IMPORTUOTI IŠSAUGOJIMĄ");importButton.setMinHeight(dp(48));importButton.setOnClickListener(view->importSave());saves.addView(importButton,sp(dp(5)));
-        Button reset=dark("ATKURTI PRADINĘ BŪSENĄ");reset.setMinHeight(dp(48));reset.setOnClickListener(view->new AlertDialog.Builder(this).setTitle("Atkurti pradinę būseną?").setMessage("Bus pašalintas veikėjo profilis, vietiniai ėjimai ir įrangos pakeitimai. Groq raktas liks telefone.").setNegativeButton("NE",null).setPositiveButton("ATKURTI",(dialog,which)->{db.reset();state=db.loadState();feedback="";show("character");}).show());saves.addView(reset);column.addView(saves,sp(dp(9)));
+        Button reset=dark("ATKURTI PRADINĘ BŪSENĄ");reset.setMinHeight(dp(48));reset.setOnClickListener(view->new AlertDialog.Builder(this).setTitle("Atkurti pradinę būseną?").setMessage("Bus pašalintas veikėjo profilis, vietiniai ėjimai ir įrangos pakeitimai. DI prisijungimai liks telefone.").setNegativeButton("NE",null).setPositiveButton("ATKURTI",(dialog,which)->{db.reset();state=db.loadState();feedback="";show("character");}).show());saves.addView(reset);column.addView(saves,sp(dp(9)));
 
         LinearLayout about=panel(false);about.addView(section("APIE VERSIJĄ"));about.addView(serif("Vaeloria OOC · "+BuildConfig.VERSION_NAME,17,PARCH,true));
         about.addView(txt("Vietinė SQLite būsena · veikėjo kūrimas · mechaniniai bruožai · lietuviškų atsakymų kontrolė",10,SUB,false));
@@ -1458,9 +1457,11 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     @Override void finish(String action, org.json.JSONObject result, String warning) {
-        String event = result.optString("event_tag", "");
+        if(!busy||pendingResolvedTurn==null)return;
+        String event = pendingResolvedTurn.optString("event_tag", "");
+        long turnBefore=state.turnNumber;
         super.finish(action, result, warning);
-        if (audio != null) {
+        if (audio != null && state.turnNumber>turnBefore) {
             VaeloriaAudio.Cue cue = "setback".equals(event) || "combat_escape".equals(event)
                     ? VaeloriaAudio.Cue.DANGER
                     : "combat_victory".equals(event) || "reward".equals(event)

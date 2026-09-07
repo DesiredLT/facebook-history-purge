@@ -20,6 +20,32 @@ public final class SecureKeyStore {
 
     private SecureKeyStore() {}
 
+    static void saveSecret(Context context, String name, String secret) throws Exception {
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
+        cipher.updateAAD(name.getBytes(StandardCharsets.UTF_8));
+        String packed = Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + ":"
+                + Base64.encodeToString(cipher.doFinal(secret.getBytes(StandardCharsets.UTF_8)), Base64.NO_WRAP);
+        if (!context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().putString(name, packed).commit())
+            throw new java.io.IOException("Prisijungimo išsaugoti nepavyko.");
+    }
+
+    static String loadSecret(Context context, String name) {
+        try {
+            String packed = context.getSharedPreferences(PREF, Context.MODE_PRIVATE).getString(name, "");
+            String[] parts = packed.split(":", 2);
+            if (parts.length != 2) return "";
+            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), new GCMParameterSpec(128, Base64.decode(parts[0], Base64.NO_WRAP)));
+            cipher.updateAAD(name.getBytes(StandardCharsets.UTF_8));
+            return new String(cipher.doFinal(Base64.decode(parts[1], Base64.NO_WRAP)), StandardCharsets.UTF_8);
+        } catch (Exception ignored) { return ""; }
+    }
+
+    static void clearSecret(Context context, String name) {
+        context.getSharedPreferences(PREF, Context.MODE_PRIVATE).edit().remove(name).apply();
+    }
+
     public static void save(Context context, String secret) throws Exception {
         SecretKey key = getOrCreateKey();
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");

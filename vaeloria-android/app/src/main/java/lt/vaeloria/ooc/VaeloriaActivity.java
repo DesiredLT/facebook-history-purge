@@ -19,13 +19,18 @@ public class VaeloriaActivity extends Activity {
     private static final int EXPORT_REQ=41, IMPORT_REQ=42;
     static final int BG=Color.rgb(7,15,22),SUR=Color.rgb(16,28,37),SUR2=Color.rgb(23,38,49),TEXT=Color.rgb(238,239,232),MUT=Color.rgb(166,183,188),GOLD=Color.rgb(214,182,107),TEAL=Color.rgb(82,177,167),GREEN=Color.rgb(94,185,131),RED=Color.rgb(213,91,82);
     VaeloriaDb db; GameState state; FrameLayout content; LinearLayout nav,root; String screen="game",feedback=""; boolean busy=false,destroyed=false; StatEngine.Check pendingCheck; int pendingMasteryBonus=0,pendingPrimaryXp=0,pendingSecondaryXp=0; final ExecutorService pool=Executors.newSingleThreadExecutor();Future<?> activeRequest;long requestGeneration=0;
+    AiHttpClient activeAiTransport, setupTransport;
+    ProgressDialog setupDialog;
+    JSONObject pendingResolvedTurn;
+    long pendingCheckpointId=-1;
+    final Set<View> pendingDisabled=Collections.newSetFromMap(new IdentityHashMap<>());
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);
         getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
         db=new VaeloriaDb(this);state=db.loadState();shell();show(state.characterCreated?"game":"character");
     }
-    @Override public void onDestroy(){destroyed=true;requestGeneration++;GroqClient.cancelActive();if(activeRequest!=null)activeRequest.cancel(true);pool.shutdownNow();if(db!=null)db.close();super.onDestroy();}
+    @Override public void onDestroy(){destroyed=true;requestGeneration++;if(activeAiTransport!=null)activeAiTransport.cancel();if(setupTransport!=null)setupTransport.cancel();if(setupDialog!=null)setupDialog.dismiss();if(activeRequest!=null)activeRequest.cancel(true);pool.shutdownNow();if(db!=null){if(pendingCheckpointId>=0)db.discardCheckpoint(pendingCheckpointId);db.close();}super.onDestroy();}
 
     void shell(){
         root=col();root.setBackgroundColor(BG);
@@ -45,7 +50,7 @@ public class VaeloriaActivity extends Activity {
 
     void nav(){nav.removeAllViews();tab("game","✦","ŽAISTI");tab("hero","♜","VEIKĖJAS");tab("map","⌖","ŽEMĖLAPIS");tab("journal","≡","ŽURNALAS");tab("settings","⚙","NUSTAT.");}
     void tab(String id,String icon,String label){LinearLayout x=col();x.setGravity(Gravity.CENTER);boolean a=id.equals(screen);x.setBackground(round(a?SUR2:Color.TRANSPARENT,15,a?Color.argb(90,214,182,107):Color.TRANSPARENT));TextView i=t(icon,19,a?GOLD:MUT,true);i.setGravity(Gravity.CENTER);x.addView(i);TextView l=t(label,9,a?TEXT:MUT,true);l.setGravity(Gravity.CENTER);x.addView(l);x.setOnClickListener(v->show(id));nav.addView(x,new LinearLayout.LayoutParams(0,-1,1));}
-    void show(String id){screen=id;nav();content.removeAllViews();try{content.addView("character".equals(id)?character():"game".equals(id)?game():"hero".equals(id)?hero():"map".equals(id)?map():"journal".equals(id)?journal():settings());}catch(Throwable e){content.addView(errorView(e));}}
+    void show(String id){if(!allowScreen(id))return;screen=id;nav();content.removeAllViews();try{content.addView("character".equals(id)?character():"game".equals(id)?game():"hero".equals(id)?hero():"map".equals(id)?map():"journal".equals(id)?journal():settings());}catch(Throwable e){content.addView(errorView(e));}updatePendingControls();}
 
     View character(){return hero();}
 
@@ -126,158 +131,122 @@ public class VaeloriaActivity extends Activity {
         LinearLayout tech=card();tech.addView(label("VEIKIMO PRINCIPAS"));tech.addView(t("Telefonas → vietinė SQLite duomenų bazė → Groq tik naujai scenai",13,TEXT,true));tech.addView(t("Žaidimo būsena, įranga, žemėlapis ir ėjimų istorija lieka telefone. Be Groq rakto pagrindinės vietinės funkcijos ir atsarginis scenos sprendimas veikia toliau.",11,MUT,false));c.addView(tech,m(dp(8)));return sv;
     }
 
-    void act(String action){
-        if(busy)return;if(!state.characterCreated){show("character");return;}
-        db.checkpoint("prieš veiksmą",state);
-        String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> statValues=db.getStatValues();
-        EquipmentRules.Stats equipmentStats=db.equipmentStats();String worldContext=db.world().contextPrompt(state);
-        Set<String> talents=db.world().unlockedTalentIds();
-        pendingCheck=StatEngine.resolve(state,action,equipped,abilities,statValues);
-        int talentBonus=ProgressionEngine.checkBonus(talents,action,pendingCheck.primary);int companionBonus=db.world().companionCheckBonus(action);
-        StatEngine.applyExternalModifier(pendingCheck,talentBonus,talentBonus==0?"":"talentų specializacija");
-        StatEngine.applyExternalModifier(pendingCheck,companionBonus,companionBonus==0?"":"Lyros tyrimo pagalba");
-        StatEngine.applyExternalModifier(pendingCheck,state.temporaryCheckBonus,state.temporaryCheckBonus==0?"":"laikinas poveikis: "+state.temporaryEffectName);
-        Map<String,Integer> mastery=db.getMasteryLevels();pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,mastery);MasteryEngine.apply(pendingCheck,pendingMasteryBonus);
-        pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);
-        busy=true;feedback="⟳ Sprendžiama…\n"+pendingCheck.compact()+" · meistriškumas +"+pendingMasteryBonus;show("game");
-        String key=SecureKeyStore.load(this);StatEngine.Check check=pendingCheck;boolean authoritativeCombat=CombatEngine.handles(state,action);
-        int companionDefense=db.world().companionDefenseBonus(state.combatRound);int companionHealing=db.world().companionVictoryHealing();
-        long generation=++requestGeneration;activeRequest=pool.submit(()->{JSONObject r;String warn=null;try{
-            r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues,talents,companionDefense,companionHealing):key.isEmpty()?local(action,check):GroqClient.resolveTurn(key,state,action,equipped,abilities,check,worldContext);
-        }catch(Exception e){r=authoritativeCombat?CombatEngine.resolve(state,action,check,equipmentStats,statValues,talents,companionDefense,companionHealing):local(action,check);warn=authoritativeCombat?"Kovą apskaičiavo vietinis variklis":"Groq nepasiekiamas · panaudotas vietinis sprendimas";}
-            JSONObject rr=r;String ww=warn;if(!destroyed)runOnUiThread(()->{if(!destroyed&&generation==requestGeneration)finish(action,rr,ww);});
-        });
+    void act(String rawAction){
+        if(busy||destroyed)return;
+        if(!state.characterCreated){show("character");return;}
+        String action=rawAction==null?"":rawAction.trim();
+        if(action.isEmpty())return;
+        if(action.length()>1200){Toast.makeText(this,"Sutrumpink veiksmą iki 1200 simbolių.",Toast.LENGTH_LONG).show();return;}
+        try{
+            GameState snapshot=GameState.fromJson(state.toJson());
+            String equipped=db.equippedSummary();List<String[]> abilities=db.getAbilities();Map<String,Integer> stats=db.getStatValues();
+            EquipmentRules.Stats gear=db.equipmentStats();String world=db.world().contextPrompt(snapshot);
+            Set<String> talents=db.world().unlockedTalentIds();
+            pendingCheck=StatEngine.resolve(snapshot,action,equipped,abilities,stats);
+            int talentBonus=ProgressionEngine.checkBonus(talents,action,pendingCheck.primary);
+            int companionBonus=db.world().companionCheckBonus(action);
+            StatEngine.applyExternalModifier(pendingCheck,talentBonus,talentBonus==0?"":"talentų specializacija");
+            StatEngine.applyExternalModifier(pendingCheck,companionBonus,companionBonus==0?"":"Lyros tyrimo pagalba");
+            StatEngine.applyExternalModifier(pendingCheck,snapshot.temporaryCheckBonus,snapshot.temporaryEffectName);
+            pendingMasteryBonus=MasteryEngine.checkBonus(pendingCheck.primary,pendingCheck.secondary,db.getMasteryLevels());
+            MasteryEngine.apply(pendingCheck,pendingMasteryBonus);
+            pendingPrimaryXp=MasteryEngine.primaryXp(pendingCheck);pendingSecondaryXp=MasteryEngine.secondaryXp(pendingCheck);
+            boolean combat=CombatEngine.handles(snapshot,action);
+            JSONObject localResult=combat?CombatEngine.resolve(snapshot,action,pendingCheck,gear,stats,talents,
+                    db.world().companionDefenseBonus(snapshot.combatRound),db.world().companionVictoryHealing())
+                    :LocalTurnResolver.resolve(snapshot,action,pendingCheck,db.world().discoveredLocations());
+            pendingResolvedTurn=AiTurnPolicyV101.sanitize(localResult,snapshot,pendingCheck,action,db.world().discoveredLocations(),combat);
+            // The model sees the actual journey duration, including the engine's map calculation.
+            if(!snapshot.location.equals(pendingResolvedTurn.optString("location",snapshot.location))){
+                int minutes=db.world().travelMinutes(snapshot.location,pendingResolvedTurn.getString("location"));
+                if(minutes>0)pendingResolvedTurn.put("time_minutes",minutes);
+            }
+            applyEquipmentTravel(pendingResolvedTurn,pendingResolvedTurn.optString("event_tag"));
+            final JSONObject resolved=new JSONObject(pendingResolvedTurn.toString());
+            final String context=NarrativeTurn.context(snapshot,action,equipped,abilities,pendingCheck,world,resolved);
+            final String provider=OpenAiSettings.provider(this),groqKey=SecureKeyStore.load(this);
+            final OpenAiSettings config=OpenAiSettings.load(this);
+            pendingCheckpointId=db.checkpoint("prieš veiksmą",state);
+            busy=true;feedback="Ruošiamas pasakojimas…";show("game");
+            long generation=++requestGeneration;
+            if(OpenAiSettings.LOCAL.equals(provider)){finish(action,resolved,null);return;}
+            final String policy=AiHttpClient.readBounded(getAssets().open("ai/narration-policy.txt"),16000);
+            final JSONObject schema=new JSONObject(AiHttpClient.readBounded(getAssets().open("ai/narration-schema.json"),8000));
+            final AiHttpClient transport=new AiHttpClient();activeAiTransport=transport;
+            activeRequest=pool.submit(()->{
+                JSONObject result=resolved;String warning=null;
+                try{
+                    JSONObject narration=OpenAiSettings.OPENAI.equals(provider)
+                            ?requestOpenAi(transport,config,context)
+                            :GroqClient.resolveNarration(transport,groqKey,context,policy,schema);
+                    result=NarrativeTurn.merge(resolved,narration,snapshot);
+                }catch(Exception error){warning=AiHttpClient.userMessage(error)+" Panaudotas vietinis pasakojimas.";}
+                if(transport.isCancelled()||Thread.currentThread().isInterrupted())return;
+                final JSONObject finished=result;final String message=warning;
+                runOnUiThread(()->{if(!destroyed&&generation==requestGeneration)finish(action,finished,message);});
+            });
+        }catch(Exception error){
+            cancelRequest();feedback="Veiksmo paruošti nepavyko. Pažanga nepasikeitė.";show("game");
+        }
     }
 
-    void cancelPendingAction(){if(!busy)return;requestGeneration++;GroqClient.cancelActive();if(activeRequest!=null)activeRequest.cancel(true);busy=false;pendingCheck=null;pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;if(db.undo())state=db.loadState();feedback="Veiksmas atšauktas · atkurta tiksli prieš veiksmą buvusi būsena";show("game");}
+    private static JSONObject requestOpenAi(AiHttpClient transport,OpenAiSettings config,String context)throws Exception{
+        if(config.url.isEmpty()||config.token.isEmpty())throw new AiHttpClient.ServiceException(503);
+        return transport.post(config.url+"/v1/turn",config.token,new JSONObject().put("context",context)).getJSONObject("narration");
+    }
 
-    void finish(String action,JSONObject r,String warn){
-        boolean authoritativeCombat=CombatEngine.handles(state,action);
-        r=AiTurnPolicyV101.sanitize(LithuanianNarrative.polish(r,state),state,pendingCheck,action,db.world().knownLocationNames(),authoritativeCombat);
-        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");applyEquipmentTravel(r,event);boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;int defeatedDanger=state.enemyDanger;
+    void cancelPendingAction(){
+        if(!busy)return;cancelRequest();feedback="Veiksmas atšauktas. Pažanga nepasikeitė.";show("game");
+    }
+    private void cancelRequest(){
+        requestGeneration++;if(activeAiTransport!=null)activeAiTransport.cancel();if(activeRequest!=null)activeRequest.cancel(true);
+        if(pendingCheckpointId>=0)db.discardCheckpoint(pendingCheckpointId);
+        clearPending();
+    }
+    private void clearPending(){
+        busy=false;pendingCheck=null;pendingResolvedTurn=null;pendingCheckpointId=-1;
+        pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;activeRequest=null;activeAiTransport=null;
+    }
+    boolean allowScreen(String id){
+        if(busy&&!"game".equals(id)){Toast.makeText(this,"Palauk pasakojimo arba atšauk veiksmą.",Toast.LENGTH_SHORT).show();return false;}
+        return true;
+    }
+    void updatePendingControls(){
+        for(View view:pendingDisabled)view.setEnabled(true);pendingDisabled.clear();
+        if(busy)lockPendingControls(root);
+    }
+    private void lockPendingControls(View view){
+        if(view.isEnabled()&&(view.hasOnClickListeners()||view instanceof EditText)&&!"cancel_narration".equals(view.getTag())){
+            view.setEnabled(false);pendingDisabled.add(view);
+        }
+        if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;
+            for(int i=0;i<group.getChildCount();i++)lockPendingControls(group.getChildAt(i));}
+    }
+
+    void finish(String action,JSONObject narration,String warn){
+        if(pendingResolvedTurn==null||!busy)return;
+        JSONObject result=pendingResolvedTurn;
+        try{result=NarrativeTurn.merge(pendingResolvedTurn,narration,state);}catch(Exception ignored){}
+        android.database.sqlite.SQLiteDatabase database=db.getWritableDatabase();boolean success=false;
+        database.beginTransaction();
+        try{finishResolved(action,result,warn);database.setTransactionSuccessful();success=true;}
+        catch(Exception error){feedback="Ėjimo išsaugoti nepavyko. Ankstesnė pažanga išliko.";}
+        finally{database.endTransaction();}
+        if(!success){state=db.loadState();if(pendingCheckpointId>=0)db.discardCheckpoint(pendingCheckpointId);}
+        clearPending();show("game");
+    }
+
+    private void finishResolved(String action,JSONObject r,String warn){
+        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;int defeatedDanger=state.enemyDanger;
         state.applyTurn(r);if(!old.equals(state.location)){int authoritativeTravel=db.world().travelMinutes(old,state.location);if(authoritativeTravel>0)state.worldMinute+=authoritativeTravel-Math.max(0,r.optInt("time_minutes",0));}CombatEngine.hydrate(state);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory="combat_victory".equals(event)||(wasCombat&&!state.combatActive&&!"combat_escape".equals(event)&&!"combat_end".equals(event));if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;ItemCatalogV092.ItemDef item=exactCatalogItem(o.optString("name",""));if(item==null)continue;db.addCatalogLoot(item,1);gained.add(item.name);}}
-        ProgressionEngine.Award progression=ProgressionEngine.award(state,event,pendingCheck,defeatedDanger);String questUpdate=db.world().progressStory(action,event,state,pendingCheck);String npcUpdate=db.world().recordNpcInteraction(action,event,state.worldMinute);String companionUpdate=db.world().recordCompanionTurn(action,event,state);String discoveryUpdate=WorldRepository.checkAllowsProgress(pendingCheck,event)?db.world().recordExploration(action,state):"";String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);String effectName=state.temporaryEffectName;int effectTurns=state.temporaryEffectTurns;state.tickTemporaryEffect();String effectUpdate=effectTurns<=0?"":state.temporaryEffectTurns==0?effectName+" poveikis baigėsi":effectName+" · liko "+state.temporaryEffectTurns+" ėj.";db.saveState(state);
-        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));if(progression.gained>0){if(f.length()>0)f.append("  ");f.append("★ ").append(progression.line());}String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,npcUpdate,companionUpdate,discoveryUpdate,worldUpdate,effectUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();busy=false;pendingCheck=null;pendingMasteryBonus=0;pendingPrimaryXp=0;pendingSecondaryXp=0;show("game");
+        ProgressionEngine.Award progression=ProgressionEngine.award(state,event,pendingCheck,defeatedDanger);String questUpdate=db.world().progressStory(action,event,state,pendingCheck);String npcUpdate=db.world().recordNpcInteraction(action,event,state);String companionUpdate=db.world().recordCompanionTurn(action,event,state);String discoveryUpdate=WorldRepository.checkAllowsProgress(pendingCheck,event)?db.world().recordExploration(action,state):"";String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);String effectName=state.temporaryEffectName;int effectTurns=state.temporaryEffectTurns;state.tickTemporaryEffect();String effectUpdate=effectTurns<=0?"":state.temporaryEffectTurns==0?effectName+" poveikis baigėsi":effectName+" · liko "+state.temporaryEffectTurns+" ėj.";db.saveState(state);
+        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));if(progression.gained>0){if(f.length()>0)f.append("  ");f.append("★ ").append(progression.line());}String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,npcUpdate,companionUpdate,discoveryUpdate,worldUpdate,effectUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();
     }
 
     private void applyEquipmentTravel(JSONObject result,String event){if(!"travel".equals(event))return;EquipmentRules.Stats gear=db.equipmentStats();int stamina=result.optInt("stamina_delta",0);if(stamina<0&&gear.travelFatigueHalf)stamina=Math.round(stamina/2f);stamina+=gear.travelRecovery;try{result.put("stamina_delta",stamina);}catch(Exception ignored){}}
 
     JSONObject local(String action,StatEngine.Check check){
-        try{
-            String a=action==null?"":action.trim();
-            String q=a.toLowerCase(Locale.ROOT);
-            JSONObject o=new JSONObject();
-            JSONArray c=new JSONArray();
-            String title="Veiksmas įvykdytas";
-            String scene="Atlieki veiksmą: „"+a+"“. Aplinka sureaguoja, laikas juda pirmyn, o rezultatas įrašomas į vietinę pasaulio būseną.";
-            String location=state.location;
-            String questNote=state.objective;
-            String event="action";
-            int minutes=6,hp=0,mana=0,stamina=-1,aeonic=0;
-            int asterraDelta=0,dravennDelta=0,lysaraDelta=0;
-            long crowns=0;
-            boolean combat=state.combatActive;
-            String enemy=combat?state.enemyName:"";
-            String enemyStatus=combat?state.enemyStatus:"";
-            String telegraph=combat?state.enemyTelegraph:"";
-            String distance=combat?state.combatDistance:"mid";
-            String hazard=combat?state.combatHazard:"";
-            int enemyHp=combat?state.enemyHp:0;
-            int enemyHpMax=combat?state.enemyHpMax:0;
-            int combatRound=combat?state.combatRound:0;
-
-            if(q.contains("manifest")){
-                title="Manifesto neatitikimas";minutes=12;stamina=0;event="discovery";
-                scene="Palyginęs registracijos žymas, antspaudą ir pristatymo seką randi tikrą neatitikimą: manifesto įrašas sistemoje atsirado anksčiau, nei karavanas galėjo fiziškai pasiekti Luminara. Tai jau ne gandas, o patikrinamas Meridiano poslinkio pėdsakas.";
-                questNote="Patvirtintas pirmas lauko įrodymas: manifesto registracijos laikas nesutampa su fiziniu karavano atvykimu.";
-                c.put("Patikrinti Meridiano vartų žurnalą").put("Surasti karavano liudininkus").put("Palyginti įrašą su Veyrhold duomenimis");
-            }else if(q.contains("meridian")||q.contains("vart")||q.contains("waygate")){
-                title="Vartų rezonansas";minutes=15;stamina=-2;aeonic=q.contains("kalib")?-4:0;event="discovery";
-                scene="Prie vartų rezonanso laukas pulsuoja nevienodu ritmu. Keli matavimo taškai rodo tą pačią kryptį: problema nėra vien laikrodžių paklaida — pats atvykimo eiliškumas trumpam persislenka.";
-                c.put("Matuoti poslinkį dar kartą").put("Sekti paskutinio atvykimo pėdsaką").put("Klausti vartų prižiūrėtojo apie ankstesnius atvejus");
-            }else if(q.contains("poils")||q.contains("mieg")||q.contains("laukti")||q.contains("palaukt")||q.contains("stovykl")){
-                title="Trumpas atokvėpis";minutes=30;stamina=12;mana=4;event="rest";
-                scene="Skiri laiko atsikvėpti ir stebėti aplinką be skubėjimo. Kvėpavimas nurimsta, judesiai vėl tampa lengvi, o per tą laiką miestas gyvena toliau — sargybos keičiasi, prekybininkai juda, gandai sklinda.";
-                c.put("Grįžti prie Meridiano tyrimo").put("Patikrinti naujus gandus").put("Apsilankyti centrinėje rinkoje");
-            }else if(q.contains("kalb")||q.contains("paklaus")||q.contains("susisiekt")||q.contains("pasikalb")){
-                title="Pokalbis Luminara";minutes=10;stamina=0;event="dialogue";
-                scene="Pokalbis neduoda tobulo atsakymo, bet atskiria faktus nuo nuomonių. Vietiniai sutaria dėl vieno: pastaruoju metu vartų anomalijos kartojasi dažniau, tačiau skirtingi žmonės jas aiškina skirtingai.";
-                c.put("Paprašyti konkretaus liudijimo").put("Paklausti, kas galėtų žinoti daugiau").put("Užrašyti informaciją ir tęsti tyrimą");
-            }else if(q.contains("puol")||q.contains("kov")||q.contains("smūg")||q.contains("smug")||q.contains("ataka")||q.contains("ataku")||q.contains("pulti")){
-                title="Kova prasideda";minutes=2;stamina=-8;hp=-2;event="combat";combat=true;
-                if(enemy==null||enemy.isEmpty()){
-                    EnemyCatalogV091.Enemy requested=EnemyCatalogV091.find(a);
-                    EnemyCatalogV091.Enemy encounter=requested!=null?requested:EnemyCatalogV091.encounterFor(state.location,state.worldMinute+a.hashCode());
-                    enemy=encounter.name;
-                    enemyHp=encounter.hp;enemyHpMax=encounter.hp;combatRound=1;
-                    enemyStatus="Budrus · pavojus "+encounter.danger+"/10 · gyvybė "+enemyHp+"/"+enemyHpMax;
-                }else{
-                    int damage=check==null?52:(check.outcome.contains("išskirtinė")?96:check.outcome.equals("sėkmė")?72:check.outcome.contains("dalinė")?48:26);
-                    enemyHp=Math.max(0,enemyHp-damage);combatRound++;
-                    if(enemyHp==0){title="Priešas nugalėtas";event="combat_victory";combat=false;hp=0;stamina=-4;scene="Tavo veiksmas pralaužia paskutinę priešininko gynybą. Kova baigta, o patvirtinta būtybės iškritimo lentelė pritaikoma vietiniame žaidimo variklyje.";c.put("Apžiūrėti gautą grobį").put("Atsigauti po kovos").put("Tęsti kelionę");}
-                    else{enemyStatus="Spaudžiamas · gyvybė "+enemyHp+"/"+enemyHpMax;title="Kovos "+combatRound+" ėjimas";scene="Ataka pasiekia tikslą, tačiau priešininkas dar laikosi. Jo laikysena keičiasi pagal likusią gyvybę, todėl kitas veiksmas vis dar turi kainą ir riziką.";}
-                }
-                telegraph="Žemas žingsnis į šoną ir pasiruošimas kontratakai";
-                distance="close";
-                hazard="Slidus akmuo ir siauras praėjimas";
-                if(combatRound==1){scene="Tu inicijuoji kontaktą. Priešininkas atsitraukia tik pusę žingsnio ir iškart persitvarko kontratakai; erdvė ankšta, todėl pozicija tampa svarbesnė už gryną jėgą.";}
-                if(c.length()==0)c.put("Spausti ir neleisti atkurti distancijos").put("Išprovokuoti kontrataką ir bausti ją").put("Atsitraukti į saugesnę poziciją");
-            }else if(q.contains("bėg")||q.contains("beg")||q.contains("trauktis")||q.contains("atsitrauk")){
-                title="Atsitraukimas";minutes=4;stamina=-4;event="combat_escape";combat=false;
-                enemy="";enemyStatus="";telegraph="";distance="mid";hazard="";enemyHp=0;enemyHpMax=0;combatRound=0;
-                scene="Nutrauki kontaktą ir pasirenki erdvę, kurioje gali vėl vertinti situaciją. Priešininkas tavęs iškart nesiveja — kova baigiasi be aiškios pergalės, bet iniciatyva grįžta tau.";
-                c.put("Stebėti, ar kas nors seka").put("Grįžti prie pagrindinės užduoties").put("Atsigauti prieš tęsiant kelią");
-            }else if(q.contains("vykti")||q.contains("keliaut")||q.contains("keliauti")||q.contains("eiti į")||q.contains("eiti i")||q.contains("važiuoti")||q.contains("vaziuoti")){
-                title="Kelionė";minutes=45;stamina=-5;event="travel";
-                if(q.contains("veyrhold"))location="Veyrhold";
-                else if(q.contains("stiklo")||q.contains("glasswood"))location="Stiklo Giria";
-                else if(q.contains("kharad"))location="Kharad Vorn";
-                else if(q.contains("safyro")||q.contains("sapphire"))location="Safyro Platybės";
-                else if(q.contains("šventųjų")||q.contains("sventuju")||q.contains("pelkyn"))location="Šventųjų Pelkynas";
-                else if(q.contains("labirint"))location="Žaliasis Labirintas";
-                else if(q.contains("asterio")||q.contains("crown of aster"))location="Asterio Karūna";
-                scene="Palieki "+state.location+" ir judi pasirinkta kryptimi. Kelionė užima laiko ir ištvermės; pakeliui stebi kelią, žmonių judėjimą bei Meridiano infrastruktūros ženklus. Pasieki: "+location+".";
-                c.put("Apsidairyti naujoje vietoje").put("Ieškoti vietinių kontaktų").put("Patikrinti, ar čia jaučiamas Meridiano poslinkis");
-            }else if(q.contains("tirti")||q.contains("ištirt")||q.contains("istirt")||q.contains("apžiūr")||q.contains("apziur")||q.contains("iešk")||q.contains("iesk")||q.contains("sekti")){
-                title="Tyrimas";minutes=14;stamina=-2;event="discovery";
-                scene="Sistemingai tikrini aplinką ir atmeti pirmus akivaizdžius paaiškinimus. Randi kelias smulkias detales, kurios atskirai nieko neįrodo, bet kartu parodo kryptį, kurią verta tikrinti toliau.";
-                c.put("Patikrinti stipriausią pėdsaką").put("Palyginti radinius su ankstesniais įrašais").put("Paklausti vietinio liudininko");
-            }else{
-                title="Veiksmas pasaulyje";minutes=7;event="action";
-                scene="Atlieki: „"+a+"“. Veiksmas turi pasekmę: praeina laikas, keičiasi tavo pozicija situacijoje, o aplinka pateikia naują informaciją vietoje ankstesnio statiško ekrano.";
-                c.put("Tęsti tą pačią kryptį").put("Apsidairyti ir įvertinti pasekmes").put("Grįžti prie Lūžusio Meridiano užduoties");
-            }
-
-            if("dialogue".equals(event)){asterraDelta+=1;lysaraDelta+=1;}
-            if("combat".equals(event)){dravennDelta+=2;asterraDelta-=1;}
-            if("discovery".equals(event)){asterraDelta+=1;}
-            if("travel".equals(event)){if(location.contains("Kharad")||location.contains("Safyro"))dravennDelta+=1;else if(location.contains("Pelkyn")||location.contains("Labirint"))lysaraDelta+=1;else asterraDelta+=1;}
-            if(c.length()==0)c.put("Apsidairyti ir rinkti daugiau informacijos").put("Patikrinti įrangą ir užrašus").put("Tęsti pagrindinę užduotį");
-            o.put("scene_title",title);
-            o.put("scene",scene);
-            o.put("choices",c);
-            o.put("location",location);
-            o.put("time_minutes",minutes);
-            o.put("hp_delta",hp);
-            o.put("mana_delta",mana);
-            o.put("stamina_delta",stamina);
-            o.put("aeonic_delta",aeonic);
-            o.put("crowns_delta",crowns);
-            o.put("quest_note",questNote);
-            o.put("asterra_delta",asterraDelta);o.put("dravenn_delta",dravennDelta);o.put("lysara_delta",lysaraDelta);
-            o.put("event_tag",event);
-            o.put("combat_active",combat);
-            o.put("enemy_name",combat?enemy:"");
-            o.put("enemy_status",combat?enemyStatus:"");
-            o.put("enemy_telegraph",combat?telegraph:"");
-            o.put("combat_distance",combat?distance:"mid");
-            o.put("combat_hazard",combat?hazard:"");
-            o.put("enemy_hp",combat?enemyHp:0);
-            o.put("enemy_hp_max",combat?enemyHpMax:0);
-            o.put("combat_round",combat?combatRound:0);
-            o.put("loot",new JSONArray());
-            return LithuanianNarrative.polish(o,state);
-        }catch(Exception e){return new JSONObject();}
+        return LocalTurnResolver.resolve(state,action,check,db.world().discoveredLocations());
     }
 
     boolean applyCharacterProfile(String name,int age,boolean ageless,String identity,String appearance,
@@ -319,10 +288,69 @@ public class VaeloriaActivity extends Activity {
         return true;
     }
 
-    void key(){EditText i=new EditText(this);i.setHint("gsk_…");i.setSingleLine(true);i.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);new AlertDialog.Builder(this).setTitle("Groq API raktas").setMessage("Raktas šifruojamas Android raktų saugykloje ir lieka šiame telefone.").setView(i).setNegativeButton("Atšaukti",null).setPositiveButton("Išsaugoti",(d,w)->{try{String k=i.getText().toString().trim();if(!k.startsWith("gsk_")||k.length()<20)throw new Exception();if(!k.startsWith("gsk_")||k.length()<20)throw new Exception();SecureKeyStore.save(this,k);show("settings");}catch(Exception e){Toast.makeText(this,"Nepavyko išsaugoti rakto",Toast.LENGTH_SHORT).show();}}).show();}
+    View aiSettingsPanel(){
+        LinearLayout panel=card();panel.addView(label("DI ŽAIDIMO MEISTRAS"));
+        panel.addView(t(OpenAiSettings.label(this),13,TEXT,true));
+        panel.addView(t("DI kuria lietuvišką pasakojimą pagal žaidime apskaičiuotą rezultatą. Siunčiamas veiksmas, veikėjo aprašas ir trumpa pasaulio bei paskutinių ėjimų santrauka.",11,MUT,false));
+        Button openai=accent("PRIJUNGTI OPENAI");openai.setMinHeight(dp(48));openai.setOnClickListener(v->openAiDialog());panel.addView(openai,m(dp(5)));
+        if(!OpenAiSettings.load(this).url.isEmpty()){
+            Button use=outline("NAUDOTI OPENAI");use.setOnClickListener(v->{OpenAiSettings.select(this,OpenAiSettings.OPENAI);show("settings");});panel.addView(use,m(dp(5)));
+            Button test=outline("PATIKRINTI OPENAI RYŠĮ");test.setMinHeight(dp(48));test.setOnClickListener(v->testOpenAi());panel.addView(test,m(dp(5)));
+            panel.addView(t("Ryšio patikra sugeneruoja vieną bandomąjį atsakymą. Jai taikoma paslaugos API kaina; žaidimo pažanga nesikeičia.",10,MUT,false));
+            Button forget=outline("PAŠALINTI OPENAI PRISIJUNGIMĄ");forget.setOnClickListener(v->{SecureKeyStore.clearSecret(this,OpenAiSettings.SECRET);OpenAiSettings.select(this,OpenAiSettings.LOCAL);show("settings");});panel.addView(forget,m(dp(5)));
+        }
+        Button local=outline("ŽAISTI BE DI");local.setMinHeight(dp(48));local.setOnClickListener(v->{OpenAiSettings.select(this,OpenAiSettings.LOCAL);show("settings");});panel.addView(local,m(dp(5)));
+        Button groq=outline("GROQ NUSTATYMAI");groq.setOnClickListener(v->key());panel.addView(groq,m(dp(5)));
+        if(!SecureKeyStore.load(this).isEmpty()){
+            Button use=outline("NAUDOTI IŠSAUGOTĄ GROQ RAKTĄ");use.setOnClickListener(v->{OpenAiSettings.select(this,OpenAiSettings.GROQ);show("settings");});panel.addView(use,m(dp(5)));
+            Button forget=outline("PAŠALINTI GROQ RAKTĄ");forget.setOnClickListener(v->{SecureKeyStore.clear(this);if(OpenAiSettings.GROQ.equals(OpenAiSettings.provider(this)))OpenAiSettings.select(this,OpenAiSettings.LOCAL);show("settings");});panel.addView(forget);
+        }
+        return panel;
+    }
+
+    void openAiDialog(){
+        OpenAiSettings previous=OpenAiSettings.load(this);
+        LinearLayout form=col();form.setPadding(dp(18),dp(8),dp(18),dp(4));
+        TextView urlLabel=t("DI paslaugos adresas",12,TEXT,true);form.addView(urlLabel);
+        EditText url=new EditText(this);url.setSingleLine(true);url.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_URI);
+        url.setHint("https://tavo-paslauga.lt");url.setText(previous.url);form.addView(url);
+        form.addView(t("Prisijungimo kodas",12,TEXT,true));
+        EditText token=new EditText(this);token.setSingleLine(true);token.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        token.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);token.setHint(previous.token.isEmpty()?"Paslaugos prisijungimo kodas":"Palik tuščią, jei kodas nesikeičia");form.addView(token);
+        TextView error=t("",11,RED,false);form.addView(error);
+        AlertDialog dialog=new AlertDialog.Builder(this).setTitle("OpenAI žaidimo meistras")
+                .setMessage("Įvesk žaidimo DI paslaugos adresą ir jai skirtą prisijungimo kodą. Juos gausi iš paslaugos administratoriaus.")
+                .setView(form).setNegativeButton("ATŠAUKTI",null).setPositiveButton("IŠSAUGOTI",null).create();
+        dialog.setOnShowListener(d->dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v->{
+            try{
+                String secret=token.getText().toString().trim();
+                if(secret.isEmpty()&&url.getText().toString().trim().equals(previous.url))secret=previous.token;
+                OpenAiSettings.save(this,url.getText().toString(),secret);dialog.dismiss();show("settings");
+            }catch(Exception failure){error.setText(failure instanceof IllegalArgumentException?failure.getMessage():"Prisijungimo išsaugoti nepavyko.");}
+        }));dialog.show();
+    }
+
+    void testOpenAi(){
+        final OpenAiSettings config=OpenAiSettings.load(this);
+        final AiHttpClient transport=new AiHttpClient();setupTransport=transport;
+        ProgressDialog dialog=ProgressDialog.show(this,"OpenAI ryšio patikra","Laukiama bandomojo pasakojimo…",true,true);setupDialog=dialog;
+        dialog.setOnCancelListener(d->transport.cancel());
+        pool.submit(()->{
+            String message;
+            try{
+                JSONObject result=requestOpenAi(transport,config,"RYŠIO PATIKRA. Patvirtintas rezultatas: veikėjas Luminara mieste apžiūri vartus; kova nevyksta, atlygio nėra, pažanga nesikeičia. Aprašyk šią sceną ir pasiūlyk tris veiksmus.");
+                NarrativeTurn.validate(result);message="OpenAI ryšys veikia.\n\n"+result.getString("scene");
+            }catch(Exception failure){message=AiHttpClient.userMessage(failure);}
+            final String text=message;
+            runOnUiThread(()->{if(destroyed||transport.isCancelled())return;dialog.dismiss();setupTransport=null;setupDialog=null;
+                new AlertDialog.Builder(this).setTitle("Ryšio patikros rezultatas").setMessage(text).setPositiveButton("GERAI",null).show();});
+        });
+    }
+
+    void key(){EditText i=new EditText(this);i.setHint("gsk_…");i.setSingleLine(true);i.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD);new AlertDialog.Builder(this).setTitle("Groq API raktas").setMessage("Raktas šifruojamas Android raktų saugykloje ir lieka šiame telefone.").setView(i).setNegativeButton("Atšaukti",null).setPositiveButton("Išsaugoti",(d,w)->{try{String k=i.getText().toString().trim();if(!k.startsWith("gsk_")||k.length()<20)throw new Exception();SecureKeyStore.save(this,k);OpenAiSettings.select(this,OpenAiSettings.GROQ);show("settings");}catch(Exception e){Toast.makeText(this,"Nepavyko išsaugoti rakto",Toast.LENGTH_SHORT).show();}}).show();}
     void export(){Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/json").putExtra(Intent.EXTRA_TITLE,"vaeloria-save.json");startActivityForResult(i,EXPORT_REQ);}
     void importSave(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("application/json").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,IMPORT_REQ);}
-    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;try{android.net.Uri u=data.getData();if(req==EXPORT_REQ){try(OutputStream os=getContentResolver().openOutputStream(u)){os.write(db.exportSave().getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Išsaugojimas eksportuotas",Toast.LENGTH_SHORT).show();}else if(req==IMPORT_REQ){StringBuilder b=new StringBuilder();try(BufferedReader r=new BufferedReader(new InputStreamReader(getContentResolver().openInputStream(u),StandardCharsets.UTF_8))){String line;while((line=r.readLine())!=null)b.append(line);}if(db.importSave(b.toString())){state=db.loadState();feedback="Išsaugojimas importuotas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Netinkamas Vaeloria išsaugojimas",Toast.LENGTH_SHORT).show();}}catch(Exception e){Toast.makeText(this,"Failo klaida: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
+    @Override protected void onActivityResult(int req,int result,Intent data){super.onActivityResult(req,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;try{android.net.Uri u=data.getData();if(req==EXPORT_REQ){try(OutputStream os=getContentResolver().openOutputStream(u)){os.write(db.exportSave().getBytes(StandardCharsets.UTF_8));}Toast.makeText(this,"Išsaugojimas eksportuotas",Toast.LENGTH_SHORT).show();}else if(req==IMPORT_REQ){if(busy)cancelRequest();String raw=AiHttpClient.readBounded(getContentResolver().openInputStream(u),5_000_000);if(db.importSave(raw)){state=db.loadState();feedback="Išsaugojimas importuotas";show(state.characterCreated?"game":"character");}else Toast.makeText(this,"Netinkamas Vaeloria išsaugojimas",Toast.LENGTH_SHORT).show();}}catch(Exception e){Toast.makeText(this,"Failo klaida: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
 
     View errorView(Throwable e){ScrollView sv=new ScrollView(this);LinearLayout c=col();c.setPadding(dp(18),dp(18),dp(18),dp(18));sv.addView(c);c.addView(t("Ekrano klaida",20,RED,true));c.addView(t(e.getClass().getSimpleName()+"\n"+safe(e.getMessage(),"be papildomo aprašymo"),12,TEXT,false));Button b=accent("GRĮŽTI Į ŽAIDIMĄ");b.setOnClickListener(v->show("game"));c.addView(b,m(dp(12)));return sv;}
 

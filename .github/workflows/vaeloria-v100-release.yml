@@ -1,4 +1,4 @@
-name: Build and release Vaeloria OOC v1.1.0
+name: Build and release Vaeloria OOC v1.1.1
 
 on:
   pull_request:
@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/vaeloria-v100-release.yml'
       - 'v100/**'
+      - 'ai-service/**'
       - 'vaeloria-android/app/**'
       - 'vaeloria-android/build.gradle'
       - 'vaeloria-android/settings.gradle'
@@ -14,6 +15,7 @@ on:
     paths:
       - '.github/workflows/vaeloria-v100-release.yml'
       - 'v100/**'
+      - 'ai-service/**'
       - 'vaeloria-android/app/**'
       - 'vaeloria-android/build.gradle'
       - 'vaeloria-android/settings.gradle'
@@ -23,7 +25,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: vaeloria-v110-${{ github.ref }}
+  group: vaeloria-v111-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -63,7 +65,14 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: P0–P4 source and retained-asset audit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: OpenAI service contract, limits and cancellation tests
+        run: node --test ../ai-service/test/*.test.mjs
+
+      - name: Source structure and retained-asset audit
         run: |
           cd ..
           python3 v100/audit_v100.py
@@ -94,35 +103,35 @@ jobs:
       - name: Build optimized release APK
         run: |
           gradle :app:assembleRelease --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.0.apk
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
 
       - name: APK identity, security, resources and signer audit
         run: |
-          APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.0.apk
+          APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
 
-          "$AAPT" dump badging "$APK" | tee apk-badging-v110.txt
-          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v110.txt
-          grep -q "versionCode='42'" apk-badging-v110.txt
-          grep -q "versionName='1.1.0'" apk-badging-v110.txt
-          grep -q "application-label:'Vaeloria OOC 1.1.0'" apk-badging-v110.txt
-          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v110.txt
-          if grep -q '^application-debuggable' apk-badging-v110.txt; then exit 1; fi
+          "$AAPT" dump badging "$APK" | tee apk-badging-v111.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v111.txt
+          grep -q "versionCode='43'" apk-badging-v111.txt
+          grep -q "versionName='1.1.1'" apk-badging-v111.txt
+          grep -q "application-label:'Vaeloria OOC 1.1.1'" apk-badging-v111.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v111.txt
+          if grep -q '^application-debuggable' apk-badging-v111.txt; then exit 1; fi
 
-          "$AAPT" dump permissions "$APK" | tee apk-permissions-v110.txt
-          test "$(grep -c '^uses-permission:' apk-permissions-v110.txt)" -eq 1
-          grep -q 'android.permission.INTERNET' apk-permissions-v110.txt
+          "$AAPT" dump permissions "$APK" | tee apk-permissions-v111.txt
+          test "$(grep -c '^uses-permission:' apk-permissions-v111.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions-v111.txt
 
-          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-v110.txt
-          grep -A35 'E: application' apk-manifest-v110.txt | grep -q 'android:allowBackup.*0x0'
-          grep -A35 'E: application' apk-manifest-v110.txt | grep -q 'android:usesCleartextTraffic.*0x0'
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-v111.txt
+          grep -A35 'E: application' apk-manifest-v111.txt | grep -q 'android:allowBackup.*0x0'
+          grep -A35 'E: application' apk-manifest-v111.txt | grep -q 'android:usesCleartextTraffic.*0x0'
 
-          "$AAPT" dump resources "$APK" | tee apk-resources-v110.txt
-          for number in $(seq -w 1 325); do grep -q "item_v092_$number" apk-resources-v110.txt; done
-          for number in $(seq -w 1 200); do grep -q "monster_v091_$number" apk-resources-v110.txt; done
-          for resource in hero_einoras_v090 world_map_base_v090 quest_broken_meridian_v090; do grep -q "$resource" apk-resources-v110.txt; done
+          "$AAPT" dump resources "$APK" | tee apk-resources-v111.txt
+          for number in $(seq -w 1 325); do grep -q "item_v092_$number" apk-resources-v111.txt; done
+          for number in $(seq -w 1 200); do grep -q "monster_v091_$number" apk-resources-v111.txt; done
+          for resource in hero_einoras_v090 world_map_base_v090 quest_broken_meridian_v090; do grep -q "$resource" apk-resources-v111.txt; done
 
           test "$(stat -c %s "$APK")" -gt 10000000
           unzip -t "$APK"
@@ -130,30 +139,34 @@ jobs:
           "$APKSIGNER" verify --verbose "$APK"
           CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
           test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
-          if unzip -p "$APK" 'classes*.dex' | strings | grep -E 'gsk_[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
-          sha256sum "$APK" | tee apk-sha256-v110.txt
+          if unzip -p "$APK" 'classes*.dex' | strings | grep -E '(gsk_|sk-)[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
+          sha256sum "$APK" | tee apk-sha256-v111.txt
 
       - name: Upload verified APK and audits
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v1.1.0-apk-and-audits-${{ github.run_id }}
+          name: vaeloria-ooc-v1.1.1-apk-and-audits-${{ github.run_id }}
           path: |
-            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.1.0.apk
-            vaeloria-android/apk-badging-v110.txt
-            vaeloria-android/apk-permissions-v110.txt
-            vaeloria-android/apk-manifest-v110.txt
-            vaeloria-android/apk-sha256-v110.txt
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+            vaeloria-android/apk-badging-v111.txt
+            vaeloria-android/apk-permissions-v111.txt
+            vaeloria-android/apk-manifest-v111.txt
+            vaeloria-android/apk-sha256-v111.txt
           if-no-files-found: error
 
       - name: Publish GitHub release
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/agent/vaeloria-local-android'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release delete vaeloria-ooc-v1.1.0 --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
-          gh release create vaeloria-ooc-v1.1.0 \
-            app/build/outputs/apk/release/Vaeloria-OOC-v1.1.0.apk \
+          if gh release view vaeloria-ooc-v1.1.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            TARGET=$(gh release view vaeloria-ooc-v1.1.1 --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)
+            test "$TARGET" = "$GITHUB_SHA"
+            exit 0
+          fi
+          gh release create vaeloria-ooc-v1.1.1 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v1.1.0 · P1 daiktų ir progresijos leidimas" \
-            --notes "Vaeloria OOC v1.1.0 įgyvendina P1: daiktų lygio reikalavimai autoritetingai taikomi pirkimui, naudojimui, įrangai ir importui; potionai, maistas ir kovos reikmenys turi atskirus struktūrizuotus efektus bei tikrą kovos kainą; 27 receptai naudoja kelių reagentų sąrašus, alchemijos, kalvės ir runų darbo vietas, lygius ir talentus. Veikėjas gauna paskirstomus savybių taškus, talentų medis pratęstas iki 25 talentų ir 90 lygio viršūnių, setų resursų bei kelionės bonusai tapo realiomis būsenos mechanikomis. v12→v13 migracija pataiso startinius viršlygius daiktus ir išsaugo ankstesnę pažangą. CI tikrina vienetinius testus, tikrą 360dp Android UI, v3→v13 ir v11→v13 migracijas, pilną atkūrimą, R8 release APK, vienintelį INTERNET leidimą ir stabilų atnaujinimo parašą."
+            --title "Vaeloria OOC v1.1.1 · OpenAI ir patikimumas" \
+            --notes-file ../v100/RELEASE-v1.1.1.md

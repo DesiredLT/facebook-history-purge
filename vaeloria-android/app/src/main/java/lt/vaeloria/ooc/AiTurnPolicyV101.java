@@ -25,6 +25,7 @@ final class AiTurnPolicyV101 {
             JSONObject out=new JSONObject(raw.toString());
             boolean failed=isFailure(check);
             String event=canonicalEvent(out.optString("event_tag","none"));
+            if(event.startsWith("combat"))event="none";
             if(failed)event="setback";
             out.put("event_tag",event);
 

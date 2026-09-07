@@ -719,15 +719,18 @@ public class VaeloriaDb extends SQLiteOpenHelper {
     private boolean isAllowedCategory(String c){return c!=null&&java.util.Arrays.asList(ItemCatalogV092.CATEGORIES).contains(c);}
     private boolean isAllowedRarity(String r){return r!=null&&java.util.Arrays.asList(ItemCatalogV092.RARITIES).contains(r.toLowerCase(Locale.ROOT));}
 
-    public void checkpoint(String label, GameState state) {
+    public long checkpoint(String label, GameState state) {
         try {
             JSONArray eq = new JSONArray();
             for(Item i:getItems()) if(i.equipped) {JSONObject o=new JSONObject();o.put("id",i.id);o.put("slot",i.equippedSlot);eq.put(o);}
             ContentValues v=new ContentValues(); v.put("label",label);v.put("state_json",state.toJson().toString());v.put("equipment_json",eq.toString());v.put("snapshot_json",exportSave());v.put("created_at",System.currentTimeMillis());
-            SQLiteDatabase db=getWritableDatabase(); db.insert("checkpoints",null,v);
+            SQLiteDatabase db=getWritableDatabase(); long id=db.insertOrThrow("checkpoints",null,v);
             db.execSQL("DELETE FROM checkpoints WHERE id NOT IN (SELECT id FROM checkpoints ORDER BY id DESC LIMIT 20)");
-        } catch(Exception ignored){}
+            return id;
+        } catch(Exception error){throw new IllegalStateException("Kontrolinio taško išsaugoti nepavyko.",error);}
     }
+
+    void discardCheckpoint(long id){getWritableDatabase().delete("checkpoints","id=?",new String[]{String.valueOf(id)});}
 
     public boolean undo() {
         SQLiteDatabase db=getWritableDatabase();
@@ -815,7 +818,8 @@ public class VaeloriaDb extends SQLiteOpenHelper {
         JSONArray abilities=root.optJSONArray("abilities");if(abilities!=null){if(abilities.length()>100)throw new IllegalArgumentException("Per daug gebėjimų");db.delete("abilities",null,null);for(int i=0;i<abilities.length();i++){JSONObject o=abilities.optJSONObject(i);if(o==null)continue;String name=compactImported(o.optString("name",""),80);if(!allowedAbilityName(name))continue;ContentValues value=new ContentValues();value.put("name",name);value.put("type",compactImported(o.optString("type","bazinis_gebėjimas"),60));value.put("description",compactImported(o.optString("description",""),1000));db.insertWithOnConflict("abilities",null,value,SQLiteDatabase.CONFLICT_IGNORE);}}
         JSONArray mastery=root.optJSONArray("mastery");if(mastery!=null){if(mastery.length()>500)throw new IllegalArgumentException("Per daug meistriškumo įrašų");db.delete("mastery",null,null);seedMastery(db);for(int i=0;i<mastery.length();i++){JSONObject o=mastery.optJSONObject(i);if(o==null)continue;String name=o.optString("name","");if(!knownStat(name))continue;int level=Math.max(0,Math.min(100,o.optInt("level",0)));int next=masteryNext(level);ContentValues value=new ContentValues();value.put("level",level);value.put("xp",Math.max(0,Math.min(next-1,o.optInt("xp",0))));value.put("next_xp",level>=100?1:next);db.update("mastery",value,"name=?",new String[]{name});}}
         world().restoreState(db,root.optJSONObject("world"));
-        if(root.optInt("version",1)<13)WorldRepository.migrateV13(db);
+        if(root.optInt("version",1)<12)migrateV11toV12(db);
+        if(root.optInt("version",1)<13)migrateV12toV13(db);
     }
 
     private boolean validEquipmentTarget(String target){if(target==null)return false;for(String slot:EQUIPMENT_SLOTS)if(slot.equals(target))return true;return false;}
