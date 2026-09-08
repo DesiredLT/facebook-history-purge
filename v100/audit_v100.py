@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.1.0."""
+"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.1.1."""
 
 import hashlib
 from pathlib import Path
@@ -74,14 +74,15 @@ activity = read(JAVA / "PolishedActivity.java")
 base_activity = read(JAVA / "VaeloriaActivity.java")
 views = read(JAVA / "PremiumViewsV090.java")
 groq = read(JAVA / "GroqClient.java")
+narration_policy = read(APP / "src/main/assets/ai/narration-policy.txt")
 audio = read(JAVA / "VaeloriaAudio.java")
 profile = read(JAVA / "CharacterCatalogV093.java")
 language = read(JAVA / "LithuanianNarrative.java")
 consumables = read(JAVA / "ConsumableRulesV110.java")
 
 # Leidimo tapatybė ir saugumas.
-require("versionCode 42" in build and "versionName '1.1.0'" in build, "Android versija yra 42 / 1.1.0")
-require('android:label="Vaeloria OOC 1.1.0"' in manifest, "programėlės etiketė yra v1.1.0")
+require("versionCode 43" in build and "versionName '1.1.1'" in build, "Android versija yra 43 / 1.1.1")
+require('android:label="Vaeloria OOC 1.1.1"' in manifest, "programėlės etiketė yra v1.1.1")
 require("minifyEnabled true" in build and "shrinkResources true" in build, "release buildą optimizuoja R8")
 require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest, "atsarginės kopijos ir nešifruotas ryšys išjungti")
 require(manifest.count("uses-permission") == 1 and "android.permission.INTERNET" in manifest, "šaltinyje prašomas tik interneto leidimas")
@@ -132,14 +133,14 @@ require("saveToSlot" in database and "loadFromSlot" in database and "deleteSlot"
 require("bestiarySearchDialog" in activity and "globalCatalogSearchDialog" in activity and "inventoryFilterDialog" in activity, "didelės kolekcijos turi paiešką, filtrus ir puslapiavimą")
 require("locations" in world and "discovered" in world and "recordExploration" in world and "travelMinutes" in world, "atlasas turi atradimus, rūką ir kelionės laiką")
 require("discovered.contains" in views and "postInvalidateDelayed(250)" in views, "žemėlapis slepia nežinomas vietas ir riboja perpiešimą")
-require("cancelPendingAction" in base_activity and "cancelActive" in groq, "ilgą DI užklausą galima saugiai atšaukti")
+require("cancelPendingAction" in base_activity and "activeAiTransport.cancel()" in base_activity, "ilgą DI užklausą galima saugiai atšaukti")
 require("AudioTrack" in audio and "ToneGenerator" in audio, "aplinkos ir sąsajos garsai veikia be tinklo")
 
 # Veikėjo kūrimas ir lietuviškas DI kontraktas.
 require(profile.count("new Origin(") == 6 and profile.count("new Archetype(") == 6 and profile.count("new Trait(") == 12, "veikėjo kūrimas turi 6 kilmes, 6 archetipus ir 12 bruožų")
-require("taisyklinga, natūralia ir rišlia lietuvių kalba" in groq and "antruoju asmeniu" in groq, "DI sutartis reikalauja aiškios rišlios lietuvių kalbos")
+require("taisyklinga, natūralia ir rišlia lietuvių kalba" in narration_policy and "antruoju asmeniu" in narration_policy, "DI sutartis reikalauja aiškios rišlios lietuvių kalbos")
 require("polishChoices" in language and "clearlyEnglish" in language, "vietinis filtras sutvarko kalbą ir pasirinkimus")
-require("telefono v0.9.3" not in groq and "telefono v1.1.0" in groq, "DI sutartyje nėra pasenusios runtime versijos")
+require("resolveNarration" in groq and "pendingResolvedTurn" in base_activity and "requestOpenAi" in base_activity, "abu DI tiekėjai naudoja pasakojimo sutartį virš vietinio rezultato")
 
 # Duomenys, testai ir realūs bundled assetai.
 require("private static final int VERSION = 13" in database and 'root.put("version",13)' in database, "SQLite ir eksporto schema yra 13")
@@ -181,4 +182,4 @@ require(webp_dimensions(quest_art)[0] >= 1_600 and webp_dimensions(quest_art)[1]
 require(webp_dimensions(map_art)[0] >= 1_000 and webp_dimensions(map_art)[1] >= 1_400,
         "atlaso iliustracija yra bent 1000×1400")
 
-print("Vaeloria OOC v1.1.0 P0–P4 priėmimo auditas praėjo")
+print("Vaeloria OOC v1.1.1 šaltinio struktūros ir išteklių auditas praėjo")

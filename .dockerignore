@@ -1,0 +1,11 @@
+**
+!ai-service/
+!ai-service/server.mjs
+!ai-service/package.json
+!vaeloria-android/
+!vaeloria-android/app/
+!vaeloria-android/app/src/
+!vaeloria-android/app/src/main/
+!vaeloria-android/app/src/main/assets/
+!vaeloria-android/app/src/main/assets/ai/
+!vaeloria-android/app/src/main/assets/ai/**

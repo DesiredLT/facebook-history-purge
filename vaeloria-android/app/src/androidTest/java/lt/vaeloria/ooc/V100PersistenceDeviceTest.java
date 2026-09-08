@@ -126,6 +126,15 @@ public class V100PersistenceDeviceTest {
         assertTrue(database.consumeItem(potionId,state).contains("reikia"));assertEquals(before,database.getItem(potionId).quantity);
     }
 
+    @Test public void versionElevenJsonImportAlsoRemovesDuplicatedProfileBonuses() throws Exception {
+        balancedState("Seno importo herojė");
+        JSONObject root=new JSONObject(database.exportSave()).put("version",11);
+        JSONArray stats=root.getJSONArray("stats");
+        for(int i=0;i<stats.length();i++)if("Manos kontrolė".equals(stats.getJSONObject(i).getString("name")))stats.getJSONObject(i).put("value",52);
+        assertTrue(database.importSave(root.toString()));assertEquals(40,database.getStatValue("Manos kontrolė"));
+        assertTrue(database.importSave(database.exportSave()));assertEquals(40,database.getStatValue("Manos kontrolė"));
+    }
+
     @Test public void attributePointsAndMultiIngredientRecipesAreRealMechanics(){
         GameState state=balancedState("Amatininkė");state.attributePoints=1;database.saveState(state);int before=database.getStatValue("Jėga");
         assertTrue(database.spendAttributePoint("Jėga",state).contains("padidinta"));assertEquals(Math.min(100,before+2),database.getStatValue("Jėga"));assertEquals(0,state.attributePoints);

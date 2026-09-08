@@ -271,7 +271,15 @@ final class WorldRepository {
     Npc findNpc(String value){return findNpc(value,720);}
     Npc findNpc(String value,long minute){String q=norm(value);for(Npc npc:npcs("Luminara",minute))if(q.contains(norm(npc.name))||q.contains(norm(npc.name).split(" ")[0]))return npc;return null;}
 
-    String recordNpcInteraction(String action,String event,long minute){Npc npc=findNpc(action);if(npc==null)return"";int delta="setback".equals(event)?-2:"reward".equals(event)?4:2;JSONArray memory;try{memory=new JSONArray(npc.memory);}catch(Exception ignored){memory=new JSONArray();}memory.put(compact(action,120));while(memory.length()>8)removeFirst(memory);ContentValues v=new ContentValues();v.put("relationship",clamp(npc.relationship+delta,-100,100));v.put("trust",clamp(npc.trust+(delta>0?1:-1),0,100));v.put("last_topic",compact(action,80));v.put("interactions",npc.interactions+1);v.put("memory_json",memory.toString());db().update("npcs",v,"id=?",new String[]{npc.id});return npc.name+" prisimins šį pokalbį · santykis "+signed(delta);}
+    String recordNpcInteraction(String action,String event,GameState state){
+        if(!"social".equals(event)&&!"dialogue".equals(event)&&!"reward".equals(event)&&!"setback".equals(event))return "";
+        String query=norm(action);if(!query.contains("kalb")&&!query.contains("klaust")&&!query.contains("paklaus"))return "";
+        Npc npc=null;
+        for(Npc candidate:npcs(state.location,state.worldMinute)){
+            if(candidate.available&&(query.contains(norm(candidate.name))||query.contains(norm(candidate.name).split(" ")[0]))){npc=candidate;break;}
+        }
+        if(npc==null)return "";
+        int delta="setback".equals(event)?-2:"reward".equals(event)?4:2;JSONArray memory;try{memory=new JSONArray(npc.memory);}catch(Exception ignored){memory=new JSONArray();}memory.put(compact(action,120));while(memory.length()>8)removeFirst(memory);ContentValues v=new ContentValues();v.put("relationship",clamp(npc.relationship+delta,-100,100));v.put("trust",clamp(npc.trust+(delta>0?1:-1),0,100));v.put("last_topic",compact(action,80));v.put("interactions",npc.interactions+1);v.put("memory_json",memory.toString());db().update("npcs",v,"id=?",new String[]{npc.id});return npc.name+" prisimins šį pokalbį · santykis "+signed(delta);}
 
     Shop shopForNpc(String npcName){Npc npc=findNpc(npcName);if(npc==null||!npc.service.startsWith("shop:"))return null;String id=npc.service.substring(5);try(Cursor c=db().rawQuery("SELECT id,name,npc_id,location,markup,buyback FROM shops WHERE id=?",new String[]{id})){if(c.moveToFirst()){Shop s=new Shop();s.id=c.getString(0);s.name=c.getString(1);s.npcId=c.getString(2);s.location=c.getString(3);s.markup=c.getInt(4);s.buyback=c.getInt(5);return s;}}return null;}
 

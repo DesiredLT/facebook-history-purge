@@ -107,7 +107,7 @@ public class V091MobileDeviceTest {
                 assertNotNull(potion);activity.state.hp=50;String used=activity.db.consumeItem(potion.id,activity.state);assertNotNull(used);assertEquals(75,activity.state.hp);assertEquals(2,activity.db.getItem(potion.id).quantity);
 
                 activity.state.combatActive=true;activity.state.enemyName="Užtemimo drakonas";activity.state.enemyHp=1;activity.state.enemyHpMax=559;activity.state.combatRound=3;
-                int before=units(activity.db.getItems());JSONObject result=activity.local("Atakuoti Užtemimo drakoną",null);assertEquals("combat_victory",result.getString("event_tag"));activity.finish("Atakuoti Užtemimo drakoną",result,null);int after=units(activity.db.getItems());assertEquals(before+3,after);assertFalse(activity.state.combatActive);
+                int before=units(activity.db.getItems());OpenAiSettings.select(activity,OpenAiSettings.LOCAL);activity.db.saveState(activity.state);activity.act("Atakuoti Užtemimo drakoną");int after=units(activity.db.getItems());assertEquals(before+3,after);assertFalse(activity.state.combatActive);
             } catch (Throwable throwable) { failure.set(throwable); }
         });
         if (failure.get() != null) throw new AssertionError(failure.get());

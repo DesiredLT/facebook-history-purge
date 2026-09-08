@@ -1,30 +1,33 @@
-# Vaeloria OOC v1.0.0
+# Vaeloria OOC v1.1.1
 
-„Vaeloria OOC“ – vietinis vieno žaidėjo dark-fantasy RPG, kurio pasaulį gali valdyti DI žaidimo meistras. Žaidimas yra gimtoji „Android“ programėlė: pagrindinės taisyklės, kovos, inventorius, progresija ir išsaugojimai veikia telefone, o Groq integracija yra pasirenkamas naratyvo sluoksnis.
+Vietinis vieno žaidėjo fantastinis Android RPG. Telefonas apskaičiuoja kovą, progresiją, daiktus, keliones ir saugo SQLite būseną. Pasirenkamas OpenAI arba Groq pasakotojas aprašo patvirtintą rezultatą lietuviškai.
 
-## v1.0 žaidimo sistemos
+## Šio leidimo pakeitimai
 
-- Deterministinė kelių ėjimų kova su priešo statistika, ketinimais, būsenomis, įrangos, setų, talentų ir kompanionų mechanika.
-- 325 iliustruoti daiktai, 19 kategorijų, 8 retumo pakopos, 10 šešių dalių setų, veikiantys potionai, gamyba, prekyba ir tikros grobio lentelės.
-- 218 iliustruotų monstrų su paieška, regionais, vaidmenimis, statistika ir tiksliomis iškritimo tikimybėmis.
-- Veikėjo kūrimas: vardas, tapatybė, išvaizda, 6 kilmės, 6 archetipai ir lygiai 3 iš 12 mechaninių bruožų.
-- Subalansuota 1–100 progresija arba pasirenkama legendinė pradžia, 20 talentų penkiose šakose ir 4 sunkumo režimai.
-- Pagrindinė šešių etapų istorija su trimis ilgalaikėmis baigtimis, šalutinės užduotys, įrodymai ir struktūrizuoti tikslai.
-- NPC atmintis, santykiai, paros prieinamumas, parduotuvės, ekonomikos indeksai, pasaulio įvykiai, frakcijos, miestų būsena, verslai ir samdomi darbuotojai.
-- Lyra, Kaelis ir Mirel kaip prisiviliojami kompanionai su lojalumu ir realiu poveikiu kovai bei pasirinkimams.
-- Atlaso atradimai, nežinomų vietų rūkas, autoritetingas kelionės laikas, interaktyvus žemėlapis ir ekrano skaitytuvui skirtas vietų sąrašas.
-- Automatinis išsaugojimas, 20 pilnų atšaukimo kontrolinių taškų, 3 vardiniai išsaugojimo lizdai ir JSON eksportas / importas.
-- Didesnio teksto, mažesnio judesio, spalvų skyrimo, haptikos bei garsumo nustatymai; procedūrinis neprisijungus veikiantis aplinkos garsas.
+- OpenAI Responses API integracija per atskirą žaidimo paslaugą. Numatytas serverio modelis `gpt-6-astra`; jį galima pakeisti `OPENAI_MODEL` konfigūracijoje.
+- Abu DI tiekėjai gali grąžinti tik scenos pavadinimą, tekstą ir tris pasirinkimus. Modelis nebegali suteikti pinigų, grobio, patirties, kelionių ar kovos pergalių.
+- Užklausa naudoja atskirą, atšaukiamą HTTP jungtį ir nekintamą būsenos kopiją. Laukiant pasakojimo sustabdomi kiti būseną keičiantys veiksmai; pavėluotas atsakymas nebepritaikomas.
+- Visas ėjimas įrašomas viena SQLite transakcija. Klaida nepalieka tik dalies atlygio ar meistriškumo pakeitimų.
+- Pataisytas kelionės tikslo parinkimas, grįžimas į Luminara, neatrastų vietų kelionės, NPC pokalbių vietos ir darbo laiko patikra, seno JSON importo profilio migracija ir failo dydžio ribojimas skaitant.
 
-## Architektūra ir saugumas
+## Žaidime jau yra
 
-- Java 17, gimtoji „Android“ UI ir SQLite 11 schema.
-- Vietinis resolveris leidžia žaisti be interneto ir be API rakto.
-- Pasirenkamas Groq `openai/gpt-oss-120b` žaidimo meistras su griežta JSON Schema sutartimi.
-- Groq raktas šifruojamas „Android Keystore“, neįtraukiamas į eksportus ar atsargines kopijas.
-- Tik HTTPS ryšys, vienintelis leidimas – `android.permission.INTERNET`, `allowBackup=false`, release buildas ne-debug ir optimizuojamas R8.
-- Išlaikytas paketo ID `lt.vaeloria.ooc.personal` ir stabilus atnaujinimų pasirašymo sertifikatas.
+325 iliustruoti daiktai, 8 retumo pakopos, 10 šešių dalių setų, 218 bestiarijaus įrašų, 27 kelių ingredientų receptai ir 25 talentai penkiose šakose. Veikėjas turi pasirenkamą kilmę, archetipą ir tris mechaninius bruožus; progresija apima 1–100 lygius bei paskirstomus savybių taškus. Veikia kelių ėjimų kova, prekyba, vartojami daiktai, kompanionai, pagrindinė šešių etapų istorija, atlasas, trys išsaugojimo lizdai ir iki 20 atšaukimo taškų.
 
-## Build ir kokybės vartai
+Šalutinių užduočių ir pasaulio simuliacijos sistemos dar neužbaigtos. Tikslus likusių darbų sąrašas pateiktas [2026-09-07 audite](v100/AUDIT-2026-09-07.md). Šaltinio struktūros patikra nėra viso P0–P4 plano užbaigimo įrodymas.
 
-GitHub Actions su „Android 35“ ir „Gradle 8.11.1“ vykdo vienetinius testus, v3→v11 SQLite migraciją, pilno undo bei išsaugojimo lizdų patikras, realų 360dp įrenginio UI testą, release APK kompiliavimą, išteklių, leidimų, parašo ir įterptų paslapčių auditą. Patikrintas APK publikuojamas GitHub Releases kaip `Vaeloria-OOC-v1.0.0.apk`.
+## OpenAI prijungimas
+
+Paslaugos paleidimas, slapti kintamieji, HTTPS ir Android nustatymai aprašyti [OpenAI prijungimo instrukcijoje](ai-service/README.md). Providerio raktas saugomas tik serveryje. Telefone naudojamas atskiras įrenginio prisijungimo kodas, užšifruotas Android Keystore ir neįtraukiamas į žaidimo eksportą.
+
+Diegimas savaime neaktyvuoja mokamo API: reikalinga veikianti paslauga su tikru `OPENAI_API_KEY`, o telefone – jos HTTPS adresas ir įrenginio kodas. Be jų žaidimas veikia vietiniu režimu. Ankstesnis išsaugotas Groq raktas išlieka; tiekėją galima pasirinkti nustatymuose.
+
+## Kūrimas ir patikra
+
+- Java 17, Android minSdk 26 / targetSdk 35, SQLite schema 13, Gradle 8.11.1.
+- `node --test ai-service/test/*.test.mjs` – vietinė HTTP paslauga su imituotu OpenAI atsakymu; mokamo API nekviečia.
+- `python3 v100/audit_v100.py` – šaltinio struktūros, manifestų ir iliustracijų patikra.
+- Android kataloge: `gradle :app:testDebugUnitTest :app:assembleRelease`.
+- Android 35 emuliatoriuje, 360dp pločiu: `gradle :app:connectedDebugAndroidTest`.
+
+GitHub Actions vykdo serverio, Java, migracijų, Android sąsajos ir išsaugojimo testus, tada tikrina optimizuoto APK tapatybę, leidimus, išteklius, parašą bei paslapčių nebuvimą. Paketo ID: `lt.vaeloria.ooc.personal`. Leidimui būtinas ankstesnis pasirašymo raktas; jo savavališkai nekeisti (žr. [pasirašymą](vaeloria-android/SIGNING.md)).

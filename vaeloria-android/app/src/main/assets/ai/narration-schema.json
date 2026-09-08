@@ -1,0 +1,10 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "scene_title": {"type": "string", "minLength": 1, "maxLength": 100},
+    "scene": {"type": "string", "minLength": 1, "maxLength": 1000},
+    "choices": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "minLength": 1, "maxLength": 150}}
+  },
+  "required": ["scene_title", "scene", "choices"]
+}

@@ -8,3 +8,6 @@ __pycache__/
 *.repaired.png
 generated-v091/
 generated-v092/
+.env
+.env.*
+!.env.example

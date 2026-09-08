@@ -8,20 +8,18 @@ import org.json.JSONObject;
 import org.junit.Test;
 
 public class GroqContractV091Test {
-    @Test public void combatTextFieldsHaveMobileSafeLimits() throws Exception {
-        JSONObject format = GroqClient.responseFormatForTest();
-        JSONObject schema = format.getJSONObject("json_schema").getJSONObject("schema");
+    @Test public void narrativeFieldsHaveMobileSafeLimits() throws Exception {
+        JSONObject schema = NarrationTestAssets.schema();
         JSONObject properties = schema.getJSONObject("properties");
-        assertEquals(64, properties.getJSONObject("enemy_name").getInt("maxLength"));
-        assertEquals(60, properties.getJSONObject("enemy_status").getInt("maxLength"));
-        assertEquals(100, properties.getJSONObject("enemy_telegraph").getInt("maxLength"));
-        assertEquals(70, properties.getJSONObject("combat_hazard").getInt("maxLength"));
+        assertEquals(100, properties.getJSONObject("scene_title").getInt("maxLength"));
+        assertEquals(1000, properties.getJSONObject("scene").getInt("maxLength"));
+        assertEquals(150, properties.getJSONObject("choices").getJSONObject("items").getInt("maxLength"));
 
         JSONArray required = schema.getJSONArray("required");
-        assertTrue(contains(required, "combat_active"));
-        assertTrue(contains(required, "enemy_name"));
-        assertTrue(contains(required, "enemy_telegraph"));
-        assertTrue(contains(required, "loot"));
+        assertEquals(3,required.length());
+        assertTrue(contains(required, "scene_title"));
+        assertTrue(contains(required, "scene"));
+        assertTrue(contains(required, "choices"));
     }
 
     @Test public void aiRosterIncludesAllAdditionalIllustratedEnemies() {
