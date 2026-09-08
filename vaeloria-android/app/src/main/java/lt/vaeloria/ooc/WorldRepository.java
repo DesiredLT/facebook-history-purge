@@ -251,19 +251,111 @@ final class WorldRepository {
 
     QuestStep activeMainStep(){for(QuestStep step:steps("Q-MERIDIAN"))if("active".equals(step.status))return step;return null;}
 
-    void applyQuestToState(GameState state){Quest quest=activeMainQuest();QuestStep step=activeMainStep();if(quest!=null)state.questTitle=quest.title;if(step!=null)state.objective=step.title+(step.target>1?" ("+step.progress+"/"+step.target+")":"");}
+    void applyQuestToState(GameState state){if(!state.trackedQuestId.isEmpty()&&owner.sideQuests().choices(state))return;Quest quest=activeMainQuest();QuestStep step=activeMainStep();if(quest!=null)state.questTitle=quest.title;if(step!=null)state.objective=step.title+(step.target>1?" ("+step.progress+"/"+step.target+")":"");}
 
-    void applyStructuredChoices(GameState state){QuestStep step=activeMainStep();if(step==null||state.combatActive)return;ArrayList<String> choices=new ArrayList<>();if(step.position==0){choices.add("Ištirti karavano manifestą ir jo laiko žymas");choices.add("Klausti Kaelio apie karavano atvykimą");choices.add("Palyginti manifestą su archyvo įrašais");}else if(step.position==1){choices.add("Patikrinti Meridiano vartų žurnalą");choices.add("Paprašyti Lyros nepriklausomo matavimo");choices.add("Klausti Orino apie ištrintas chartijas");}else if(step.position==2){choices.add("Užfiksuoti Lyros lauko matavimus kaip atramos tašką");choices.add("Patvirtinti Kaelio sargybos žurnalą kaip atramos tašką");choices.add("Vykti į Veyrhold ir tikrinti tranzito įrašą");}else if(step.position==3){choices.add("Pereiti Meridianą ir užmegzti Orisono kontaktą");choices.add("Kalibruoti saugų grįžimo kelią");choices.add("Paprašyti kompaniono saugoti atramos tašką");}else if(step.position==4){choices.add("Priimti Pirmąją Meridiano chartiją");choices.add("Atmesti Pirmąją Meridiano chartiją");choices.add("Siūlyti nepriklausomą Meridiano valdymą");}else if(step.position==5){choices.add("Priimti savo sprendimo pasekmes ir tęsti");choices.add("Aplankyti frakcijų atstovus po sprendimo");choices.add("Patikrinti, kaip pasikeitė pasaulio ekonomika");}if(choices.size()==3){state.choices.clear();state.choices.addAll(choices);}}
+    void applyStructuredChoices(GameState state){
+        if(state.combatActive)return;
+        if(owner.sideQuests().choices(state))return;
+        QuestStep step=activeMainStep();if(step==null)return;
+        state.choices.clear();
+        if(step.position==3&&!"Aureliono Pakraštys".equals(state.location)){
+            state.choices.add("Keliauti į Aureliono Pakraštį");state.choices.add("Tyrinėti apylinkes");state.choices.add("Pailsėti saugioje vietoje");return;
+        }
+        if(step.position!=3&&!"Luminara".equals(state.location)){
+            state.choices.add(step.position==2&&"Veyrhold".equals(state.location)?"Patikrinti Veyrhold tranzito įrašą":"Grįžti į Luminarą");
+            state.choices.add("Grįžti į Luminarą");state.choices.add("Pailsėti saugioje vietoje");
+            if(state.choices.get(0).equals(state.choices.get(1)))state.choices.set(1,"Tyrinėti apylinkes");return;
+        }
+        String[][] choices={
+            {"Ištirti karavano manifestą ir jo laiko žymas","Klausti Kaelio apie karavano atvykimą","Palyginti manifestą su archyvo įrašais"},
+            {"Patikrinti Meridiano vartų žurnalą","Paprašyti Lyros nepriklausomo matavimo","Klausti Orino apie ištrintas chartijas"},
+            {"Užfiksuoti Lyros lauko matavimus kaip atramos tašką","Patvirtinti Kaelio sargybos žurnalą kaip atramos tašką","Vykti į Veyrhold ir tikrinti tranzito įrašą"},
+            {"Pereiti Meridianą ir užmegzti Orisono kontaktą","Kalibruoti saugų grįžimo kelią","Pailsėti saugioje vietoje"},
+            {"Priimti Pirmąją Meridiano chartiją","Atmesti Pirmąją Meridiano chartiją","Siūlyti nepriklausomą Meridiano valdymą"},
+            {"Priimti savo sprendimo pasekmes ir tęsti","Apsidairyti ir įvertinti pasekmes","Patikrinti, kaip pasikeitė pasaulio ekonomika"}
+        };
+        state.choices.addAll(Arrays.asList(choices[step.position]));
+    }
 
-    String progressStory(String action,String event,GameState state,StatEngine.Check check){
-        QuestStep step=activeMainStep();if(step==null)return"";String q=norm(action);if(!checkAllowsProgress(check,event))return"";String evidence=null,detail="";
-        if(step.position==0&&q.contains("manifest")){completeAndActivate(step,1);detail="Manifesto laiko neatitikimas įtrauktas į įrodymų grandinę.";}
-        else if(step.position==1&&(q.contains("vart")||q.contains("meridian")||q.contains("lyra")||q.contains("kaeli")||q.contains("orin"))){completeAndActivate(step,2);detail="Vartų žurnalas ir nepriklausomas liudijimas patvirtino poslinkį.";}
-        else if(step.position==2){evidence=evidenceId(q);if(evidence!=null){ContentValues v=new ContentValues();v.put("quest_id","Q-MERIDIAN");v.put("evidence_id",evidence);v.put("detail",evidenceDetail(evidence));v.put("source",action);v.put("created_minute",state.worldMinute);long inserted=db().insertWithOnConflict("quest_evidence",null,v,SQLiteDatabase.CONFLICT_IGNORE);int count=evidenceCount();ContentValues p=new ContentValues();p.put("progress",Math.min(3,count));db().update("quest_steps",p,"id=?",new String[]{step.id});if(inserted!=-1)detail="Užfiksuotas nepriklausomas atramos taškas: "+evidenceDetail(evidence)+".";if(count>=3){completeAndActivate(step,3);detail+=" Atramos tinklas užbaigtas.";}}}
-        else if(step.position==3&&(q.contains("orison")||q.contains("pereiti meridian")||q.contains("įžengti")||q.contains("izengti"))){completeAndActivate(step,4);detail="Sėkmingai grįžai su patikrinamais Orisono kontakto duomenimis.";}
-        else if(step.position==4&&q.contains("chartij")){String outcome=q.contains("atmest")||q.contains("atsisak")?"atmesta":q.contains("nepriklaus")?"nepriklausoma":"priimta";completeAndActivate(step,5);ContentValues quest=new ContentValues();quest.put("outcome",outcome);db().update("quests",quest,"id='Q-MERIDIAN'",null);state.storyEnding=outcome;applyEndingConsequences(outcome,state);detail="Pirmosios Meridiano chartijos baigtis: "+outcome+". Sprendimas jau pakeitė frakcijų įtaką, gyvenviečių autonomiją ir rinkas.";}
-        else if(step.position==5&&(q.contains("pasekm")||q.contains("tęsti")||q.contains("testi")||q.contains("grįž")||q.contains("griz"))){ContentValues done=new ContentValues();done.put("status","completed");done.put("progress",1);db().update("quest_steps",done,"id=?",new String[]{step.id});ContentValues quest=new ContentValues();quest.put("status","completed");quest.put("stage",6);quest.put("updated_at",state.worldMinute);db().update("quests",quest,"id='Q-MERIDIAN'",null);detail="Lūžusio Meridiano I dalis užbaigta. Pasaulis išsaugojo tavo pasirinktą baigtį.";}
-        applyQuestToState(state);return detail;
+    private String storyAction(int position,String action){
+        if(ActionText.travel(action)||ActionText.rest(action))return "";
+        String q=ActionText.normalized(action);
+        if(position==0&&q.contains("manifest")&&ActionText.contains(q,"istirti","palyginti","patikrinti"))return "manifest";
+        if(position==1&&q.contains("vartu zurnal")&&ActionText.contains(q,"patikrinti","istirti"))return "gate";
+        if(position==2&&ActionText.contains(q,"uzfiksuoti","patvirtinti","paprasyti","patikrinti")){
+            if(ActionText.mentionsPerson(action,"Lyra"))return "lyra";
+            if(ActionText.mentionsPerson(action,"Kaelis"))return "kaelis";
+            if(q.contains("veyrhold")&&q.contains("tranzit"))return "veyrhold";
+        }
+        if(position==3&&q.startsWith("pereiti meridian")&&q.contains("orison"))return "orison";
+        if(position==4){
+            if(q.startsWith("siulyti nepriklausom")&&q.contains("meridiano valdym"))return "nepriklausoma";
+            if(q.contains("chartij")){
+                if(q.startsWith("atmesti")||q.startsWith("atsisakyti"))return "atmesta";
+                if(q.startsWith("priimti"))return "priimta";
+                if(q.startsWith("siulyti")&&q.contains("nepriklaus"))return "nepriklausoma";
+            }
+        }
+        if(position==5&&q.startsWith("priimti")&&q.contains("pasekm"))return "epilogue";
+        return "";
+    }
+
+    private String storyBlock(GameState state,String key,long minute){
+        if(key.isEmpty())return "";
+        String required="veyrhold".equals(key)?"Veyrhold":"orison".equals(key)?"Aureliono Pakraštys":"Luminara";
+        if(!required.equals(state.location))return "Šiam tikslui reikia pasiekti vietą: "+required+".";
+        if("orison".equals(key)&&evidenceCount()<3)return "Pirmiausia surink tris nepriklausomus įrodymus.";
+        if("lyra".equals(key)||"kaelis".equals(key)){
+            boolean found=false;for(Npc npc:npcs(state.location,minute))if(npc.id.equals("npc-"+key)&&npc.available)found=true;
+            if(!found)return "Liudininko šiuo metu nėra. Sugrįžk dienos metu arba pasirink kitą tikslą.";
+        }
+        if(Arrays.asList("lyra","kaelis","veyrhold").contains(key))try(Cursor c=db().rawQuery("SELECT 1 FROM quest_evidence WHERE quest_id='Q-MERIDIAN' AND evidence_id=?",new String[]{key})){
+            if(c.moveToFirst())return "Šis įrodymas jau įtrauktas. Patikrink kitą nepriklausomą šaltinį.";
+        }
+        return "";
+    }
+
+    void validateAction(GameState state,String action,JSONObject result)throws Exception{
+        QuestStep step=activeMainStep();String key=step==null?"":storyAction(step.position,action);
+        String block=storyBlock(state,key,state.worldMinute);
+        if(!state.location.equals(result.optString("location",state.location))&&travelMinutes(state.location,result.optString("location"))<0)block="Iki šios vietos dar nėra atrasto maršruto. Tyrinėk gretimas atlaso kryptis.";
+        if(ActionText.social(action)){
+            for(Npc npc:allNpcs())if(ActionText.mentionsPerson(action,npc.name)){
+                if(!npc.location.equals(state.location)||!npc.available||!scheduleAvailable(npc.service,state.worldMinute))block="Šio pašnekovo dabar čia nėra. Jo vieta: "+npc.location+".";
+            }
+        }
+        if(!block.isEmpty()){result.put("blocked",true).put("scene",block);return;}
+        if(key.isEmpty()||"setback".equals(result.optString("event_tag")))return;
+        String scene="manifest".equals(key)?"Palygini karavano manifestą su archyvo įrašais. Laiko žymos nesutampa: dokumentas užregistruotas anksčiau už karavano atvykimą."
+                :"gate".equals(key)?"Patikrini Luminaros vartų žurnalą. Įrašai patvirtina manifesto neatitikimą, todėl gali rinkti nepriklausomus liudijimus."
+                :"orison".equals(key)?"Pasinaudoji patikrintais atramos taškais ir pereini Meridianą. Užfiksuoji Orisono atsaką ir saugiai grįžti į Aureliono pakraštį."
+                :"epilogue".equals(key)?"Pripažįsti pasirinktos chartijos pasekmes. Pirmoji Meridiano istorijos dalis užbaigta, o pasaulyje lieka tavo sprendimo pėdsakas."
+                :Arrays.asList("priimta","atmesta","nepriklausoma").contains(key)?"Paskelbi savo sprendimą dėl Meridiano: "+("priimta".equals(key)?"priimi chartiją":"atmesta".equals(key)?"atmeti chartiją":"pasiūlai nepriklausomą valdymą")+". Frakcijos ir miestai pradeda taikyti naują tvarką."
+                :"Patikrini nepriklausomą šaltinį: "+evidenceDetail(key)+". Gautus duomenis įtrauki į atramos taškų grandinę.";
+        result.put("scene_title","Meridiano tyrimas").put("scene",scene).put("event_tag","discovery");
+    }
+
+    private List<Npc> allNpcs(){ArrayList<Npc> values=new ArrayList<>();for(LocationInfo location:locations())values.addAll(npcs(location.name,720));return values;}
+
+    String progressStory(String action,String event,GameState state,StatEngine.Check check){return progressStory(action,event,state,check,state.worldMinute);}
+    String progressStory(String action,String event,GameState state,StatEngine.Check check,long minute){
+        QuestStep step=activeMainStep();if(step==null||!checkAllowsProgress(check,event))return "";
+        String key=storyAction(step.position,action);if(key.isEmpty()||!storyBlock(state,key,minute).isEmpty())return "";
+        if(step.position==2){
+            ContentValues evidence=new ContentValues();evidence.put("quest_id","Q-MERIDIAN");evidence.put("evidence_id",key);
+            evidence.put("detail",evidenceDetail(key));evidence.put("source",action);evidence.put("created_minute",state.worldMinute);
+            if(db().insertWithOnConflict("quest_evidence",null,evidence,SQLiteDatabase.CONFLICT_IGNORE)==-1)return "";
+            int count=evidenceCount();ContentValues progress=new ContentValues();progress.put("progress",Math.min(3,count));db().update("quest_steps",progress,"id=?",new String[]{step.id});
+            if(count>=3){completeAndActivate(step,3);discoverById("aurelionas");}
+        }else if(step.position==4){
+            completeAndActivate(step,5);ContentValues outcome=new ContentValues();outcome.put("outcome",key);db().update("quests",outcome,"id='Q-MERIDIAN'",null);
+            state.storyEnding=key;applyEndingConsequences(key,state);
+        }else if(step.position==5){
+            ContentValues done=new ContentValues();done.put("status","completed");done.put("progress",1);db().update("quest_steps",done,"id=?",new String[]{step.id});
+            done=new ContentValues();done.put("status","completed");done.put("stage",6);db().update("quests",done,"id='Q-MERIDIAN'",null);
+        }else completeAndActivate(step,step.position+1);
+        int xp=step.position==5?800:step.position==2?180:300;ProgressionEngine.grant(state,xp);
+        applyQuestToState(state);return "Meridiano tikslas atnaujintas · +"+xp+" patirties · "+("lyra".equals(key)||"kaelis".equals(key)||"veyrhold".equals(key)?evidenceDetail(key):step.title);
     }
 
     List<Npc> npcs(String location,long worldMinute){ArrayList<Npc> result=new ArrayList<>();String query=location==null?"Luminara":location;try(Cursor c=db().rawQuery("SELECT id,name,role,location,service,relationship,trust,available,last_topic,interactions,memory_json FROM npcs WHERE location=? ORDER BY relationship DESC,name",new String[]{query})){while(c.moveToNext()){Npc n=new Npc();n.id=c.getString(0);n.name=c.getString(1);n.role=c.getString(2);n.location=c.getString(3);n.service=c.getString(4);n.relationship=c.getInt(5);n.trust=c.getInt(6);n.available=c.getInt(7)==1&&scheduleAvailable(n.service,worldMinute);n.lastTopic=c.getString(8);n.interactions=c.getInt(9);n.memory=c.getString(10);result.add(n);}}return result;}
@@ -271,12 +363,13 @@ final class WorldRepository {
     Npc findNpc(String value){return findNpc(value,720);}
     Npc findNpc(String value,long minute){String q=norm(value);for(Npc npc:npcs("Luminara",minute))if(q.contains(norm(npc.name))||q.contains(norm(npc.name).split(" ")[0]))return npc;return null;}
 
-    String recordNpcInteraction(String action,String event,GameState state){
+    String recordNpcInteraction(String action,String event,GameState state){return recordNpcInteraction(action,event,state,state.worldMinute);}
+    String recordNpcInteraction(String action,String event,GameState state,long minute){
         if(!"social".equals(event)&&!"dialogue".equals(event)&&!"reward".equals(event)&&!"setback".equals(event))return "";
-        String query=norm(action);if(!query.contains("kalb")&&!query.contains("klaust")&&!query.contains("paklaus"))return "";
+        String query=norm(action);if(!ActionText.social(query))return "";
         Npc npc=null;
-        for(Npc candidate:npcs(state.location,state.worldMinute)){
-            if(candidate.available&&(query.contains(norm(candidate.name))||query.contains(norm(candidate.name).split(" ")[0]))){npc=candidate;break;}
+        for(Npc candidate:npcs(state.location,minute)){
+            if(candidate.available&&ActionText.mentionsPerson(query,candidate.name)){npc=candidate;break;}
         }
         if(npc==null)return "";
         int delta="setback".equals(event)?-2:"reward".equals(event)?4:2;JSONArray memory;try{memory=new JSONArray(npc.memory);}catch(Exception ignored){memory=new JSONArray();}memory.put(compact(action,120));while(memory.length()>8)removeFirst(memory);ContentValues v=new ContentValues();v.put("relationship",clamp(npc.relationship+delta,-100,100));v.put("trust",clamp(npc.trust+(delta>0?1:-1),0,100));v.put("last_topic",compact(action,80));v.put("interactions",npc.interactions+1);v.put("memory_json",memory.toString());db().update("npcs",v,"id=?",new String[]{npc.id});return npc.name+" prisimins šį pokalbį · santykis "+signed(delta);}
@@ -301,7 +394,9 @@ final class WorldRepository {
 
     TransactionResult buy(Shop shop,String catalogId,GameState state){if(shop==null)return new TransactionResult(false,"Parduotuvė nerasta");Stock selected=null;for(Stock stock:stock(shop,state))if(stock.catalogId.equals(catalogId)){selected=stock;break;}if(selected==null)return new TransactionResult(false,"Prekės nebėra sandėlyje");if(state.level<selected.level)return new TransactionResult(false,"Daiktas skirtas nuo "+selected.level+" lygio · tavo lygis "+state.level);if(state.crowns<selected.price)return new TransactionResult(false,"Nepakanka karūnų · reikia "+selected.price);ItemCatalogV092.ItemDef item=ItemCatalogV092.byId(catalogId);if(item==null)return new TransactionResult(false,"Daikto aprašas nerastas");SQLiteDatabase db=db();db.beginTransaction();try{ContentValues q=new ContentValues();q.put("quantity",selected.quantity-1);db.update("shop_stock",q,"shop_id=? AND catalog_id=?",new String[]{shop.id,catalogId});owner.addCatalogLoot(item,1);state.crowns-=selected.price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Nupirkta: "+item.name+" · -"+selected.price+" karūnų");}finally{db.endTransaction();}}
 
-    TransactionResult sell(Shop shop,String itemId,GameState state){VaeloriaDb.Item item=owner.getItem(itemId);if(shop==null||item==null)return new TransactionResult(false,"Sandoris negalimas");if(item.equipped||item.synced||"quest".equals(item.slot)||"quest".equals(item.type))return new TransactionResult(false,"Šio daikto parduoti negalima");int index=priceIndex(shop.location);long calculated=(long)item.value*index*shop.buyback/10000L/100L;if(unlockedTalentIds().contains("leader_trade"))calculated=calculated*108L/100L;int price=(int)Math.max(1,Math.min(Integer.MAX_VALUE,calculated));SQLiteDatabase db=db();db.beginTransaction();try{if(item.quantity>1){ContentValues v=new ContentValues();v.put("quantity",item.quantity-1);db.update("items",v,"id=?",new String[]{item.id});}else db.delete("items","id=?",new String[]{item.id});state.crowns+=price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Parduota: "+item.name+" · +"+price+" karūnų");}finally{db.endTransaction();}}
+    int sellPrice(Shop shop,VaeloriaDb.Item item,GameState state){int index=priceIndex(shop.location);long calculated=(long)item.value*index*shop.buyback/10000L/100L;if(unlockedTalentIds().contains("leader_trade"))calculated=calculated*108L/100L;return (int)Math.max(1,Math.min(Integer.MAX_VALUE,calculated));}
+
+    TransactionResult sell(Shop shop,String itemId,GameState state){VaeloriaDb.Item item=owner.getItem(itemId);if(shop==null||item==null)return new TransactionResult(false,"Sandoris negalimas");if(state.favoriteItemIds.contains(item.id)||item.equipped||item.synced||"quest".equals(item.slot)||"quest".equals(item.type))return new TransactionResult(false,"Šio daikto parduoti negalima");int price=sellPrice(shop,item,state);SQLiteDatabase db=db();db.beginTransaction();try{if(item.quantity>1){ContentValues v=new ContentValues();v.put("quantity",item.quantity-1);db.update("items",v,"id=?",new String[]{item.id});}else db.delete("items","id=?",new String[]{item.id});state.crowns+=price;owner.saveState(state);db.setTransactionSuccessful();return new TransactionResult(true,"Parduota: "+item.name+" · +"+price+" karūnų");}finally{db.endTransaction();}}
 
     List<Recipe> recipes(){
         ArrayList<Recipe> result=new ArrayList<>();Set<String> talents=unlockedTalentIds();boolean saver=talents.contains("craft_saver");
@@ -363,18 +458,44 @@ final class WorldRepository {
     }
 
     String recordExploration(String action,GameState state){
-        String query=norm(action);String found="";for(LocationInfo location:locations()){String name=norm(location.name);String first=name.split(" ")[0];if((query.contains(name)||query.contains(first))&&!location.discovered){discoverById(location.id);found="Atrasta nauja atlaso vieta: "+location.name;}}
-        for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(state.location)){ContentValues values=new ContentValues();values.put("discovered",1);values.put("visited",1);values.put("last_visit",state.worldMinute);db().update("locations",values,"id=?",new String[]{location.id});break;}
+        String found="";
+        if(ActionText.contains(action,"apylink","krypt","kelią","kelio","maršrut")){
+            for(String name:WorldRoutes.neighbors(state.location))if(!isDiscovered(name)&&ActionText.mentions(action,name)){
+                LocationInfo target=locationByName(name);if(target!=null){discoverById(target.id);found="Atrastas kelias: "+name;break;}
+            }
+            if(found.isEmpty()&&ActionText.contains(action,"tyrinėti apylinkes","tirti apylinkes")){
+                for(String name:WorldRoutes.neighbors(state.location))if(!isDiscovered(name)){
+                    LocationInfo target=locationByName(name);if(target!=null){discoverById(target.id);found="Atrastas kelias: "+name;break;}
+                }
+            }
+        }
+        db().execSQL("UPDATE locations SET visited=1,last_visit=? WHERE name=?",new Object[]{state.worldMinute,state.location});
         return found;
     }
 
-    int travelMinutes(String from,String to){LocationInfo a=locationByName(from),b=locationByName(to);if(a==null||b==null||a.id.equals(b.id))return-1;double distance=Math.sqrt((a.x-b.x)*(double)(a.x-b.x)+(a.y-b.y)*(double)(a.y-b.y));return Math.max(35,(int)Math.round(28+distance*.48+b.danger*7));}
-    private LocationInfo locationByName(String name){if(name==null)return null;for(LocationInfo value:locations())if(value.name.equalsIgnoreCase(name))return value;return null;}
-    private void discoverById(String id){ContentValues values=new ContentValues();values.put("discovered",1);db().update("locations",values,"id=?",new String[]{id});}
+    int travelMinutes(String from,String to){
+        List<String> route=WorldRoutes.path(from,to,discoveredLocations());if(route.isEmpty())return -1;
+        int minutes=0;for(int index=1;index<route.size();index++){
+            LocationInfo a=locationByName(route.get(index-1)),b=locationByName(route.get(index));if(a==null||b==null)return -1;
+            double distance=Math.hypot(a.x-b.x,a.y-b.y);minutes+=Math.max(35,(int)Math.round(28+distance*.48+b.danger*7));
+        }
+        return minutes;
+    }
+
+    private void discoverById(String id){db().execSQL("UPDATE locations SET discovered=1 WHERE id=?",new Object[]{id});}
+
+    private LocationInfo locationByName(String name){for(LocationInfo location:locations())if(location.name.equalsIgnoreCase(name))return location;return null;}
 
     String advanceWorld(GameState state,String eventTag,int elapsedMinutes){
-        SQLiteDatabase db=db();db.execSQL("UPDATE world_events SET active=0 WHERE active=1 AND expires_minute<=?",new Object[]{state.worldMinute});db.execSQL("UPDATE economy SET price_index=CASE WHEN price_index>100 THEN price_index-1 WHEN price_index<100 THEN price_index+1 ELSE 100 END,updated_minute=?",new Object[]{state.worldMinute});db.execSQL("UPDATE settlements SET prosperity=MAX(0,MIN(100,prosperity+CASE WHEN security>=50 THEN 1 ELSE -1 END)) WHERE ABS(?+LENGTH(id))%4=0",new Object[]{state.turnNumber});
-        syncFactions(state);String created="";if(activeEvents().isEmpty()&&state.turnNumber>0&&state.turnNumber%5==0)created=createWorldEvent(state);applyBusinessPayouts(state);restockAll(state.worldMinute);return created;
+        if(elapsedMinutes<=0)return "";
+        SQLiteDatabase database=db();
+        database.execSQL("UPDATE world_events SET active=0 WHERE active=1 AND expires_minute<=?",new Object[]{state.worldMinute});
+        long hour=state.worldMinute/60;
+        database.execSQL("UPDATE economy SET price_index=CASE WHEN price_index>100 THEN MAX(100,price_index-MAX(0,?-updated_minute/60)) WHEN price_index<100 THEN MIN(100,price_index+MAX(0,?-updated_minute/60)) ELSE 100 END,updated_minute=? WHERE updated_minute/60<?",new Object[]{hour,hour,state.worldMinute,hour});
+        long periods=state.worldMinute/720-Math.max(0,state.worldMinute-elapsedMinutes)/720;
+        if(periods>0)database.execSQL("UPDATE settlements SET prosperity=MAX(0,MIN(100,prosperity+CASE WHEN security>=50 THEN ? ELSE -? END))",new Object[]{Math.min(100,periods),Math.min(100,periods)});
+        syncFactions(state);String created="";if(periods>0&&activeEvents().isEmpty())created=createWorldEvent(state);
+        applyBusinessPayouts(state);restockAll(state.worldMinute);return created;
     }
 
     String contextPrompt(GameState state){
@@ -483,17 +604,34 @@ final class WorldRepository {
         syncFactions(state);owner.saveState(state);
     }
     private int evidenceCount(){try(Cursor c=db().rawQuery("SELECT COUNT(*) FROM quest_evidence WHERE quest_id='Q-MERIDIAN'",null)){return c.moveToFirst()?c.getInt(0):0;}}
-    private String evidenceId(String q){if(q.contains("lyra"))return"lyra";if(q.contains("kaeli")||q.contains("sargyb"))return"kaelis";if(q.contains("orin")||q.contains("archyv"))return"orinas";if(q.contains("veyrhold"))return"veyrhold";if(q.contains("kharad"))return"kharad";if(q.contains("lysar")||q.contains("pelkyn"))return"lysara";if(q.contains("atramos tašk")||q.contains("atramos task"))return"field-"+Math.abs(q.hashCode()%1000);return null;}
     private String evidenceDetail(String id){if("lyra".equals(id))return"Lyros lauko matavimai";if("kaelis".equals(id))return"Kaelio sargybos žurnalas";if("orinas".equals(id))return"Orino archyvo chartija";if("veyrhold".equals(id))return"Veyrhold tranzito įrašas";if("kharad".equals(id))return"Kharad kalibravimo stotis";if("lysara".equals(id))return"Lysaros gyvojo kelio stebėjimas";return"lauko atramos taškas";}
-    private int priceIndex(String location){try(Cursor c=db().rawQuery("SELECT AVG(price_index) FROM economy WHERE region=? OR region='Luminara'",new String[]{location})){return c.moveToFirst()?Math.max(65,Math.min(180,c.getInt(0))):100;}}
+    int priceIndex(String location){
+        LocationInfo place=locationByName(location);String region=place==null?location:place.region;int base=100;
+        try(Cursor c=db().rawQuery("SELECT COALESCE(AVG(price_index),100) FROM economy WHERE region=?",new String[]{region})){if(c.moveToFirst())base=c.getInt(0);}
+        try(Cursor c=db().rawQuery("SELECT COALESCE(SUM(price_modifier),0) FROM world_events WHERE active=1 AND region=?",new String[]{region})){if(c.moveToFirst())base+=c.getInt(0);}
+        return clamp(base,65,180);
+    }
     private Npc npcById(String id){try(Cursor c=db().rawQuery("SELECT id,name,role,location,service,relationship,trust,available,last_topic,interactions,memory_json FROM npcs WHERE id=?",new String[]{id})){if(c.moveToFirst()){Npc n=new Npc();n.id=c.getString(0);n.name=c.getString(1);n.role=c.getString(2);n.location=c.getString(3);n.service=c.getString(4);n.relationship=c.getInt(5);n.trust=c.getInt(6);n.available=c.getInt(7)==1;n.lastTopic=c.getString(8);n.interactions=c.getInt(9);n.memory=c.getString(10);return n;}}return null;}
     private void restock(Shop shop,long minute){long day=minute/1440;try(Cursor c=db().rawQuery("SELECT stock_day FROM shops WHERE id=?",new String[]{shop.id})){if(c.moveToFirst()&&c.getLong(0)==day)return;}db().execSQL("UPDATE shop_stock SET quantity=MIN(8,quantity+1+ABS(?+LENGTH(catalog_id))%3) WHERE shop_id=?",new Object[]{day,shop.id});ContentValues v=new ContentValues();v.put("stock_day",day);db().update("shops",v,"id=?",new String[]{shop.id});}
     private void restockAll(long minute){for(String id:new String[]{"smith","armor","runes","pharmacy","general","inn","stable"}){try(Cursor c=db().rawQuery("SELECT id,name,npc_id,location,markup,buyback FROM shops WHERE id=?",new String[]{id})){if(c.moveToFirst()){Shop s=new Shop();s.id=c.getString(0);s.name=c.getString(1);s.npcId=c.getString(2);s.location=c.getString(3);s.markup=c.getInt(4);s.buyback=c.getInt(5);restock(s,minute);}}}}
     private void syncFactions(GameState state){updateFaction("asterra",state.asterraInfluence,state.asterraRelation);updateFaction("dravenn",state.dravennInfluence,state.dravennRelation);updateFaction("lysara",state.lysaraInfluence,state.lysaraRelation);}
     private void updateFaction(String id,int influence,String relation){ContentValues v=new ContentValues();v.put("influence",influence);v.put("relation",relation);db().update("factions",v,"id=?",new String[]{id});}
-    private String createWorldEvent(GameState state){String[][] templates={{"Karavanų vėlavimas","Meridiano poslinkis stabdo tiekimą ir kelia miesto kainas.","Luminara","trade","3","12"},{"Kalvių rūdos trūkumas","Geležinių Viršūnių kelias užvertas, todėl metalas brangsta.","GELEŽINĖS VIRŠŪNĖS","supply","4","18"},{"Gausus girios derlius","Žolininkai pargabeno daug saugių reagentų; potionai pinga.","KRAUJŠAKNĖS GIRIA","harvest","2","-10"},{"Dravenn pasienio įtampa","Patikros lėtina prekybą ir augina kovos reikmenų paklausą.","Luminara","politics","5","15"}};String[] t=templates[(int)(state.turnNumber%templates.length)];ContentValues v=new ContentValues();v.put("title",t[0]);v.put("detail",t[1]);v.put("region",t[2]);v.put("type",t[3]);v.put("severity",Integer.parseInt(t[4]));v.put("active",1);v.put("price_modifier",Integer.parseInt(t[5]));v.put("created_minute",state.worldMinute);v.put("expires_minute",state.worldMinute+720);db().insert("world_events",null,v);db().execSQL("UPDATE economy SET price_index=MAX(65,MIN(180,price_index+?)) WHERE region=? OR (?='Luminara' AND region='Luminara')",new Object[]{Integer.parseInt(t[5]),t[2],t[2]});return"Pasaulio įvykis: "+t[0];}
-    private void applyBusinessPayouts(GameState state){boolean changed=false;for(Business b:businesses())if(b.owned&&b.nextPayout<=state.worldMinute){int net=Math.max(0,(b.revenue-b.upkeep)*priceIndex(b.location)/100);state.crowns+=net;ContentValues v=new ContentValues();v.put("next_payout",state.worldMinute+1440);db().update("businesses",v,"id=?",new String[]{b.id});changed=true;}for(Hire hire:hires())if(hire.active&&hire.nextPay<=state.worldMinute){ContentValues v=new ContentValues();if(state.crowns>=hire.wage){state.crowns-=hire.wage;v.put("loyalty",Math.min(100,hire.loyalty+1));v.put("next_pay",state.worldMinute+1440);}else{v.put("active",0);v.put("loyalty",Math.max(0,hire.loyalty-10));}db().update("hired_npcs",v,"npc_id=?",new String[]{hire.npcId});changed=true;}if(changed)owner.saveState(state);}
-    private void consumeCatalog(SQLiteDatabase db,String catalogId,int amount){int left=amount;try(Cursor c=db.rawQuery("SELECT id,quantity FROM items WHERE catalog_id=? ORDER BY equipped ASC,quantity ASC",new String[]{catalogId})){while(c.moveToNext()&&left>0){String id=c.getString(0);int quantity=c.getInt(1);if(quantity<=left){db.delete("items","id=?",new String[]{id});left-=quantity;}else{ContentValues v=new ContentValues();v.put("quantity",quantity-left);db.update("items",v,"id=?",new String[]{id});left=0;}}}}
+    private String createWorldEvent(GameState state){String[][] templates={{"Karavanų vėlavimas","Meridiano poslinkis stabdo tiekimą ir kelia miesto kainas.","Luminara","trade","3","12"},{"Kalvių rūdos trūkumas","Geležinių Viršūnių kelias užvertas, todėl metalas brangsta.","GELEŽINĖS VIRŠŪNĖS","supply","4","18"},{"Gausus girios derlius","Žolininkai pargabeno daug saugių reagentų; potionai pinga.","KRAUJŠAKNĖS GIRIA","harvest","2","-10"},{"Dravenn pasienio įtampa","Patikros lėtina prekybą ir augina kovos reikmenų paklausą.","Luminara","politics","5","15"}};String[] t=templates[(int)((state.worldMinute/720)%templates.length)];ContentValues v=new ContentValues();v.put("title",t[0]);v.put("detail",t[1]);v.put("region",t[2]);v.put("type",t[3]);v.put("severity",Integer.parseInt(t[4]));v.put("active",1);v.put("price_modifier",Integer.parseInt(t[5]));v.put("created_minute",state.worldMinute);v.put("expires_minute",state.worldMinute+720);db().insert("world_events",null,v);return"Pasaulio įvykis: "+t[0];}
+    private void applyBusinessPayouts(GameState state){
+        for(Business business:businesses())if(business.owned&&business.nextPayout>0&&business.nextPayout<=state.worldMinute){
+            long days=(state.worldMinute-business.nextPayout)/1440+1;
+            long net=Math.max(0,(long)(business.revenue-business.upkeep)*priceIndex(business.location)/100);
+            state.crowns=Math.addExact(state.crowns,Math.multiplyExact(net,days));
+            ContentValues values=new ContentValues();values.put("next_payout",business.nextPayout+days*1440);db().update("businesses",values,"id=?",new String[]{business.id});
+        }
+        for(Hire hire:hires())if(hire.active&&hire.nextPay>0&&hire.nextPay<=state.worldMinute){
+            long days=(state.worldMinute-hire.nextPay)/1440+1;long affordable=state.crowns/Math.max(1,hire.wage);long paid=Math.min(days,affordable);
+            state.crowns-=paid*hire.wage;ContentValues values=new ContentValues();values.put("next_pay",hire.nextPay+paid*1440);
+            values.put("loyalty",(int)Math.min(100,hire.loyalty+paid));if(paid<days){values.put("active",0);values.put("loyalty",Math.max(0,hire.loyalty-10));}
+            db().update("hired_npcs",values,"npc_id=?",new String[]{hire.npcId});
+        }
+    }
+    void consumeCatalog(SQLiteDatabase db,String catalogId,int amount){int left=amount;try(Cursor c=db.rawQuery("SELECT id,quantity FROM items WHERE catalog_id=? ORDER BY equipped ASC,quantity ASC",new String[]{catalogId})){while(c.moveToNext()&&left>0){String id=c.getString(0);int quantity=c.getInt(1);if(quantity<=left){db.delete("items","id=?",new String[]{id});left-=quantity;}else{ContentValues v=new ContentValues();v.put("quantity",quantity-left);db.update("items",v,"id=?",new String[]{id});left=0;}}}}
     private SQLiteDatabase db(){return owner.getWritableDatabase();}
 
     private static void seedQuest(SQLiteDatabase db,String id,String title,String type,String status){ContentValues v=new ContentValues();v.put("id",id);v.put("title",title);v.put("type",type);v.put("status",status);db.insertWithOnConflict("quests",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
@@ -504,7 +642,7 @@ final class WorldRepository {
     private static void seedFaction(SQLiteDatabase db,String id,String name,int influence,String relation,int treasury,int territory,int tension){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("influence",influence);v.put("relation",relation);v.put("treasury",treasury);v.put("territory",territory);v.put("tension",tension);db.insertWithOnConflict("factions",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void relation(SQLiteDatabase db,String a,String b,int standing,int tension,String treaty){ContentValues v=new ContentValues();v.put("faction_a",a);v.put("faction_b",b);v.put("standing",standing);v.put("tension",tension);v.put("treaty",treaty);db.insertWithOnConflict("faction_relations",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void settlement(SQLiteDatabase db,String id,String name,String region,String faction,int prosperity,int security,int autonomy,String rival){ContentValues v=new ContentValues();v.put("id",id);v.put("name",name);v.put("region",region);v.put("faction",faction);v.put("prosperity",prosperity);v.put("security",security);v.put("autonomy",autonomy);v.put("rival_id",rival);db.insertWithOnConflict("settlements",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
-    private static void economy(SQLiteDatabase db,String id,String label,String region,int supply,int demand,int index){ContentValues v=new ContentValues();v.put("id",id);v.put("label",label);v.put("region",region);v.put("supply",supply);v.put("demand",demand);v.put("price_index",index);db.insertWithOnConflict("economy",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
+    private static void economy(SQLiteDatabase db,String id,String label,String region,int supply,int demand,int index){ContentValues v=new ContentValues();v.put("id",id);v.put("label",label);v.put("region",region);v.put("supply",supply);v.put("demand",demand);v.put("price_index",index);v.put("updated_minute",new GameState().worldMinute);db.insertWithOnConflict("economy",null,v,SQLiteDatabase.CONFLICT_IGNORE);}
     private static void seedCraftingV110(SQLiteDatabase db){
         seedRecipeV110(db,"recipe-small-heal","Mažieji gydymo potionai","I092-201",1,"alchemy",2,"",45,new String[][]{{"I092-277","1"}});
         seedRecipeV110(db,"recipe-mana","Manos potionai","I092-203",1,"alchemy",2,"",55,new String[][]{{"I092-277","1"}});

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.1.1."""
+"""Fail-fast source, systems and retained-asset audit for Vaeloria OOC v1.2.0."""
 
 import hashlib
 from pathlib import Path
@@ -81,8 +81,8 @@ language = read(JAVA / "LithuanianNarrative.java")
 consumables = read(JAVA / "ConsumableRulesV110.java")
 
 # Leidimo tapatybė ir saugumas.
-require("versionCode 43" in build and "versionName '1.1.1'" in build, "Android versija yra 43 / 1.1.1")
-require('android:label="Vaeloria OOC 1.1.1"' in manifest, "programėlės etiketė yra v1.1.1")
+require("versionCode 44" in build and "versionName '1.2.0'" in build, "Android versija yra 44 / 1.2.0")
+require('android:label="Vaeloria OOC 1.2.0"' in manifest, "programėlės etiketė yra v1.2.0")
 require("minifyEnabled true" in build and "shrinkResources true" in build, "release buildą optimizuoja R8")
 require('android:allowBackup="false"' in manifest and 'android:usesCleartextTraffic="false"' in manifest, "atsarginės kopijos ir nešifruotas ryšys išjungti")
 require(manifest.count("uses-permission") == 1 and "android.permission.INTERNET" in manifest, "šaltinyje prašomas tik interneto leidimas")
@@ -143,16 +143,16 @@ require("polishChoices" in language and "clearlyEnglish" in language, "vietinis 
 require("resolveNarration" in groq and "pendingResolvedTurn" in base_activity and "requestOpenAi" in base_activity, "abu DI tiekėjai naudoja pasakojimo sutartį virš vietinio rezultato")
 
 # Duomenys, testai ir realūs bundled assetai.
-require("private static final int VERSION = 13" in database and 'root.put("version",13)' in database, "SQLite ir eksporto schema yra 13")
+require("private static final int VERSION = 14" in database and 'root.put("version",VERSION)' in database, "SQLite ir eksporto schema yra 14")
 require("migrateV11toV12" in database and "migrateV12toV13" in database and "legacyPersistedBonus" in profile, "v11→v12 ir v12→v13 migracijos išsaugo vientisumą")
 require(world.count("seedRecipeV110(db,") >= 27 and "required_talent" in world and "station" in world, "yra bent 27 kelių reagentų, lygių, darbo vietų ir talentų receptai")
-require("state.level<item.level" in database and "equipRequirement" in database and "state.level<selected.level" in world, "daiktų lygiai riboja naudojimą, įrangą ir pirkimą")
+require("original.level<item.level" in database and "equipRequirement" in database and "state.level<selected.level" in world, "daiktų lygiai riboja naudojimą, įrangą ir pirkimą")
 require(all(token in consumables for token in ("directDamage", "enemyEffectTurns", "poisonResistance", "usableInCombat", "description")), "potionai ir kovos reikmenys turi struktūrizuotą mechaniką")
 policy = read(JAVA / "AiTurnPolicyV101.java")
 require("knownLocationNames" in world and "checkAllowsProgress" in world and "exactItem" in policy, "DI pasekmes riboja vietos, patikros ir katalogo politika")
 require("combatHeavyMitigationUsed" in state and "combatSpellCount" in state and "Atgauna kvapą" in combat, "kovos būsena saugo vienkartinius efektus ir neleidžia nemokamų atakų")
 require((ANDROID_TEST / "V100PersistenceDeviceTest.java").is_file(), "yra tikro Android pilnos būsenos atkūrimo testas")
-require("VersionThirteen" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v13 migraciją")
+require("VersionFourteen" in read(ANDROID_TEST / "V083DatabaseMigrationDeviceTest.java"), "tikras Android testas tikrina v3→v14 migraciją")
 require((TEST / "CombatEngineV100Test.java").is_file() and (TEST / "EquipmentRulesV100Test.java").is_file() and (TEST / "ProgressionEngineV100Test.java").is_file(), "yra v1.0 kovos, įrangos ir progresijos vienetiniai testai")
 item_art = sorted(RES.glob("item_v092_*.webp"))
 monster_art = sorted(RES.glob("monster_v091_*.webp"))
@@ -182,4 +182,4 @@ require(webp_dimensions(quest_art)[0] >= 1_600 and webp_dimensions(quest_art)[1]
 require(webp_dimensions(map_art)[0] >= 1_000 and webp_dimensions(map_art)[1] >= 1_400,
         "atlaso iliustracija yra bent 1000×1400")
 
-print("Vaeloria OOC v1.1.1 šaltinio struktūros ir išteklių auditas praėjo")
+print("Vaeloria OOC v1.2.0 šaltinio struktūros ir išteklių auditas praėjo")

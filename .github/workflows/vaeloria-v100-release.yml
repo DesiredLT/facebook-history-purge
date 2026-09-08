@@ -1,4 +1,4 @@
-name: Build and release Vaeloria OOC v1.1.1
+name: Build and release Vaeloria OOC v1.2.0
 
 on:
   pull_request:
@@ -25,12 +25,20 @@ permissions:
   contents: write
 
 concurrency:
-  group: vaeloria-v111-${{ github.ref }}
+  group: vaeloria-v120-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify-build-release:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            arch: x86
+          - api: 35
+            arch: x86_64
     timeout-minutes: 60
     defaults:
       run:
@@ -104,12 +112,12 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Real 360dp UI, v3-to-v13 migration, undo and save-slot tests
+      - name: Real 360dp UI, v3-to-v14 migration, undo and save-slot tests
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           target: google_apis
-          arch: x86_64
+          arch: ${{ matrix.arch }}
           profile: pixel_2
           emulator-options: -no-snapshot -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           disable-animations: true
@@ -122,7 +130,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-test-reports-${{ github.run_id }}
+          name: vaeloria-test-reports-api${{ matrix.api }}-${{ github.run_id }}
           path: |
             vaeloria-android/app/build/reports/tests/
             vaeloria-android/app/build/reports/androidTests/
@@ -133,42 +141,42 @@ jobs:
         run: |
           gradle :app:assembleRelease --stacktrace
           if [ "$VAELORIA_SIGNED_RELEASE" = "true" ]; then
-            cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+            cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0.apk
           else
-            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1-unsigned.apk
+            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0-unsigned.apk
           fi
 
       - name: APK identity, security, resources and signer audit
         run: |
           if [ "$VAELORIA_SIGNED_RELEASE" = "true" ]; then
-            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0.apk
           else
-            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1-unsigned.apk
+            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0-unsigned.apk
           fi
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
 
-          "$AAPT" dump badging "$APK" | tee apk-badging-v111.txt
-          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v111.txt
-          grep -q "versionCode='43'" apk-badging-v111.txt
-          grep -q "versionName='1.1.1'" apk-badging-v111.txt
-          grep -q "application-label:'Vaeloria OOC 1.1.1'" apk-badging-v111.txt
-          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v111.txt
-          if grep -q '^application-debuggable' apk-badging-v111.txt; then exit 1; fi
+          "$AAPT" dump badging "$APK" | tee apk-badging-v120.txt
+          grep -q "name='lt.vaeloria.ooc.personal'" apk-badging-v120.txt
+          grep -q "versionCode='44'" apk-badging-v120.txt
+          grep -q "versionName='1.2.0'" apk-badging-v120.txt
+          grep -q "application-label:'Vaeloria OOC 1.2.0'" apk-badging-v120.txt
+          grep -q "launchable-activity: name='lt.vaeloria.ooc.PolishedActivity'" apk-badging-v120.txt
+          if grep -q '^application-debuggable' apk-badging-v120.txt; then exit 1; fi
 
-          "$AAPT" dump permissions "$APK" | tee apk-permissions-v111.txt
-          test "$(grep -c '^uses-permission:' apk-permissions-v111.txt)" -eq 1
-          grep -q 'android.permission.INTERNET' apk-permissions-v111.txt
+          "$AAPT" dump permissions "$APK" | tee apk-permissions-v120.txt
+          test "$(grep -c '^uses-permission:' apk-permissions-v120.txt)" -eq 1
+          grep -q 'android.permission.INTERNET' apk-permissions-v120.txt
 
-          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-v111.txt
-          grep -A35 'E: application' apk-manifest-v111.txt | grep -q 'android:allowBackup.*0x0'
-          grep -A35 'E: application' apk-manifest-v111.txt | grep -q 'android:usesCleartextTraffic.*0x0'
+          "$AAPT" dump xmltree "$APK" AndroidManifest.xml | tee apk-manifest-v120.txt
+          grep -A35 'E: application' apk-manifest-v120.txt | grep -q 'android:allowBackup.*0x0'
+          grep -A35 'E: application' apk-manifest-v120.txt | grep -q 'android:usesCleartextTraffic.*0x0'
 
-          "$AAPT" dump resources "$APK" | tee apk-resources-v111.txt
-          for number in $(seq -w 1 325); do grep -q "item_v092_$number" apk-resources-v111.txt; done
-          for number in $(seq -w 1 200); do grep -q "monster_v091_$number" apk-resources-v111.txt; done
-          for resource in hero_einoras_v090 world_map_base_v090 quest_broken_meridian_v090; do grep -q "$resource" apk-resources-v111.txt; done
+          "$AAPT" dump resources "$APK" | tee apk-resources-v120.txt
+          for number in $(seq -w 1 325); do grep -q "item_v092_$number" apk-resources-v120.txt; done
+          for number in $(seq -w 1 200); do grep -q "monster_v091_$number" apk-resources-v120.txt; done
+          for resource in hero_einoras_v090 world_map_base_v090 quest_broken_meridian_v090; do grep -q "$resource" apk-resources-v120.txt; done
 
           test "$(stat -c %s "$APK")" -gt 10000000
           unzip -t "$APK"
@@ -179,33 +187,33 @@ jobs:
             test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
           fi
           if unzip -p "$APK" 'classes*.dex' | strings | grep -E '(gsk_|sk-)[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
-          sha256sum "$APK" | tee apk-sha256-v111.txt
+          sha256sum "$APK" | tee apk-sha256-v120.txt
 
       - name: Upload verified APK and audits
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v1.1.1-signed-${{ steps.signing.outputs.signed }}-${{ github.run_id }}
+          name: vaeloria-ooc-v1.2.0-signed-${{ steps.signing.outputs.signed }}-api${{ matrix.api }}-${{ github.run_id }}
           path: |
-            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1*.apk
-            vaeloria-android/apk-badging-v111.txt
-            vaeloria-android/apk-permissions-v111.txt
-            vaeloria-android/apk-manifest-v111.txt
-            vaeloria-android/apk-sha256-v111.txt
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0*.apk
+            vaeloria-android/apk-badging-v120.txt
+            vaeloria-android/apk-permissions-v120.txt
+            vaeloria-android/apk-manifest-v120.txt
+            vaeloria-android/apk-sha256-v120.txt
           if-no-files-found: error
 
       - name: Publish GitHub release
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/agent/vaeloria-local-android' && steps.signing.outputs.signed == 'true'
+        if: matrix.api == 35 && github.event_name != 'pull_request' && github.ref == 'refs/heads/agent/vaeloria-local-android' && steps.signing.outputs.signed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view vaeloria-ooc-v1.1.1 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            TARGET=$(gh release view vaeloria-ooc-v1.1.1 --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)
+          if gh release view vaeloria-ooc-v1.2.0 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            TARGET=$(gh release view vaeloria-ooc-v1.2.0 --repo "$GITHUB_REPOSITORY" --json targetCommitish --jq .targetCommitish)
             test "$TARGET" = "$GITHUB_SHA"
             exit 0
           fi
-          gh release create vaeloria-ooc-v1.1.1 \
-            app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk \
+          gh release create vaeloria-ooc-v1.2.0 \
+            app/build/outputs/apk/release/Vaeloria-OOC-v1.2.0.apk \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "Vaeloria OOC v1.1.1 · OpenAI ir patikimumas" \
-            --notes-file ../v100/RELEASE-v1.1.1.md
+            --title "Vaeloria OOC v1.2.0 · Kovos, užduotys ir progresas" \
+            --notes-file ../v100/RELEASE-v1.2.0.md

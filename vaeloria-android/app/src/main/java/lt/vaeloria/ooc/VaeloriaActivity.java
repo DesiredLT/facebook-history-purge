@@ -136,6 +136,12 @@ public class VaeloriaActivity extends Activity {
         if(!state.characterCreated){show("character");return;}
         String action=rawAction==null?"":rawAction.trim();
         if(action.isEmpty())return;
+        if("Tęsti kelionę".equals(action)){show("map");return;}
+        if(java.util.Arrays.asList("Apžiūrėti grobį","Apžiūrėti gautą grobį","Patikrinti įrangą ir užrašus").contains(action)){show("items");return;}
+        if(java.util.Arrays.asList("Grįžti prie užduoties","Grįžti prie pagrindinės užduoties","Grįžti prie Meridiano tyrimo").contains(action)){show("journal");return;}
+        if("Pranešti apie užduoties įvykdymą".equals(action)){
+            feedback=db.sideQuests().claim(state.trackedQuestId,state).message;show("game");return;
+        }
         if(action.length()>1200){Toast.makeText(this,"Sutrumpink veiksmą iki 1200 simbolių.",Toast.LENGTH_LONG).show();return;}
         try{
             GameState snapshot=GameState.fromJson(state.toJson());
@@ -156,6 +162,10 @@ public class VaeloriaActivity extends Activity {
                     db.world().companionDefenseBonus(snapshot.combatRound),db.world().companionVictoryHealing())
                     :LocalTurnResolver.resolve(snapshot,action,pendingCheck,db.world().discoveredLocations());
             pendingResolvedTurn=AiTurnPolicyV101.sanitize(localResult,snapshot,pendingCheck,action,db.world().discoveredLocations(),combat);
+            db.world().validateAction(snapshot,action,pendingResolvedTurn);
+            if(pendingResolvedTurn.optBoolean("blocked")){
+                feedback=pendingResolvedTurn.optString("scene","Veiksmas nepradėtas.");clearPending();show("game");return;
+            }
             // The model sees the actual journey duration, including the engine's map calculation.
             if(!snapshot.location.equals(pendingResolvedTurn.optString("location",snapshot.location))){
                 int minutes=db.world().travelMinutes(snapshot.location,pendingResolvedTurn.getString("location"));
@@ -228,25 +238,31 @@ public class VaeloriaActivity extends Activity {
         JSONObject result=pendingResolvedTurn;
         try{result=NarrativeTurn.merge(pendingResolvedTurn,narration,state);}catch(Exception ignored){}
         android.database.sqlite.SQLiteDatabase database=db.getWritableDatabase();boolean success=false;
-        database.beginTransaction();
-        try{finishResolved(action,result,warn);database.setTransactionSuccessful();success=true;}
-        catch(Exception error){feedback="Ėjimo išsaugoti nepavyko. Ankstesnė pažanga išliko.";}
-        finally{database.endTransaction();}
+        try{
+            database.beginTransaction();
+            try{finishResolved(action,result,warn);database.setTransactionSuccessful();}
+            finally{database.endTransaction();}
+            success=true;
+        }catch(Exception error){feedback="Ėjimo išsaugoti nepavyko. Ankstesnė pažanga išliko.";}
         if(!success){state=db.loadState();if(pendingCheckpointId>=0)db.discardCheckpoint(pendingCheckpointId);}
         clearPending();show("game");
     }
 
     private void finishResolved(String action,JSONObject r,String warn){
-        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;int defeatedDanger=state.enemyDanger;
-        state.applyTurn(r);if(!old.equals(state.location)){int authoritativeTravel=db.world().travelMinutes(old,state.location);if(authoritativeTravel>0)state.worldMinute+=authoritativeTravel-Math.max(0,r.optInt("time_minutes",0));}CombatEngine.hydrate(state);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory="combat_victory".equals(event)||(wasCombat&&!state.combatActive&&!"combat_escape".equals(event)&&!"combat_end".equals(event));if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;ItemCatalogV092.ItemDef item=exactCatalogItem(o.optString("name",""));if(item==null)continue;db.addCatalogLoot(item,1);gained.add(item.name);}}
-        ProgressionEngine.Award progression=ProgressionEngine.award(state,event,pendingCheck,defeatedDanger);String questUpdate=db.world().progressStory(action,event,state,pendingCheck);String npcUpdate=db.world().recordNpcInteraction(action,event,state);String companionUpdate=db.world().recordCompanionTurn(action,event,state);String discoveryUpdate=WorldRepository.checkAllowsProgress(pendingCheck,event)?db.world().recordExploration(action,state):"";String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);String effectName=state.temporaryEffectName;int effectTurns=state.temporaryEffectTurns;state.tickTemporaryEffect();String effectUpdate=effectTurns<=0?"":state.temporaryEffectTurns==0?effectName+" poveikis baigėsi":effectName+" · liko "+state.temporaryEffectTurns+" ėj.";db.saveState(state);
-        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));if(progression.gained>0){if(f.length()>0)f.append("  ");f.append("★ ").append(progression.line());}String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,npcUpdate,companionUpdate,discoveryUpdate,worldUpdate,effectUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();
+        int hp=state.hp,ma=state.mana,st=state.stamina,ae=state.aeonic;long cr=state.crowns,oldMinute=state.worldMinute;String old=state.location;String event=r.optString("event_tag","none");boolean wasCombat=state.combatActive;String defeatedEnemy=state.enemyName;int defeatedDanger=state.enemyDanger;
+        state.applyTurn(r);if(!old.equals(state.location)){int authoritativeTravel=db.world().travelMinutes(old,state.location);if(authoritativeTravel>0)state.worldMinute+=authoritativeTravel-Math.max(0,r.optInt("time_minutes",0));}CombatEngine.hydrate(state);if(pendingCheck!=null){db.awardMastery(pendingCheck.primary,pendingPrimaryXp);db.awardMastery(pendingCheck.secondary,pendingSecondaryXp);}ArrayList<String> gained=new ArrayList<>();boolean victory=CombatEngine.isVictory(wasCombat,r);if(victory&&!defeatedEnemy.isEmpty()){for(ItemCatalogV092.ItemDef drop:DropTableV092.roll(defeatedEnemy,state.worldMinute+action.hashCode())){db.addCatalogLoot(drop,1);gained.add(drop.name);}}else{JSONArray loot=r.optJSONArray("loot");if(loot!=null)for(int i=0;i<loot.length();i++){JSONObject o=loot.optJSONObject(i);if(o==null)continue;ItemCatalogV092.ItemDef item=exactCatalogItem(o.optString("name",""));if(item==null)continue;db.addCatalogLoot(item,1);gained.add(item.name);}}
+        ProgressionEngine.Award progression=ProgressionEngine.award(state,event,pendingCheck,defeatedDanger);String questUpdate=db.world().progressStory(action,event,state,pendingCheck,oldMinute);String npcUpdate=db.world().recordNpcInteraction(action,event,state,oldMinute);String sideUpdate=db.sideQuests().record(action,event,state,pendingCheck);String companionUpdate=db.world().recordCompanionTurn(action,event,state);String discoveryUpdate=WorldRepository.checkAllowsProgress(pendingCheck,event)?db.world().recordExploration(action,state):"";String worldUpdate=db.world().advanceWorld(state,event,r.optInt("time_minutes",0));db.world().applyQuestToState(state);if(!questUpdate.isEmpty()||!sideUpdate.isEmpty()||!state.trackedQuestId.isEmpty())db.world().applyStructuredChoices(state);String sceneMemory=state.scene==null?"":state.scene.replace('\n',' ').trim();if(sceneMemory.length()>150)sceneMemory=sceneMemory.substring(0,149)+"…";state.recentTurns.add(action+" → "+state.sceneTitle+" · "+sceneMemory+(pendingCheck==null?"":" · "+pendingCheck.primary+": "+pendingCheck.outcome));while(state.recentTurns.size()>30)state.recentTurns.remove(0);String effectName=state.temporaryEffectName;int effectTurns=state.temporaryEffectTurns;state.tickTemporaryEffect();String effectUpdate=effectTurns<=0?"":state.temporaryEffectTurns==0?effectName+" poveikis baigėsi":effectName+" · liko "+state.temporaryEffectTurns+" ėj.";db.saveState(state);
+        StringBuilder f=new StringBuilder();if(pendingCheck!=null)f.append(pendingCheck.compact()).append(" · ").append(MasteryEngine.effectLine(pendingMasteryBonus,pendingPrimaryXp,pendingSecondaryXp));if(progression.gained>0){if(f.length()>0)f.append("  ");f.append("★ ").append(progression.line());}String ev=eventLabel(event);if(!ev.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(ev);}delta(f,"gyvybė",state.hp-hp);delta(f,"mana",state.mana-ma);delta(f,"ištvermė",state.stamina-st);delta(f,"eoninė energija",state.aeonic-ae);delta(f,"karūnos",state.crowns-cr);if(!old.equals(state.location)){if(f.length()>0)f.append("  ");f.append("📍 ").append(state.location);}if(!gained.isEmpty()){if(f.length()>0)f.append("  ");f.append("🎁 Gauta: ").append(String.join(", ",gained));}for(String update:new String[]{questUpdate,sideUpdate,npcUpdate,companionUpdate,discoveryUpdate,worldUpdate,effectUpdate})if(update!=null&&!update.isEmpty()){if(f.length()>0)f.append("  ");f.append("◆ ").append(update);}if(warn!=null){if(f.length()>0)f.append("  ");f.append(warn);}feedback=f.length()==0?"✓ Ėjimas išspręstas":f.toString();
     }
 
     private void applyEquipmentTravel(JSONObject result,String event){if(!"travel".equals(event))return;EquipmentRules.Stats gear=db.equipmentStats();int stamina=result.optInt("stamina_delta",0);if(stamina<0&&gear.travelFatigueHalf)stamina=Math.round(stamina/2f);stamina+=gear.travelRecovery;try{result.put("stamina_delta",stamina);}catch(Exception ignored){}}
 
     JSONObject local(String action,StatEngine.Check check){
-        return LocalTurnResolver.resolve(state,action,check,db.world().discoveredLocations());
+        try{
+            GameState snapshot=GameState.fromJson(state.toJson());
+            return CombatEngine.handles(snapshot,action)?CombatEngine.resolve(snapshot,action,check,db.equipmentStats(),db.getStatValues(),db.world().unlockedTalentIds(),db.world().companionDefenseBonus(snapshot.combatRound),db.world().companionVictoryHealing())
+                    :LocalTurnResolver.resolve(snapshot,action,check,db.world().discoveredLocations());
+        }catch(Exception error){return new JSONObject();}
     }
 
     boolean applyCharacterProfile(String name,int age,boolean ageless,String identity,String appearance,

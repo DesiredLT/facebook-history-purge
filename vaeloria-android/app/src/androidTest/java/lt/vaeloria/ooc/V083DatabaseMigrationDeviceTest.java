@@ -34,7 +34,7 @@ public class V083DatabaseMigrationDeviceTest {
         context.deleteDatabase("vaeloria.db");
     }
 
-    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionThirteen() throws Exception {
+    @Test public void realVersionThreeDatabaseUpgradesInPlaceToVersionFourteen() throws Exception {
         File path = context.getDatabasePath("vaeloria.db");
         File parent = path.getParentFile();
         assertNotNull(parent);
@@ -73,7 +73,7 @@ public class V083DatabaseMigrationDeviceTest {
 
         VaeloriaDb upgraded = new VaeloriaDb(context);
         SQLiteDatabase database = upgraded.getWritableDatabase();
-        assertEquals(13, database.getVersion());
+        assertEquals(14, database.getVersion());
         GameState restored = upgraded.loadState();
         assertEquals("Veyrhold", restored.location);
         assertEquals(73, restored.hp);

@@ -14,8 +14,8 @@ android {
         applicationId 'lt.vaeloria.ooc.personal'
         minSdk 26
         targetSdk 35
-        versionCode 43
-        versionName '1.1.1'
+        versionCode 44
+        versionName '1.2.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
@@ -63,3 +63,19 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
+
+
+def validateStableSigner = tasks.register('validateStableSigner') {
+    doLast {
+        if (!releaseKeyAvailable) return
+        def keyStore = java.security.KeyStore.getInstance('JKS')
+        file(releaseKeyPath).withInputStream { stream -> keyStore.load(stream, 'android'.toCharArray()) }
+        def certificate = keyStore.getCertificate('androiddebugkey')
+        if (certificate == null) throw new GradleException('Original Vaeloria signing certificate is missing.')
+        def fingerprint = java.security.MessageDigest.getInstance('SHA-256').digest(certificate.encoded).encodeHex().toString().toUpperCase(java.util.Locale.ROOT)
+        if (fingerprint != '07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88') {
+            throw new GradleException('Release signer differs from the installed Vaeloria application. Restore the original key; do not replace it.')
+        }
+    }
+}
+tasks.configureEach { task -> if (task.name == 'preReleaseBuild') task.dependsOn(validateStableSigner) }

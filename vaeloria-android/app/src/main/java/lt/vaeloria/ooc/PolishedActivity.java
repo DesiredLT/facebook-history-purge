@@ -37,6 +37,8 @@ import java.util.Map;
 
 /** Vaeloria v1.1.0 premium mobile presentation over the persistent RPG systems. */
 public class PolishedActivity extends PremiumActivity {
+    private boolean onlyFavoriteInventory;
+
     private static final int LINE = Color.rgb(43, 59, 68);
     private static final int PANEL = Color.rgb(9, 19, 27);
     private static final int PANEL_2 = Color.rgb(13, 25, 34);
@@ -517,7 +519,7 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout abilities = panel(false);
         LinearLayout abilityHeader = row();
         abilityHeader.setGravity(Gravity.CENTER_VERTICAL);
-        abilityHeader.addView(section("POST-CAP GEBĖJIMAI"), new LinearLayout.LayoutParams(0, -2, 1));
+        abilityHeader.addView(section("GEBĖJIMAI VIRŠ SAVYBIŲ RIBOS"), new LinearLayout.LayoutParams(0, -2, 1));
         abilityHeader.addView(chip(String.valueOf(db.getAbilities().size()), PURPLE));
         abilities.addView(abilityHeader);
         for (String[] ability : db.getAbilities()) abilities.addView(abilityCard(ability));
@@ -586,24 +588,20 @@ public class PolishedActivity extends PremiumActivity {
             Button button = dark(group[0] + " · " + count);
             button.setMinHeight(dp(48));button.setOnClickListener(view -> catalogDialog(group[0], group[1], 0));codex.addView(button, sp(dp(5)));
         }
-        column.addView(codex, sp(dp(10)));
+
+        Button favoritesFilter=outline(onlyFavoriteInventory?"RODYTI VISUS TURIMUS DAIKTUS":"★ RODYTI MĖGSTAMUS DAIKTUS");favoritesFilter.setOnClickListener(view->{onlyFavoriteInventory=!onlyFavoriteInventory;inventoryPage=0;show("items");});column.addView(favoritesFilter,sp(dp(8)));
         List<VaeloriaDb.Item> inventory=filteredInventory(allInventory);int pageSize=20,pageCount=Math.max(1,(inventory.size()+pageSize-1)/pageSize);inventoryPage=Math.max(0,Math.min(inventoryPage,pageCount-1));int start=inventoryPage*pageSize,end=Math.min(inventory.size(),start+pageSize);
-        LinearLayout inventoryTools=panel(false);inventoryTools.addView(section("TURIMI DAIKTAI · "+inventory.size()+" REZULTATŲ · "+(inventoryPage+1)+"/"+pageCount));inventoryTools.addView(txt((inventoryQuery.isEmpty()?"Be teksto filtro":"Paieška: "+inventoryQuery)+" · retumas: "+(inventoryRarity.equals("all")?"visi":rarityLabel(inventoryRarity))+" · rikiavimas: "+inventorySort,9,SUB,false),sp(dp(5)));Button filter=outline("IEŠKOTI · FILTRUOTI · RIKIUOTI");filter.setOnClickListener(view->inventoryFilterDialog());inventoryTools.addView(filter);column.addView(inventoryTools,sp(dp(7)));
+        LinearLayout inventoryTools=panel(false);inventoryTools.addView(section("TURIMI DAIKTAI · "+inventory.size()+" REZULTATŲ · "+(inventoryPage+1)+"/"+pageCount));inventoryTools.addView(txt((inventoryQuery.isEmpty()?"Be teksto filtro":"Paieška: "+inventoryQuery)+" · retumas: "+(inventoryRarity.equals("all")?"visi":rarityLabel(inventoryRarity))+" · rikiavimas: "+("name".equals(inventorySort)?"pavadinimas":"level".equals(inventorySort)?"lygis":"value".equals(inventorySort)?"vertė":"retumas"),9,SUB,false),sp(dp(5)));Button filter=outline("IEŠKOTI · FILTRUOTI · RIKIUOTI");filter.setOnClickListener(view->inventoryFilterDialog());inventoryTools.addView(filter);column.addView(inventoryTools,sp(dp(7)));
         if(inventory.isEmpty())column.addView(txt("Pagal pasirinktą filtrą daiktų nerasta.",11,SUB,false),sp(dp(8)));
 
-        for (int index = start; index < end; index += 2) {
-            LinearLayout row = row();
-            row.addView(itemCard(inventory.get(index)), new LinearLayout.LayoutParams(0, dp(216), 1));
-            Space gap = new Space(this);
-            row.addView(gap, new LinearLayout.LayoutParams(dp(7), 1));
-            if (index + 1 < end) {
-                row.addView(itemCard(inventory.get(index + 1)), new LinearLayout.LayoutParams(0, dp(216), 1));
-            } else {
-                row.addView(new View(this), new LinearLayout.LayoutParams(0, dp(216), 1));
-            }
-            column.addView(row, sp(dp(7)));
+        boolean singleColumn=pref("large_text",false)||getResources().getConfiguration().fontScale>1.15f;
+        for(int index=start;index<end;index+=singleColumn?1:2){
+            LinearLayout line=row();line.addView(itemCard(inventory.get(index)),new LinearLayout.LayoutParams(0,-2,1));
+            if(!singleColumn){line.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));line.addView(index+1<end?itemCard(inventory.get(index+1)):new View(this),new LinearLayout.LayoutParams(0,-2,1));}
+            column.addView(line,sp(dp(7)));
         }
         if(pageCount>1){LinearLayout pages=row();if(inventoryPage>0){Button previous=dark("← ANKSTESNIS");previous.setOnClickListener(view->{inventoryPage--;show("items");});pages.addView(previous,new LinearLayout.LayoutParams(0,dp(48),1));}if(inventoryPage+1<pageCount){Button next=gold("KITAS →");next.setOnClickListener(view->{inventoryPage++;show("items");});pages.addView(next,new LinearLayout.LayoutParams(0,dp(48),1));}column.addView(pages,sp(dp(5)));}
+        column.addView(codex,sp(dp(10)));
         return scroll;
     }
 
@@ -617,13 +615,13 @@ public class PolishedActivity extends PremiumActivity {
         ItemArtView icon = new ItemArtView(this);
         icon.setItem(item.name, item.slot == null ? item.type : item.slot, item.rarity);
         card.addView(icon, new LinearLayout.LayoutParams(-1, dp(92)));
-        TextView name = serif(item.name, 12, PARCH, true);
+        TextView name = serif((state.favoriteItemIds.contains(item.id)?"★ ":"")+item.name, 12, PARCH, true);
         name.setMaxLines(2);
         card.addView(name, sp(dp(3)));
         card.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT), 8, color, true));
         card.addView(txt("L" + item.itemLevel + " · GALIA " + item.power + (item.quantity > 1 ? " · ×" + item.quantity : ""), 7, GOLD2, true));
         card.addView(txt(itemDescriptor(item), 7, SUB, false));
-        String status = (item.equipped ? "● ĮRENGTA" : "○ INVENTORIUJE") + (item.synced ? " · SYNC" : "");
+        String status = (item.equipped ? "● ĮRENGTA" : "○ INVENTORIUJE") + (item.synced ? " · REZONUOJA" : "");
         card.addView(txt(status, 7, item.synced ? GREEN : SUB, true));
         card.setOnClickListener(view -> {
             haptic();
@@ -633,7 +631,7 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     private List<VaeloriaDb.Item> filteredInventory(List<VaeloriaDb.Item> source){
-        ArrayList<VaeloriaDb.Item> result=new ArrayList<>();String query=inventoryQuery.trim().toLowerCase(Locale.forLanguageTag("lt-LT"));for(VaeloriaDb.Item item:source){String searchable=(item.name+" "+item.description+" "+item.effect+" "+item.type).toLowerCase(Locale.forLanguageTag("lt-LT"));if(!query.isEmpty()&&!searchable.contains(query))continue;if(!"all".equals(inventoryRarity)&&!inventoryRarity.equals(item.rarity))continue;result.add(item);}
+        ArrayList<VaeloriaDb.Item> result=new ArrayList<>();String query=inventoryQuery.trim().toLowerCase(Locale.forLanguageTag("lt-LT"));for(VaeloriaDb.Item item:source){if(onlyFavoriteInventory&&!state.favoriteItemIds.contains(item.id))continue;String searchable=(item.name+" "+item.description+" "+item.effect+" "+item.type).toLowerCase(Locale.forLanguageTag("lt-LT"));if(!query.isEmpty()&&!searchable.contains(query))continue;if(!"all".equals(inventoryRarity)&&!inventoryRarity.equals(item.rarity))continue;result.add(item);}
         if("name".equals(inventorySort)){java.text.Collator collator=java.text.Collator.getInstance(Locale.forLanguageTag("lt-LT"));result.sort((a,b)->collator.compare(a.name,b.name));}else if("level".equals(inventorySort))result.sort((a,b)->Integer.compare(b.itemLevel,a.itemLevel));else if("value".equals(inventorySort))result.sort((a,b)->Integer.compare(b.value,a.value));return result;
     }
 
@@ -644,7 +642,7 @@ public class PolishedActivity extends PremiumActivity {
     private void globalCatalogSearchDialog(){EditText query=profileInput("Pvz., nuodai, kardas, mitinis, mana…","",false,60);new AlertDialog.Builder(this).setTitle("Ieškoti daiktų kodekse").setMessage("Paieška tikrina pavadinimą, aprašą, poveikį, regioną, kategoriją ir retumą.").setView(query).setNegativeButton("ATŠAUKTI",null).setPositiveButton("IEŠKOTI",(dialog,which)->{String value=query.getText().toString().trim();if(!value.isEmpty())catalogSearchResults(value,0);}).show();}
 
     private void catalogSearchResults(String rawQuery,int page){
-        String query=rawQuery.toLowerCase(Locale.forLanguageTag("lt-LT"));ArrayList<ItemCatalogV092.ItemDef> matches=new ArrayList<>();for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){String text=(item.name+" "+item.description+" "+item.effect+" "+item.region+" "+item.category+" "+item.rarity).toLowerCase(Locale.forLanguageTag("lt-LT"));if(text.contains(query))matches.add(item);}matches.sort((a,b)->Integer.compare(b.level,a.level));int pageSize=20,pageCount=Math.max(1,(matches.size()+pageSize-1)/pageSize),safe=Math.max(0,Math.min(page,pageCount-1)),start=safe*pageSize,end=Math.min(matches.size(),start+pageSize);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(12),dp(12),dp(12),dp(10));scroll.addView(column);column.addView(serif("„"+rawQuery+"“",21,PARCH,true));column.addView(txt(matches.size()+" rezultatų · puslapis "+(safe+1)+"/"+pageCount,9,SUB,false),sp(dp(8)));for(int index=start;index<end;index+=2){LinearLayout pair=row();pair.addView(catalogCard(matches.get(index)),new LinearLayout.LayoutParams(0,dp(198),1));pair.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));if(index+1<end)pair.addView(catalogCard(matches.get(index+1)),new LinearLayout.LayoutParams(0,dp(198),1));else pair.addView(new View(this),new LinearLayout.LayoutParams(0,dp(198),1));column.addView(pair,sp(dp(7)));}AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null);if(safe>0)builder.setNeutralButton("ANKSTESNIS",(dialog,which)->catalogSearchResults(rawQuery,safe-1));if(end<matches.size())builder.setPositiveButton("KITAS",(dialog,which)->catalogSearchResults(rawQuery,safe+1));builder.show();
+        String query=rawQuery.toLowerCase(Locale.forLanguageTag("lt-LT"));ArrayList<ItemCatalogV092.ItemDef> matches=new ArrayList<>();for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){String text=(item.name+" "+item.description+" "+item.effect+" "+item.region+" "+item.category+" "+item.rarity+" "+rarityLabel(item.rarity)+" "+ItemCatalogV092.categoryLabel(item.category)).toLowerCase(Locale.forLanguageTag("lt-LT"));if(text.contains(query))matches.add(item);}matches.sort((a,b)->Integer.compare(b.level,a.level));int pageSize=20,pageCount=Math.max(1,(matches.size()+pageSize-1)/pageSize),safe=Math.max(0,Math.min(page,pageCount-1)),start=safe*pageSize,end=Math.min(matches.size(),start+pageSize);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(12),dp(12),dp(12),dp(10));scroll.addView(column);column.addView(serif("„"+rawQuery+"“",21,PARCH,true));column.addView(txt(matches.size()+" rezultatų · puslapis "+(safe+1)+"/"+pageCount,9,SUB,false),sp(dp(8)));for(int index=start;index<end;index+=2){LinearLayout pair=row();pair.addView(catalogCard(matches.get(index)),new LinearLayout.LayoutParams(0,dp(198),1));pair.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));if(index+1<end)pair.addView(catalogCard(matches.get(index+1)),new LinearLayout.LayoutParams(0,dp(198),1));else pair.addView(new View(this),new LinearLayout.LayoutParams(0,dp(198),1));column.addView(pair,sp(dp(7)));}AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null);if(safe>0)builder.setNeutralButton("ANKSTESNIS",(dialog,which)->catalogSearchResults(rawQuery,safe-1));if(end<matches.size())builder.setPositiveButton("KITAS",(dialog,which)->catalogSearchResults(rawQuery,safe+1));builder.show();
     }
 
     private void catalogDialog(String title, String category, int page) {
@@ -806,12 +804,28 @@ public class PolishedActivity extends PremiumActivity {
             String label=questStep.title+(questStep.target>1?" · "+questStep.progress+"/"+questStep.target:"");
             progress.addView(step("completed".equals(questStep.status),"active".equals(questStep.status),label));
         }
+        Button trackMain=outline("SEKTI MERIDIANO TYRIMĄ");trackMain.setOnClickListener(view->{state.trackedQuestId="";db.world().applyQuestToState(state);db.world().applyStructuredChoices(state);db.saveState(state);show("game");});progress.addView(trackMain);
         column.addView(progress, sp(dp(9)));
 
         LinearLayout threads = panel(false);
         threads.addView(section("UŽDUOTYS IR GYVI PASAULIO ĮVYKIAI"));
-        for(WorldRepository.Quest quest:db.world().quests())if("side".equals(quest.type))
-            threads.addView(threadCard(quest.title,quest.status.toUpperCase(Locale.forLanguageTag("lt-LT")),db.world().steps(quest.id).get(0).title,BLUE));
+        for(WorldRepository.Quest quest:db.world().quests())if("side".equals(quest.type)){
+            SideQuestCatalog.QuestDef def=SideQuestCatalog.byId(quest.id);if(def==null)continue;
+            LinearLayout card=panel(quest.id.equals(state.trackedQuestId));
+            String status="completed".equals(quest.status)?"UŽBAIGTA":"ready".equals(quest.status)?"ATLYGIS PARUOŠTAS":"active".equals(quest.status)?"VYKDOMA":"GALIMA PRIIMTI";
+            card.addView(serif(quest.title,16,PARCH,true));card.addView(txt(status+" · "+def.location,11,GOLD2,true));
+            for(WorldRepository.QuestStep step:db.world().steps(quest.id))card.addView(txt(("completed".equals(step.status)?"✓ ":"active".equals(step.status)?"◆ ":"○ ")+step.title+(step.target>1?" · "+step.progress+"/"+step.target:""),11,SUB,false),sp(dp(4)));
+            card.addView(txt("Atlygis: "+def.gold+" karūnų · "+def.xp+" patirties · "+ItemCatalogV092.byId(def.rewardItem).name+" ×2",11,GREEN,false),sp(dp(6)));
+            if(!"completed".equals(quest.status)){
+                Button action=gold("available".equals(quest.status)?"PRIIMTI UŽDUOTĮ":"ready".equals(quest.status)?"ATSIIMTI ATLYGĮ":"SEKTI UŽDUOTĮ");action.setMinHeight(dp(48));
+                action.setOnClickListener(view->{
+                    if("available".equals(quest.status))feedback=db.sideQuests().accept(quest.id,state).message;
+                    else if("ready".equals(quest.status))feedback=db.sideQuests().claim(quest.id,state).message;
+                    else{state.trackedQuestId=quest.id;db.world().applyStructuredChoices(state);db.saveState(state);feedback="Sekama: "+quest.title;}
+                    show("active".equals(quest.status)?"game":"journal");Toast.makeText(this,feedback,Toast.LENGTH_LONG).show();
+                });card.addView(action);}
+            threads.addView(card,sp(dp(8)));
+        }
         List<WorldRepository.Event> liveEvents=db.world().activeEvents();
         if(liveEvents.isEmpty())threads.addView(txt("Šiuo metu nėra aktyvios pasaulinės krizės. Ekonomika palaipsniui grįžta į pusiausvyrą.",9,SUB,false));
         else for(WorldRepository.Event worldEvent:liveEvents)
@@ -983,7 +997,7 @@ public class PolishedActivity extends PremiumActivity {
         new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();
     }
 
-    private void sellDialog(WorldRepository.Shop shop){ArrayList<VaeloriaDb.Item> sellable=new ArrayList<>();for(VaeloriaDb.Item item:db.getItems())if(!item.equipped&&!item.synced&&item.value>0&&!"quest".equals(item.type))sellable.add(item);if(sellable.isEmpty()){Toast.makeText(this,"Nėra parduodamų daiktų",Toast.LENGTH_SHORT).show();return;}String[] names=new String[sellable.size()];for(int i=0;i<sellable.size();i++){VaeloriaDb.Item item=sellable.get(i);names[i]=item.name+(item.quantity>1?" ×"+item.quantity:"")+" · bazinė vertė "+item.value;}new AlertDialog.Builder(this).setTitle("Parduoti vieną daiktą").setItems(names,(dialog,which)->{VaeloriaDb.Item item=sellable.get(which);db.checkpoint("prieš pardavimą",state);WorldRepository.TransactionResult result=db.world().sell(shop,item.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");}).setNegativeButton("UŽDARYTI",null).show();}
+    private void sellDialog(WorldRepository.Shop shop){ArrayList<VaeloriaDb.Item> sellable=new ArrayList<>();for(VaeloriaDb.Item item:db.getItems())if(!state.favoriteItemIds.contains(item.id)&&!item.equipped&&!item.synced&&item.value>0&&!"quest".equals(item.type))sellable.add(item);if(sellable.isEmpty()){Toast.makeText(this,"Nėra parduodamų daiktų",Toast.LENGTH_SHORT).show();return;}String[] names=new String[sellable.size()];for(int i=0;i<sellable.size();i++){VaeloriaDb.Item item=sellable.get(i);names[i]=item.name+(item.quantity>1?" ×"+item.quantity:"")+" · gausi "+db.world().sellPrice(shop,item,state)+" karūnų";}new AlertDialog.Builder(this).setTitle("Parduoti vieną daiktą").setItems(names,(dialog,which)->{VaeloriaDb.Item item=sellable.get(which);new AlertDialog.Builder(this).setTitle("Parduoti: "+item.name+"?").setMessage("Gausi "+db.world().sellPrice(shop,item,state)+" karūnų už vieną vienetą.").setNegativeButton("ATŠAUKTI",null).setPositiveButton("PARDUOTI",(confirmation,choice)->{db.checkpoint("prieš pardavimą",state);WorldRepository.TransactionResult result=db.world().sell(shop,item.id,state);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");}).show();}).setNegativeButton("UŽDARYTI",null).show();}
 
     private void craftDialog(WorldRepository.Shop shop){String station=stationForShop(shop);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(14),dp(12),dp(14),dp(10));scroll.addView(column);column.addView(serif("GAMYBA · "+WorldRepository.stationLabel(station).toUpperCase(Locale.forLanguageTag("lt-LT")),21,PARCH,true));column.addView(txt("Receptai tikrina veikėjo lygį, talentą, darbo vietą, visus reagentus ir karūnas vienoje atšaukiamoje operacijoje.",9,SUB,false),sp(dp(8)));int shown=0;for(WorldRepository.Recipe recipe:db.world().recipes()){if(!station.equals(recipe.station))continue;shown++;boolean ingredientsReady=true;StringBuilder ingredients=new StringBuilder();for(WorldRepository.Ingredient ingredient:recipe.ingredients){if(ingredients.length()>0)ingredients.append(" · ");ingredients.append(ingredient.name).append(' ').append(ingredient.owned).append('/').append(ingredient.quantity);if(ingredient.owned<ingredient.quantity)ingredientsReady=false;}boolean levelReady=state.level>=recipe.requiredLevel;boolean ready=recipe.unlocked&&levelReady&&ingredientsReady&&state.crowns>=recipe.fee;String lock=!recipe.unlocked?"REIKIA TALENTO":!levelReady?"REIKIA L"+recipe.requiredLevel:!ingredientsReady?"TRŪKSTA REAGENTŲ":state.crowns<recipe.fee?"TRŪKSTA KARŪNŲ":"PARUOŠTA";Button button=dark(recipe.name+(recipe.resultQuantity>1?" ×"+recipe.resultQuantity:"")+" · L"+recipe.requiredLevel+"\n"+ingredients+"\n"+recipe.fee+" karūnų · "+lock);button.setAllCaps(false);button.setMinHeight(dp(76));button.setEnabled(ready);button.setOnClickListener(view->{db.checkpoint("prieš gamybą",state);WorldRepository.TransactionResult result=db.world().craft(recipe.id,state,station);feedback=result.message;Toast.makeText(this,result.message,Toast.LENGTH_LONG).show();show("items");});column.addView(button,sp(dp(5)));}if(shown==0)column.addView(txt("Šioje darbo vietoje receptų nėra.",10,SUB,false));new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null).show();}
 
@@ -1283,9 +1297,27 @@ public class PolishedActivity extends PremiumActivity {
         if (item.effect != null && !item.effect.isEmpty()) content.addView(txt("MECHANIKA · " + (definitionFor(item)!=null&&definitionFor(item).consumable?ConsumableRulesV110.description(definitionFor(item)):item.effect), 10, GREEN, true), sp(dp(7)));
         if (item.setId != null && !item.setId.isEmpty()) {ItemCatalogV092.SetDef set=ItemCatalogV092.setById(item.setId);if(set!=null)content.addView(txt("SETAS · "+set.name,10,rarity(set.rarity),true),sp(dp(6)));}
         ItemCatalogV092.ItemDef definition=item.catalogId==null?ItemCatalogV092.find(item.name):ItemCatalogV092.byId(item.catalogId);
-        AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(content).setNegativeButton("UŽDARYTI",null);
-        if(definition!=null&&definition.consumable){boolean levelReady=state.level>=definition.level;builder.setPositiveButton(levelReady?"NAUDOTI":"REIKIA L"+definition.level,(dialog,which)->{if(!levelReady){feedback="Negalima naudoti · reikia "+definition.level+" veikėjo lygio";show("items");return;}db.checkpoint("prieš daikto naudojimą",state);boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});}
+        ScrollView details=new ScrollView(this);details.addView(content);
+        Button favorite=outline(state.favoriteItemIds.contains(item.id)?"★ PAŠALINTI IŠ MĖGSTAMŲ":"☆ PAŽYMĖTI KAIP MĖGSTAMĄ");
+        favorite.setOnClickListener(view->{if(state.favoriteItemIds.contains(item.id))state.favoriteItemIds.remove(item.id);else state.favoriteItemIds.add(item.id);db.saveState(state);favorite.setText(state.favoriteItemIds.contains(item.id)?"★ PAŠALINTI IŠ MĖGSTAMŲ":"☆ PAŽYMĖTI KAIP MĖGSTAMĄ");});content.addView(favorite,sp(dp(8)));
+        if(item.slot!=null){Button compare=gold("PALYGINTI IR APRŪPINTI");compare.setOnClickListener(view->compareEquipmentDialog(item));content.addView(compare,sp(dp(6)));}
+        AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(details).setNegativeButton("UŽDARYTI",null);
+        if(definition!=null&&definition.consumable){boolean levelReady=state.level>=definition.level;builder.setPositiveButton(levelReady?"NAUDOTI":"REIKIA L"+definition.level,(dialog,which)->{if(!levelReady){feedback="Negalima naudoti · reikia "+definition.level+" veikėjo lygio";show("items");return;}boolean wasCombat=state.combatActive;String result=db.consumeItem(item.id,state);if(result!=null)feedback=result;show(wasCombat?"game":"items");});}
         builder.show();
+    }
+
+    private void compareEquipmentDialog(VaeloriaDb.Item item){
+        ArrayList<String> targets=new ArrayList<>();for(String slot:VaeloriaDb.EQUIPMENT_SLOTS)if(slot.equals(item.slot)||slot.startsWith(item.slot+"_"))targets.add(slot);
+        if(targets.isEmpty())return;
+        String[] labels=new String[targets.size()];for(int i=0;i<targets.size();i++){VaeloriaDb.Item current=db.getEquippedAt(targets.get(i));labels[i]=VaeloriaDb.slotLabel(targets.get(i))+" · "+(current==null?"tuščia":current.name);}
+        new AlertDialog.Builder(this).setTitle("Pasirink įrangos vietą").setItems(labels,(dialog,which)->{
+            String target=targets.get(which);String comparison=EquipmentRules.comparison(db.getItems(),item,target);
+            new AlertDialog.Builder(this).setTitle(item.name).setMessage(comparison+"\n\n"+EquipmentRules.itemMechanic(item)+"\n"+db.equipRequirement(item,state.level))
+                    .setNegativeButton("ATŠAUKTI",null).setPositiveButton(state.level<item.itemLevel?"REIKIA L"+item.itemLevel:"APRŪPINTI",(confirm,choice)->{
+                        if(state.level<item.itemLevel)return;db.checkpoint("prieš įrangos pakeitimą",state);
+                        boolean equipped=db.equipToSlot(item.id,target,state.level);state=db.loadState();feedback=equipped?"Aprūpinta: "+item.name:"Įrangos pakeisti nepavyko";show("items");
+                    }).show();
+        }).show();
     }
 
     private ItemCatalogV092.ItemDef definitionFor(VaeloriaDb.Item item){return item.catalogId==null?ItemCatalogV092.find(item.name):ItemCatalogV092.byId(item.catalogId);}
