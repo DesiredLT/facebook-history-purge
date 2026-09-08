@@ -13,7 +13,7 @@ public class GroqContractV093Test {
         assertTrue(prompt.contains("taisyklinga, natūralia ir rišlia lietuvių kalba"));
         assertTrue(prompt.contains("antruoju asmeniu"));
         assertTrue(prompt.contains("2–4 trumpų"));
-        assertTrue(prompt.contains("lygiai 3 materialiai skirtingus pasirinkimus"));
+        assertTrue(prompt.contains("lygiai 3 leistini veiksmai"));
         assertTrue(prompt.toLowerCase(java.util.Locale.ROOT).contains("kilmės, archetipo, bruožų"));
     }
 

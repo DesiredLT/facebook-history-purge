@@ -64,12 +64,13 @@ final class ProgressionEngine {
 
     static int experienceForNext(int level){
         int safe=Math.max(1,Math.min(99,level));
-        return 250 + safe*100 + safe*safe*12;
+        return 180 + safe*18 + safe*safe/3;
     }
 
     static Award award(GameState state,String event,StatEngine.Check check,int enemyDanger){
         if(state==null)return new Award(0,0,0,0);
         String tag=event==null?"":event.toLowerCase(Locale.ROOT);
+        if(tag.isEmpty()||"none".equals(tag)||"blocked".equals(tag))return new Award(0,0,0,0);
         int gained=12;
         if("discovery".equals(tag)||"social".equals(tag)||"reward".equals(tag))gained=28;
         else if("travel".equals(tag)||"rest".equals(tag))gained=10;
@@ -86,6 +87,11 @@ final class ProgressionEngine {
         if("nightmare".equals(state.difficulty))gained=Math.round(gained*1.28f);
         if("legendary".equals(state.progressionMode))gained=Math.max(1,gained/2);
 
+        return grant(state,gained);
+    }
+
+    static Award grant(GameState state,int gained){
+        gained=Math.max(0,Math.min(100000,gained));
         state.experience+=gained;
         int levels=0,points=0,attributes=0;
         state.experienceNext=experienceForNext(state.level);

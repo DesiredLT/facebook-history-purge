@@ -103,7 +103,7 @@ public class V100PersistenceDeviceTest {
         assertTrue(database.saveSlots().isEmpty());
     }
 
-    @Test public void versionElevenBalancedProfileUpgradesThroughVersionThirteen() {
+    @Test public void versionElevenBalancedProfileUpgradesThroughVersionFourteen() {
         GameState state=balancedState("Migracijos herojė");
         database.getWritableDatabase().execSQL("UPDATE stats SET value=value+4 WHERE group_name='MAGINĖS SAVYBĖS'");
         database.getWritableDatabase().execSQL("UPDATE stats SET value=value+8 WHERE name IN ('Manos kontrolė','Magijos jutimas','Burtų stabilumas','Relikvijų rezonansas')");
@@ -113,7 +113,7 @@ public class V100PersistenceDeviceTest {
         database.close();
 
         database=new VaeloriaDb(context);
-        assertEquals(13,database.getWritableDatabase().getVersion());
+        assertEquals(14,database.getWritableDatabase().getVersion());
         assertEquals(40,database.getStatValue("Manos kontrolė"));
         assertEquals(40,database.getStatValue("Burtų galia"));
     }

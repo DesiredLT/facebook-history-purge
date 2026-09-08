@@ -27,10 +27,21 @@ final class CombatEngine {
             if (!state.combatActive) return begin(state, action);
             hydrate(state);
             return turn(state, action, check, gear == null ? new EquipmentRules.Stats() : gear, stats,
-                    talents==null?Collections.emptySet():talents,companionDefense,companionHealing);
+                    talents==null?Collections.emptySet():talents,companionDefense,companionHealing,null);
         } catch (Exception error) {
             return safeFailure(state, error);
         }
+    }
+
+    static JSONObject useItem(GameState state, ItemCatalogV092.ItemDef item, EquipmentRules.Stats gear,
+                              Map<String,Integer> stats, Set<String> talents, int companionDefense, int companionHealing) throws Exception {
+        hydrate(state);
+        return turn(state,item.name,null,gear,stats,talents,companionDefense,companionHealing,ConsumableRulesV110.effect(item));
+    }
+
+    static boolean isVictory(boolean wasCombat, JSONObject result) {
+        return wasCombat && "combat_victory".equals(result.optString("event_tag"))
+                && !result.optBoolean("combat_active",true) && result.optInt("enemy_hp",-1)==0;
     }
 
     static void hydrate(GameState state) {
@@ -77,17 +88,20 @@ final class CombatEngine {
 
     private static JSONObject turn(GameState state, String action, StatEngine.Check check,
                                    EquipmentRules.Stats gear, Map<String,Integer> stats,Set<String> talents,
-                                   int companionDefense,int companionHealing) throws Exception {
+                                   int companionDefense,int companionHealing,ConsumableRulesV110.Effect item) throws Exception {
         String query = norm(action);
         EnemyCatalogV091.Enemy catalog = EnemyCatalogV091.find(state.enemyName);
         int round = Math.max(1, state.combatRound) + 1;
         Random random = new Random(state.worldMinute * 31L + state.turnNumber * 131L + round * 17L + query.hashCode());
-        boolean escape = contains(query, "pabėg", "pabeg", "trauktis", "nutraukti kov", "pasitraukti");
+        boolean escape = contains(query, "pabėg", "pabeg", "trauktis", "atsitrauk", "nutraukti kov", "pasitraukti");
         boolean defend = contains(query, "gint", "blok", "skyd", "pariru", "atremti", "gynybin");
         boolean dodge = contains(query, "išsisuk", "issisuk", "išveng", "isveng", "šokti į šalį", "sokti i sali");
         boolean spell = contains(query, "gebėj", "gebej", "burt", "magij", "eonin", "relikv", "runa");
         boolean heavy = contains(query, "sunk", "galing", "visa jėga", "visa jega", "pramuš", "pramus");
         boolean recover = contains(query,"atsikvėp","atsikvep","atgauti kvap","taupyti jėg","taupyti jeg");
+
+        if(item==null&&!escape&&!defend&&!dodge&&!spell&&!heavy&&!recover&&!ActionText.contains(query,"ataku","smog","smūg","pulti","puol","ataka","durti","kirsti","šauti"))
+            return base(state,"Patikslink kovos veiksmą","Pasirink ataką, gynybą, išsisukimą, gebėjimą, atokvėpį arba atsitraukimą.",combatChoices(state.enemyTelegraph,state.combatAbilityCooldown,state.stamina),"none",true).put("blocked",true);
 
         if(talents.contains("scout_predator"))gear.criticalChance=Math.min(75,gear.criticalChance+10);
 
@@ -96,6 +110,9 @@ final class CombatEngine {
         int playerAttack = stat(stats, "Ginklų valdymas", 45) / 3 + stat(stats, "Atakos tikslumas", 45) / 4 + gear.attack+state.temporaryAttackBonus+(talents.contains("warrior_edge")?6:0);
         if(talents.contains("scout_ambush")&&state.combatRound<=1)playerAttack+=12;
         if(talents.contains("warrior_counter")&&state.playerCombatStatus.contains("Kontratakos langas"))playerAttack+=10;
+        if(gear.rangedWeapon)playerAttack+="far".equals(state.combatDistance)?8:"close".equals(state.combatDistance)?-8:0;
+        else if("far".equals(state.combatDistance))playerAttack-=8;
+        if(ActionText.contains(state.combatHazard,"slidus","klampi"))playerSpeed-=4;
         int enemyHp = state.enemyHp;
         int hpDelta = 0, manaDelta = 0, staminaDelta = 0, aeonicDelta = 0;
         int dealt = 0, received = 0, guard = 0;
@@ -111,15 +128,25 @@ final class CombatEngine {
         int enemyEffectTurns=state.enemyEffectTurns;
         StringBuilder scene = new StringBuilder();
 
-        if(!recover&&escape&&state.stamina<5){escape=false;recover=true;scene.append("Ištvermės nepakanka saugiam atsitraukimui. ");}
+        if(item!=null){escape=false;defend=false;dodge=false;spell=false;heavy=false;recover=false;}
+        if(item==null&&!recover&&escape&&state.stamina<5){escape=false;recover=true;scene.append("Ištvermės nepakanka saugiam atsitraukimui. ");}
         if(!recover&&dodge&&state.stamina<6){dodge=false;recover=true;scene.append("Ištvermės nepakanka išsisukimui. ");}
         if(!recover&&!escape&&!defend&&!dodge&&!spell&&heavy&&state.stamina<15){
             if(state.stamina>=7){heavy=false;scene.append("Ištvermės nepakanka sunkiam smūgiui, todėl renkiesi kontroliuojamą ataką. ");}
             else{recover=true;scene.append("Ištvermės nepakanka atakai. ");}
         }
-        if(!recover&&!escape&&!defend&&!dodge&&!spell&&!heavy&&state.stamina<7){recover=true;scene.append("Ištvermės nepakanka atakai. ");}
+        if(item==null&&!recover&&!escape&&!defend&&!dodge&&!spell&&!heavy&&state.stamina<7){recover=true;scene.append("Ištvermės nepakanka atakai. ");}
 
-        if(recover){
+        if(item!=null){
+            if(item.escape)return base(state,"Sėkmingas atsitraukimas","Panaudoji reikmenį ir saugiai pasitrauki iš kovos.",
+                    new JSONArray().put("Atsigauti po kovos").put("Apsidairyti").put("Tęsti tyrimą"),"combat_escape",false).put("time_minutes",5);
+            guard=item.guard;
+            if(item.directDamage>0)dealt=Math.max(3,item.directDamage-effectiveEnemyDefense(state.enemyDefense,enemyEffects,enemyEffectTurns)/6);
+            if(item.enemyEffect.contains("Pašventintas")&&ActionText.contains(state.enemyName+" "+state.enemyRole+" "+state.enemyTrait,"nekro","mirusi","šmėkl"))dealt+=12;
+            if(!item.enemyEffect.isEmpty()){enemyEffects=item.enemyEffect;enemyEffectTurns=Math.max(1,item.enemyEffectTurns);}
+            playerStatus="Panaudotas reikmuo";
+            scene.append("Panaudoji reikmenį: ").append(item.name).append(". ");
+        } else if(recover){
             int restored=Math.max(8,Math.min(18,state.staminaMax/8));
             staminaDelta+=restored;
             guard=Math.max(4,playerDefense/4);
@@ -177,7 +204,11 @@ final class CombatEngine {
             }
         }
 
-        if (!recover && !escape && !defend && !dodge && !spell) {
+        if (item==null && !recover && !escape && !defend && !dodge && !spell && state.stamina<7) {
+            recover=true;staminaDelta+=Math.max(8,Math.min(18,state.staminaMax/8));guard=Math.max(4,playerDefense/4);
+            playerStatus="Atgauna kvapą";scene.append("Ištvermės atakai nepakanka, todėl atgauni kvapą. ");
+        }
+        if (item==null && !recover && !escape && !defend && !dodge && !spell) {
             int attack = playerAttack + (heavy ? 18 : 0);
             if (heavy) staminaDelta -= 15; else staminaDelta -= 7;
             if (gear.berserk) attack += Math.max(0, (state.hpMax - state.hp) / 6);
@@ -195,15 +226,19 @@ final class CombatEngine {
             heal=Math.min(heal,state.hpMax-state.hp);
             int victoryStamina=staminaDelta+(talents.contains("leader_rally")?10:0);
             return base(state, "Priešas nugalėtas",
-                    scene + "Paskutinis poveikis pralaužia gynybą. " + state.enemyName + " nebegali tęsti kovos; vietinis variklis dabar pritaiko jo grobio lentelę.",
+                    scene + "Priešas nebegali tęsti kovos. Apžiūri likusį grobį ir įvertini savo sužeidimus.",
                     new JSONArray().put("Apžiūrėti grobį").put("Atsigauti po kovos").put("Tęsti kelionę"),
                     "combat_victory", false).put("time_minutes", 4).put("hp_delta", heal)
                     .put("stamina_delta", victoryStamina).put("mana_delta", manaDelta).put("aeonic_delta", aeonicDelta);
         }
 
         int rawIncoming = enemyDamage(state, playerDefense, random);
+        String move=enemyMove(state.enemyRole,state.enemyHp,state.enemyHpMax,state.enemyDanger,state.combatRound);
+        if("channel".equals(move)&&heavy&&dealt>0){rawIncoming/=4;scene.append("Sunkus smūgis nutraukia priešo kaupiamą gebėjimą. ");}
+        if("heavy".equals(move)&&defend)guard*=2;
         String normalizedEnemyEffect=norm(enemyEffects);
-        if(enemyEffectTurns>0&&(normalizedEnemyEffect.contains("sulėt")||normalizedEnemyEffect.contains("sutrik")||normalizedEnemyEffect.contains("apak")))rawIncoming=Math.max(0,rawIncoming*65/100);
+        if(enemyEffectTurns>0&&normalizedEnemyEffect.contains("apak"))rawIncoming=0;
+        else if(enemyEffectTurns>0&&ActionText.contains(normalizedEnemyEffect,"sulėt","sutrik","įkalint"))rawIncoming=Math.max(0,rawIncoming*65/100);
         if (guard >= 999) received = 0;
         else received = Math.max(0, rawIncoming - guard);
         if (gear.heavyHitMitigation && received >= 20 && !heavyMitigationUsed) {
@@ -227,6 +262,11 @@ final class CombatEngine {
         if(state.hp-received<=0&&talents.contains("warrior_last_stand")&&!lastStandUsed){
             received=Math.max(0,state.hp-1);lastStandUsed=true;playerStatus=playerStatus+" · Paskutinis bastionas panaudotas";
         }
+        if(received>0&&"control".equals(move)){
+            if(ActionText.contains(state.enemyTrait,"nuod"))playerStatus="Apnuodytas iki kito ėjimo";
+            else if(ActionText.contains(state.enemyTrait,"nekrot","kapu"))playerStatus="Nekrotinis poveikis iki kito ėjimo";
+            else if(ActionText.contains(state.enemyTrait,"ugn","lieps","zarij"))playerStatus="Dega iki kito ėjimo";
+        }
         hpDelta -= received;
         if(enemyEffectTurns>0){enemyEffectTurns--;if(enemyEffectTurns==0)enemyEffects="";}
         if (received == 0) scene.append("Priešo atsakas tavęs nepasiekia. ");
@@ -237,11 +277,12 @@ final class CombatEngine {
             return base(state, "Pralaimėta kova", scene.toString(),
                     new JSONArray().put("Atsigauti saugioje vietoje").put("Įvertinti prarastą laiką").put("Keisti pasiruošimą"),
                     "setback", false).put("time_minutes", 180).put("hp_delta", 1 - state.hp)
-                    .put("stamina_delta", -state.stamina).put("crowns_delta", -Math.min(state.crowns, 50L * Math.max(1, state.enemyDanger)));
+                    .put("stamina_delta", -state.stamina).put("mana_delta",manaDelta).put("aeonic_delta",aeonicDelta)
+                    .put("crowns_delta", -Math.min(state.crowns, 50L * Math.max(1, state.enemyDanger)));
         }
 
         EnemyCatalogV091.Enemy enemy = catalog;
-        String telegraph = enemy == null ? genericTelegraph(state, round) : telegraph(enemy, round, enemyHp, state.enemyHpMax);
+        String telegraph = enemy == null ? telegraph(state.enemyRole,state.enemyTrait,state.enemyDanger,round,enemyHp,state.enemyHpMax) : telegraph(enemy, round, enemyHp, state.enemyHpMax);
         JSONArray choices = combatChoices(telegraph, cooldown,state.stamina+staminaDelta);
         return base(state, "Kovos " + round + " ėjimas", scene.toString(), choices, "combat", true)
                 .put("time_minutes", 2).put("hp_delta", hpDelta).put("mana_delta", manaDelta)
@@ -276,7 +317,9 @@ final class CombatEngine {
         float difficulty = difficulty(state.difficulty);
         int value = Math.round((state.enemyAttack + random.nextInt(9) - 4 - defense * .24f) * difficulty);
         if (state.enemySpeed > 80 && random.nextInt(100) < 18) value += Math.max(3, state.enemyAttack / 4);
-        return Math.max(1, value);
+        String move=enemyMove(state.enemyRole,state.enemyHp,state.enemyHpMax,state.enemyDanger,state.combatRound);
+        float multiplier="heavy".equals(move)?1.45f:"channel".equals(move)?1.3f:"control".equals(move)?.8f:1f;
+        return Math.max(1,Math.round(value*multiplier));
     }
 
     private static int playerStatusDamage(String status, EquipmentRules.Stats gear, GameState state, int danger) {
@@ -306,9 +349,9 @@ final class CombatEngine {
     private static JSONArray combatChoices(String telegraph, int cooldown,int stamina) {
         JSONArray choices = new JSONArray();
         choices.put(stamina<7?"Atgauti kvapą ir saugoti poziciją":"Atakuoti ir išlaikyti spaudimą");
-        choices.put(norm(telegraph).contains("sunk") || norm(telegraph).contains("smūg")
-                ? "Blokuoti paruoštą sunkų smūgį" : "Išsisukti iš numatytos atakos");
-        choices.put(cooldown == 0 ? "Panaudoti kovinį gebėjimą" : "Atsitraukti iš kovos");
+        choices.put(ActionText.contains(telegraph,"kaupia")?"Smogti sunkų smūgį ir nutraukti priešo pasiruošimą"
+                : ActionText.contains(telegraph,"sunk","smūg")?"Blokuoti paruoštą sunkų smūgį":"Išsisukti iš numatytos atakos");
+        choices.put(cooldown <= 1 ? "Panaudoti kovinį gebėjimą" : "Atsitraukti iš kovos");
         return choices;
     }
 
@@ -327,9 +370,9 @@ final class CombatEngine {
     private static JSONObject safeFailure(GameState state, Exception error) {
         try {
             return base(state, "Kovos veiksmas sustabdytas",
-                    "Vietinis kovos variklis neatliko nepatvirtinto būsenos pakeitimo. Gali pakartoti veiksmą arba sąmoningai atsitraukti.",
+                    "Veiksmo atlikti nepavyko. Kova ir ištekliai nepasikeitė; gali pakartoti veiksmą.",
                     new JSONArray().put("Pakartoti ataką").put("Užimti gynybinę poziciją").put("Atsitraukti iš kovos"),
-                    "setback", state.combatActive);
+                    "none", state.combatActive).put("blocked",true);
         } catch (Exception ignored) { return new JSONObject(); }
     }
 
@@ -338,18 +381,24 @@ final class CombatEngine {
         return base + " · gyvybė " + hp + "/" + max + (effects == null || effects.isEmpty() ? "" : " · " + effects);
     }
 
-    private static String telegraph(EnemyCatalogV091.Enemy enemy, int round, int hp, int max) {
-        if (hp <= max / 3 && enemy.danger >= 8) return "Kaupia paskutinės fazės gebėjimą: " + enemy.trait;
-        String role = norm(enemy.role);
-        if (role.contains("burt") || role.contains("ritual")) return "Kaupia energiją gebėjimui: " + enemy.trait;
-        if (role.contains("kontrol") || role.contains("spąst")) return "Bando apriboti judėjimą naudodamas: " + enemy.trait;
-        if (role.contains("greit") || role.contains("pasal")) return "Ruošia greitą ataką iš šono";
-        return round % 3 == 0 ? "Ruošia sunkų tiesioginį smūgį" : "Tikrina tavo gynybą ir ruošia kontrataką";
+    private static String enemyMove(String role,int hp,int max,int danger,int round){
+        if(max>0&&hp<=max/3&&danger>=8)return round%2==0?"heavy":"channel";
+        if(ActionText.contains(role,"burt","ritual"))return round%3==0?"control":"channel";
+        if(ActionText.contains(role,"kontrol","spąst"))return "control";
+        return round%3==0?"heavy":"quick";
     }
 
-    private static String genericTelegraph(GameState state, int round) {
-        return state.enemyTrait.isEmpty() ? (round % 2 == 0 ? "Ruošia sunkų smūgį" : "Ruošia greitą kontrataką")
-                : "Ruošiasi panaudoti: " + state.enemyTrait;
+    private static String telegraph(EnemyCatalogV091.Enemy enemy,int round,int hp,int max){
+        return telegraph(enemy.role,enemy.trait,enemy.danger,round,hp,max);
+    }
+
+    private static String telegraph(String role,String trait,int danger,int round,int hp,int max){
+        String move=enemyMove(role,hp,max,danger,round);
+        String phase=hp<=max/3&&danger>=8?"Paskutinė fazė · ":"";
+        if("heavy".equals(move))return phase+"Ruošia sunkų smūgį: sustiprinta gynyba sumažins žalą";
+        if("channel".equals(move))return phase+"Kaupia gebėjimą: sunkus smūgis gali jį nutraukti";
+        if("control".equals(move))return "Ruošia kontrolės poveikį: "+trait;
+        return "Ruošia greitą ataką: gali išsisukti arba gintis";
     }
 
     private static String openingDistance(EnemyCatalogV091.Enemy enemy) {
@@ -393,7 +442,7 @@ final class CombatEngine {
     }
 
     private static boolean isCombatIntent(String action) {
-        return contains(norm(action), "ataku", "ataka", "pulti", "puolu", "smūg", "smug", "pradėti kov", "pradeti kov", "kovoti");
+        return ActionText.normalized(action).matches("^(?:(?:noriu|bandau) )?(?:ataku\\w*|ataka|pulti|puolu|smog\\w*|smug\\w*|pradeti kova|kovoti)(?: .*|$)");
     }
 
     private static boolean contains(String value, String... needles) {

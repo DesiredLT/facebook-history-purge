@@ -23,7 +23,8 @@ final class AiTurnPolicyV101 {
         if(knownLocations==null)knownLocations=Collections.emptySet();
         try{
             JSONObject out=new JSONObject(raw.toString());
-            boolean failed=isFailure(check);
+            if(out.optBoolean("blocked"))return out;
+            boolean failed=isFailure(check)&&!"rest".equals(out.optString("event_tag"));
             String event=canonicalEvent(out.optString("event_tag","none"));
             if(event.startsWith("combat"))event="none";
             if(failed)event="setback";
@@ -111,9 +112,9 @@ final class AiTurnPolicyV101 {
         if(requested!=null)for(String location:known)if(location.equalsIgnoreCase(requested.trim()))return location;
         return "";
     }
-    private static boolean isTravelIntent(String action){return contains(action,"keliaut","vykti","eiti į","eiti i","važiuoti","vaziuoti");}
-    private static boolean isRestorativeIntent(String action){return contains(action,"poils","mieg","stovykl","gyd","potion","eliksyr","atsigauti","atkurti");}
-    private static boolean mentions(String action,String value){return !norm(value).isEmpty()&&norm(action).contains(norm(value));}
+    private static boolean isTravelIntent(String action){return ActionText.travel(action);}
+    private static boolean isRestorativeIntent(String action){return ActionText.rest(action)||contains(action,"gyd","potion","eliksyr","atkurti");}
+    private static boolean mentions(String action,String value){return ActionText.mentions(action,value);}
     private static boolean contains(String value,String...needles){String text=norm(value);for(String needle:needles)if(text.contains(norm(needle)))return true;return false;}
     private static String norm(String value){return value==null?"":value.toLowerCase(Locale.forLanguageTag("lt-LT"));}
     private static String canonicalEvent(String value){

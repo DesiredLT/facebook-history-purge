@@ -1,20 +1,22 @@
-# Vaeloria OOC v1.1.1
+# Vaeloria OOC v1.2.0
 
 Vietinis vieno žaidėjo fantastinis Android RPG. Telefonas apskaičiuoja kovą, progresiją, daiktus, keliones ir saugo SQLite būseną. Pasirenkamas OpenAI arba Groq pasakotojas aprašo patvirtintą rezultatą lietuviškai.
 
 ## Šio leidimo pakeitimai
 
-- OpenAI Responses API integracija per atskirą žaidimo paslaugą. Numatytas serverio modelis `gpt-6-astra`; jį galima pakeisti `OPENAI_MODEL` konfigūracijoje.
-- Abu DI tiekėjai gali grąžinti tik scenos pavadinimą, tekstą ir tris pasirinkimus. Modelis nebegali suteikti pinigų, grobio, patirties, kelionių ar kovos pergalių.
-- Užklausa naudoja atskirą, atšaukiamą HTTP jungtį ir nekintamą būsenos kopiją. Laukiant pasakojimo sustabdomi kiti būseną keičiantys veiksmai; pavėluotas atsakymas nebepritaikomas.
-- Visas ėjimas įrašomas viena SQLite transakcija. Klaida nepalieka tik dalies atlygio ar meistriškumo pakeitimų.
-- Pataisytas kelionės tikslo parinkimas, grįžimas į Luminara, neatrastų vietų kelionės, NPC pokalbių vietos ir darbo laiko patikra, seno JSON importo profilio migracija ir failo dydžio ribojimas skaitant.
+- Pergalė, pralaimėjimas ir atsitraukimas atskiriami: grobis suteikiamas tik laimėjus. Kovos reikmenys naudoja bendrą žalos, gynybos, sunkumo ir vienkartinių apsaugų sistemą; visas panaudojimas įrašomas viena transakcija.
+- Priešai turi skirtingus smūgius, gebėjimo kaupimą ir kontrolę. Sunkus smūgis nutraukia kaupimą, gynyba stipriau saugo nuo sunkaus smūgio, o pavojingiausi priešai turi paskutinę fazę. Įrengtas lankas atsižvelgia į atstumą.
+- Penkios šalutinės užduotys turi priėmimą, sekimą, tris etapus ir vienkartinį atlygį. Reagentų užduočiai reikia surinkti ir atiduoti tikrus inventoriaus daiktus.
+- Pagrindinės istorijos progresą riboja vietos, tikri įrodymai ir NPC prieinamumas. Veikia visi trys siūlomi istorijos baigčių veiksmai. Kelionėms reikia atrastų maršruto jungčių, ekonomika juda pagal praėjusį pasaulio laiką.
+- Patikslintas lietuviškų veiksmų ir linksniuotų vardų atpažinimas. Nepradėti veiksmai nesuteikia patirties ir nekeičia laiko. Nauja lygių kreivė išsaugo seno veikėjo lygį ir santykinį progresą.
+- Inventoriuje rodomas įrangos ir setų premijų palyginimas, pardavimo kaina bei patvirtinimas. Mėgstami daiktai apsaugoti nuo pardavimo; didelio teksto režimu turimų daiktų sąrašas tampa vieno stulpelio.
+- DI keičia tik patvirtintos scenos pavadinimą ir pasakojimą. Veiksmų mygtukai išlieka vietinio žaidimo patikrinti pasirinkimai.
 
 ## Žaidime jau yra
 
 325 iliustruoti daiktai, 8 retumo pakopos, 10 šešių dalių setų, 218 bestiarijaus įrašų, 27 kelių ingredientų receptai ir 25 talentai penkiose šakose. Veikėjas turi pasirenkamą kilmę, archetipą ir tris mechaninius bruožus; progresija apima 1–100 lygius bei paskirstomus savybių taškus. Veikia kelių ėjimų kova, prekyba, vartojami daiktai, kompanionai, pagrindinė šešių etapų istorija, atlasas, trys išsaugojimo lizdai ir iki 20 atšaukimo taškų.
 
-Šalutinių užduočių ir pasaulio simuliacijos sistemos dar neužbaigtos. Tikslus likusių darbų sąrašas pateiktas [2026-09-07 audite](v100/AUDIT-2026-09-07.md). Šaltinio struktūros patikra nėra viso P0–P4 plano užbaigimo įrodymas.
+Šio pataisymų etapo rezultatai ir likusios ribos aprašyti [2026-09-08 patikroje](v100/AUDIT-2026-09-08.md). Ilgų sesijų balansas, viso turinio meninė kokybė ir tikras mokamas DI generavimas dar nėra patvirtinti vien automatiniais testais.
 
 ## OpenAI prijungimas
 
@@ -24,10 +26,10 @@ Diegimas savaime neaktyvuoja mokamo API: reikalinga veikianti paslauga su tikru 
 
 ## Kūrimas ir patikra
 
-- Java 17, Android minSdk 26 / targetSdk 35, SQLite schema 13, Gradle 8.11.1.
+- Java 17, Android minSdk 26 / targetSdk 35, SQLite schema 14, Gradle 8.11.1.
 - `node --test ai-service/test/*.test.mjs` – vietinė HTTP paslauga su imituotu OpenAI atsakymu; mokamo API nekviečia.
 - `python3 v100/audit_v100.py` – šaltinio struktūros, manifestų ir iliustracijų patikra.
 - Android kataloge: `gradle :app:testDebugUnitTest :app:assembleRelease`.
-- Android 35 emuliatoriuje, 360dp pločiu: `gradle :app:connectedDebugAndroidTest`.
+- Android 26 ir 35 emuliatoriuose, 360dp pločiu: `gradle :app:connectedDebugAndroidTest`.
 
 GitHub Actions vykdo serverio, Java, migracijų, Android sąsajos ir išsaugojimo testus, tada tikrina optimizuoto APK tapatybę, leidimus, išteklius, parašą bei paslapčių nebuvimą. Paketo ID: `lt.vaeloria.ooc.personal`. Leidimui būtinas ankstesnis pasirašymo raktas; jo savavališkai nekeisti (žr. [pasirašymą](vaeloria-android/SIGNING.md)).

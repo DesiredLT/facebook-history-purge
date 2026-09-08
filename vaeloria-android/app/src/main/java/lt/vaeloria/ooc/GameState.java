@@ -26,7 +26,7 @@ public class GameState {
     public int stamina = 100, staminaMax = 100;
     public int aeonic = 180, aeonicMax = 900;
     public long crowns = 1_062_400L;
-    public int level = 1, experience = 0, experienceNext = 350, talentPoints = 1, attributePoints = 0;
+    public int level = 1, experience = 0, experienceNext = ProgressionEngine.experienceForNext(1), talentPoints = 1, attributePoints = 0;
     public String temporaryEffectName = "";
     public int temporaryEffectTurns = 0;
     public int temporaryAttackBonus = 0, temporaryDefenseBonus = 0, temporarySpeedBonus = 0;
@@ -69,7 +69,9 @@ public class GameState {
     public boolean combatCheatDeathUsed = false;
     public boolean combatLastStandUsed = false;
     public String storyEnding = "";
+    public String trackedQuestId = "";
     public boolean tutorialComplete = false;
+    public final List<String> favoriteItemIds = new ArrayList<>();
     public final List<String> choices = new ArrayList<>();
     public final List<String> recentTurns = new ArrayList<>();
 
@@ -79,8 +81,100 @@ public class GameState {
         choices.add("Vykti tiesiai prie paveiktų kelionės vartų ir rinkti lauko įrodymus");
     }
 
+    /** Copy only after a complete database commit; lists remain independently owned. */
+    void copyFrom(GameState other) {
+        if (this == other) return;
+        characterName = other.characterName;
+        chronologicalAge = other.chronologicalAge;
+        biologicalAge = other.biologicalAge;
+        ageless = other.ageless;
+        characterCreated = other.characterCreated;
+        characterIdentity = other.characterIdentity;
+        characterOriginId = other.characterOriginId;
+        characterArchetypeId = other.characterArchetypeId;
+        characterAppearance = other.characterAppearance;
+        characterTraitIds.clear(); characterTraitIds.addAll(other.characterTraitIds);
+        location = other.location;
+        worldYear = other.worldYear;
+        worldMinute = other.worldMinute;
+        hp = other.hp;
+        hpMax = other.hpMax;
+        mana = other.mana;
+        manaMax = other.manaMax;
+        stamina = other.stamina;
+        staminaMax = other.staminaMax;
+        aeonic = other.aeonic;
+        aeonicMax = other.aeonicMax;
+        crowns = other.crowns;
+        level = other.level;
+        experience = other.experience;
+        experienceNext = other.experienceNext;
+        talentPoints = other.talentPoints;
+        attributePoints = other.attributePoints;
+        temporaryEffectName = other.temporaryEffectName;
+        temporaryEffectTurns = other.temporaryEffectTurns;
+        temporaryAttackBonus = other.temporaryAttackBonus;
+        temporaryDefenseBonus = other.temporaryDefenseBonus;
+        temporarySpeedBonus = other.temporarySpeedBonus;
+        temporaryMagicBonus = other.temporaryMagicBonus;
+        temporaryCheckBonus = other.temporaryCheckBonus;
+        temporaryCriticalBonus = other.temporaryCriticalBonus;
+        temporaryPoisonResistance = other.temporaryPoisonResistance;
+        temporaryNecroticResistance = other.temporaryNecroticResistance;
+        equipmentHpBonus = other.equipmentHpBonus;
+        equipmentManaBonus = other.equipmentManaBonus;
+        difficulty = other.difficulty;
+        progressionMode = other.progressionMode;
+        turnNumber = other.turnNumber;
+        asterraInfluence = other.asterraInfluence;
+        dravennInfluence = other.dravennInfluence;
+        lysaraInfluence = other.lysaraInfluence;
+        asterraRelation = other.asterraRelation;
+        dravennRelation = other.dravennRelation;
+        lysaraRelation = other.lysaraRelation;
+        questTitle = other.questTitle;
+        objective = other.objective;
+        sceneTitle = other.sceneTitle;
+        scene = other.scene;
+        combatActive = other.combatActive;
+        enemyName = other.enemyName;
+        enemyStatus = other.enemyStatus;
+        enemyTelegraph = other.enemyTelegraph;
+        combatDistance = other.combatDistance;
+        combatHazard = other.combatHazard;
+        enemyHp = other.enemyHp;
+        enemyHpMax = other.enemyHpMax;
+        enemyAttack = other.enemyAttack;
+        enemyDefense = other.enemyDefense;
+        enemySpeed = other.enemySpeed;
+        enemyDanger = other.enemyDanger;
+        enemyRole = other.enemyRole;
+        enemyTrait = other.enemyTrait;
+        playerCombatStatus = other.playerCombatStatus;
+        enemyCombatEffects = other.enemyCombatEffects;
+        enemyEffectTurns = other.enemyEffectTurns;
+        playerGuard = other.playerGuard;
+        combatAbilityCooldown = other.combatAbilityCooldown;
+        combatCombo = other.combatCombo;
+        combatSpellCount = other.combatSpellCount;
+        combatRound = other.combatRound;
+        combatHeavyMitigationUsed = other.combatHeavyMitigationUsed;
+        combatDawnBarrierUsed = other.combatDawnBarrierUsed;
+        combatCheatDeathUsed = other.combatCheatDeathUsed;
+        combatLastStandUsed = other.combatLastStandUsed;
+        storyEnding = other.storyEnding;
+        trackedQuestId = other.trackedQuestId;
+        favoriteItemIds.clear();favoriteItemIds.addAll(other.favoriteItemIds);
+        tutorialComplete = other.tutorialComplete;
+        choices.clear(); choices.addAll(other.choices);
+        recentTurns.clear(); recentTurns.addAll(other.recentTurns);
+    }
+
     public JSONObject toJson() throws JSONException {
         JSONObject o = new JSONObject();
+        o.put("balanceVersion",2);
+        o.put("trackedQuestId",trackedQuestId);
+        o.put("favoriteItemIds",new JSONArray(favoriteItemIds));
         o.put("characterName", characterName);
         o.put("chronologicalAge", chronologicalAge);
         o.put("biologicalAge", biologicalAge);
@@ -153,6 +247,8 @@ public class GameState {
 
     public static GameState fromJson(JSONObject o) throws JSONException {
         GameState s = new GameState();
+        s.trackedQuestId=o.optString("trackedQuestId","");
+        JSONArray favorites=o.optJSONArray("favoriteItemIds");if(favorites!=null)for(int i=0;i<Math.min(500,favorites.length());i++)s.favoriteItemIds.add(favorites.optString(i));
         boolean legacyProfile = !o.has("characterCreated");
         s.characterName = compact(o.optString("characterName", s.characterName),32);
         s.chronologicalAge = clamp(o.optInt("chronologicalAge", s.chronologicalAge), 16, 999);
@@ -186,6 +282,11 @@ public class GameState {
         s.level = clamp(o.optInt("level", s.level), 1, 100);
         s.experience = Math.max(0, o.optInt("experience", s.experience));
         s.experienceNext = Math.max(100, o.optInt("experienceNext", s.experienceNext));
+        if(o.optInt("balanceVersion",1)<2){
+            int oldNext=Math.max(1,o.optInt("experienceNext",250+s.level*100+s.level*s.level*12));
+            int next=s.level>=100?1:ProgressionEngine.experienceForNext(s.level);
+            s.experience=(int)Math.min(next-1,(long)s.experience*next/oldNext);s.experienceNext=next;
+        }
         s.talentPoints = Math.max(0, o.optInt("talentPoints", s.talentPoints));
         s.attributePoints = o.has("attributePoints")
                 ? clamp(o.optInt("attributePoints", 0), 0, 1000)

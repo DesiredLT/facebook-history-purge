@@ -21,6 +21,7 @@ final class EquipmentRules {
         int necroticResistance;
         int travelRecovery;
         int checkBonus;
+        boolean rangedWeapon;
         boolean travelFatigueHalf;
         boolean heavyHitMitigation;
         boolean blockCounter;
@@ -63,6 +64,22 @@ final class EquipmentRules {
         return result;
     }
 
+    static String comparison(List<VaeloriaDb.Item> items,VaeloriaDb.Item candidate,String target){
+        Stats before=calculate(items);java.util.ArrayList<VaeloriaDb.Item> next=new java.util.ArrayList<>();
+        for(VaeloriaDb.Item item:items)if(!item.id.equals(candidate.id)&&!(item.equipped&&target.equals(item.equippedSlot)))next.add(item);
+        VaeloriaDb.Item proposed=new VaeloriaDb.Item();proposed.id=candidate.id;proposed.name=candidate.name;
+        proposed.type=candidate.type;proposed.slot=candidate.slot;proposed.catalogId=candidate.catalogId;proposed.power=candidate.power;
+        proposed.setId=candidate.setId;proposed.synced=candidate.synced;proposed.equipped=true;proposed.equippedSlot=target;next.add(proposed);
+        Stats after=calculate(next);StringBuilder out=new StringBuilder();
+        change(out,"Puolimas",after.attack-before.attack);change(out,"Gynyba",after.defense-before.defense);
+        change(out,"Magija",after.magicPower-before.magicPower);change(out,"Greitis",after.speed-before.speed);
+        change(out,"Kritinio smūgio tikimybė",after.criticalChance-before.criticalChance);
+        change(out,"Maksimali gyvybė",after.maxHp-before.maxHp);change(out,"Maksimali mana",after.maxMana-before.maxMana);
+        change(out,"Rezonansas",after.resonance-before.resonance);change(out,"Patikros",after.checkBonus-before.checkBonus);
+        return out.length()==0?"Skaitiniai įrangos rodikliai nesikeičia.":out.toString();
+    }
+    private static void change(StringBuilder out,String name,int delta){if(delta==0)return;if(out.length()>0)out.append('\n');out.append(name).append(' ').append(delta>0?"+":"").append(delta);}
+
     static String itemMechanic(VaeloriaDb.Item item) {
         if (item == null) return "Poveikis neaktyvus";
         int value = mechanicalPower(item);
@@ -82,7 +99,7 @@ final class EquipmentRules {
             result.attack += legacyOr(value, legacyAttack(item));
             String name = lower(item.name);
             if (name.contains("durkl")) { result.speed += 5; result.criticalChance += 4; }
-            else if (name.contains("lank")) result.criticalChance += 3;
+            else if (name.contains("lank")) {result.criticalChance += 3;result.rangedWeapon=true;}
             else if (name.contains("kūj") || name.contains("kuj") || name.contains("kirv")) result.criticalDamage += 12;
             if ("staff".equals(subtype) || "wand".equals(subtype)) result.magicPower += Math.max(2, value / 2);
         } else if (isArmor(category) || "offhand".equals(category)) {

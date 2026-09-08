@@ -75,3 +75,5 @@ Klaidos: 401 – įrenginio kodas; 400/413/415 – įvestis; 422 – modelio ats
 `node --test ai-service/test/*.test.mjs` tikrina vietinį HTTP srautą su imituotu provideriu, limitais, atšaukimu ir klaidomis. CI taip pat vykdo Android testus. Tikro rakto prieigą prie Astra patikrina 3 žingsnis jau paleistoje paslaugoje.
 
 Integracija remiasi oficialia [Structured Outputs dokumentacija](https://developers.openai.com/api/docs/guides/structured-outputs), [API autentifikacija](https://developers.openai.com/api/reference/overview#authentication) ir [GPT-6 Astra modeliu](https://developers.openai.com/api/docs/models/gpt-6-astra).
+
+Nuo v1.2.0 Android pritaiko tik `scene_title` ir `scene`; `choices` sutartyje išlaikomi suderinamumui, tačiau paspaudžiami mygtukai imami iš patvirtinto vietinio rezultato.

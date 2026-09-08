@@ -13,7 +13,8 @@ final class NarrativeTurn {
         JSONObject polished = LithuanianNarrative.polish(new JSONObject(narration.toString()), state);
         result.put("scene_title", polished.getString("scene_title"));
         result.put("scene", polished.getString("scene"));
-        result.put("choices", polished.getJSONArray("choices"));
+        // Buttons retain their approved actions even if a model suggests an unavailable move.
+        result.put("choices", new JSONArray(resolved.getJSONArray("choices").toString()));
         return result;
     }
 
