@@ -795,7 +795,7 @@ public class VaeloriaDb extends SQLiteOpenHelper {
                 }else{
                     add=new ContentValues();category=equipmentSlotForCategory(o.optString("category","artifact"));
                     add.put("name",compactImported(o.optString("name","Nežinomas daiktas"),80));
-                    add.put("type","imported_artifact");
+                    add.put("type",compactImported(o.optString("type","imported_artifact"),60));
                     String rarity=o.optString("rarity","common").toLowerCase(Locale.ROOT);add.put("rarity",isAllowedRarity(rarity)?rarity:"common");
                     add.put("description",compactImported(o.optString("description",""),1000));
                     if(category==null)add.putNull("slot");else add.put("slot",category);

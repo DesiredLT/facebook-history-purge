@@ -117,4 +117,14 @@ public class GameplayV120Test {
         assertEquals("rest",LocalTurnResolver.resolve(state,"Pailsėti prie Meridiano vartų",null,locations).optString("event_tag"));
         assertEquals("dialogue",LocalTurnResolver.resolve(state,"Klausti Kaelio apie vartų manifestą",null,locations).optString("event_tag"));
     }
+    @Test public void everyOfferedSideQuestActionResolvesToItsRealObjective(){
+        for(SideQuestCatalog.QuestDef quest:SideQuestCatalog.ALL){
+            GameState state=new GameState();state.location=quest.location;
+            JSONObject result=CombatEngine.handles(state,quest.action)?CombatEngine.resolve(state,quest.action,null,new EquipmentRules.Stats(),new HashMap<>())
+                    :LocalTurnResolver.resolve(state,quest.action,null,Collections.singleton(quest.location));
+            assertFalse(quest.id,result.optBoolean("blocked"));assertEquals(quest.id,"combat".equals(quest.kind)?"combat":"discovery",result.optString("event_tag"));
+        }
+        assertFalse(ActionText.rest("Ištirti dingusio karavano stovyklavietę"));
+        assertFalse(ActionText.social("Apžiūrėti paprastą durklą"));
+    }
 }

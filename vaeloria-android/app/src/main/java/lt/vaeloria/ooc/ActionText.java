@@ -22,11 +22,11 @@ final class ActionText {
     }
 
     static boolean social(String value) {
-        return contains(value, "kalb", "klaust", "paklaus", "susisiekt", "papras", "deret");
+        return normalized(value).matches("^(?:(?:noriu|ketinu|bandau) )?(?:kalb\\w*|pasikalb\\w*|klaust\\w*|paklaus\\w*|susisiekt\\w*|paprasy\\w*|prasyt\\w*|deret\\w*)(?: .*|$)");
     }
 
     static boolean rest(String value) {
-        return contains(value, "poils", "pailset", "pailsiu", "mieg", "laukti", "palaukt", "stovykl", "atsigauti", "atsikvep");
+        return normalized(value).matches("^(?:(?:noriu|ketinu|bandau|trumpai) )?(?:poils\\w*|pails\\w*|ilset\\w*|mieg\\w*|laukti|palaukt\\w*|stovyklau\\w*|atsigau\\w*|atsikvep\\w*)(?: .*|$)");
     }
 
     static boolean mentions(String text, String name) {

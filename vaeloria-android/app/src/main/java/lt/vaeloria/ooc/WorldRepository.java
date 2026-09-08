@@ -251,12 +251,21 @@ final class WorldRepository {
 
     QuestStep activeMainStep(){for(QuestStep step:steps("Q-MERIDIAN"))if("active".equals(step.status))return step;return null;}
 
-    void applyQuestToState(GameState state){if(!state.trackedQuestId.isEmpty()&&owner.sideQuests().choices(state))return;Quest quest=activeMainQuest();QuestStep step=activeMainStep();if(quest!=null)state.questTitle=quest.title;if(step!=null)state.objective=step.title+(step.target>1?" ("+step.progress+"/"+step.target+")":"");}
+    void applyQuestToState(GameState state){
+        if(!state.trackedQuestId.isEmpty()&&owner.sideQuests().choices(state))return;
+        Quest quest=activeMainQuest();QuestStep step=activeMainStep();
+        if(quest!=null)state.questTitle=quest.title;
+        if(step!=null)state.objective=step.title+(step.target>1?" ("+step.progress+"/"+step.target+")":"");
+        else if(quest!=null&&"completed".equals(quest.status))state.objective="Pirmoji Meridiano istorijos dalis užbaigta. Tyrinėk pasaulį arba pasirink šalutinę užduotį.";
+    }
 
     void applyStructuredChoices(GameState state){
         if(state.combatActive)return;
         if(owner.sideQuests().choices(state))return;
-        QuestStep step=activeMainStep();if(step==null)return;
+        QuestStep step=activeMainStep();
+        if(step==null){
+            state.choices.clear();state.choices.add("Tyrinėti apylinkes");state.choices.add("Grįžti prie užduoties");state.choices.add("Patikrinti įrangą ir užrašus");return;
+        }
         state.choices.clear();
         if(step.position==3&&!"Aureliono Pakraštys".equals(state.location)){
             state.choices.add("Keliauti į Aureliono Pakraštį");state.choices.add("Tyrinėti apylinkes");state.choices.add("Pailsėti saugioje vietoje");return;

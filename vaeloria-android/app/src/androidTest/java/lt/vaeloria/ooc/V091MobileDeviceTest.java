@@ -33,7 +33,7 @@ public class V091MobileDeviceTest {
         InstrumentationRegistry.getInstrumentation().getTargetContext().deleteDatabase("vaeloria.db");
         InstrumentationRegistry.getInstrumentation().getTargetContext()
                 .getSharedPreferences("vaeloria_visual", 0)
-                .edit().putBoolean("animations", false).commit();
+                .edit().putBoolean("animations", false).putBoolean("large_text",false).commit();
         scenario = ActivityScenario.launch(PolishedActivity.class);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
@@ -45,13 +45,15 @@ public class V091MobileDeviceTest {
     @Test public void allPrimaryScreensFitAReal360DpPhone() {
         scenario.onActivity(this::createProfile);
         for (String screen : new String[]{"character", "game", "hero", "items", "map", "journal", "settings"}) {
+            scenario.onActivity(activity -> activity.show(screen));
+            InstrumentationRegistry.getInstrumentation().waitForIdleSync();
             scenario.onActivity(activity -> {
                 DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
                 float widthDp = metrics.widthPixels / metrics.density;
                 assertTrue("Emulator must exercise a 360dp viewport, got " + widthDp,
                         widthDp >= 355f && widthDp <= 365f);
-                activity.show(screen);
                 View root = activity.getWindow().getDecorView();
+                assertFalse(screen+" failed to render",containsText(root,"Ekrano klaida"));
                 assertNoHorizontalScroll(root, screen);
                 assertCriticalTapTargets(root, metrics.density, screen);
                 assertTextLayoutsAreNotEllipsized(root, screen);
@@ -111,6 +113,32 @@ public class V091MobileDeviceTest {
             } catch (Throwable throwable) { failure.set(throwable); }
         });
         if (failure.get() != null) throw new AssertionError(failure.get());
+    }
+
+    @Test public void largeTextInventoryCardsAreMeasuredAndFitTheirContents(){
+        scenario.onActivity(activity->{createProfile(activity);activity.getSharedPreferences("vaeloria_visual",0).edit().putBoolean("large_text",true).commit();activity.show("items");});
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        scenario.onActivity(activity->{
+            View root=activity.getWindow().getDecorView();
+            assertTrue(assertInventoryCards(root,activity.getResources().getDisplayMetrics().density)>0);
+        });
+    }
+
+    private int assertInventoryCards(View view,float density){
+        int found=0;
+        if(view instanceof ViewGroup){
+            ViewGroup group=(ViewGroup)view;
+            if(group.getChildCount()>0&&group.getChildAt(0) instanceof ItemArtView&&view.isClickable()){
+                assertTrue("Large-text item must use a full-width card",view.getWidth()/density>250);
+                for(int i=1;i<group.getChildCount();i++){
+                    View child=group.getChildAt(i);assertTrue("Card clips its contents",child.getBottom()<=view.getHeight()-view.getPaddingBottom());
+                    if(child instanceof TextView){TextView text=(TextView)child;assertNotNull(text.getLayout());assertTrue("Card clips text",text.getLayout().getHeight()<=text.getHeight()-text.getCompoundPaddingTop()-text.getCompoundPaddingBottom());}
+                }
+                found++;
+            }
+            for(int i=0;i<group.getChildCount();i++)found+=assertInventoryCards(group.getChildAt(i),density);
+        }
+        return found;
     }
 
     private int units(java.util.List<VaeloriaDb.Item> items){int total=0;for(VaeloriaDb.Item item:items)total+=item.quantity;return total;}

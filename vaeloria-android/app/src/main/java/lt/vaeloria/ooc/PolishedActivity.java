@@ -616,7 +616,6 @@ public class PolishedActivity extends PremiumActivity {
         icon.setItem(item.name, item.slot == null ? item.type : item.slot, item.rarity);
         card.addView(icon, new LinearLayout.LayoutParams(-1, dp(92)));
         TextView name = serif((state.favoriteItemIds.contains(item.id)?"★ ":"")+item.name, 12, PARCH, true);
-        name.setMaxLines(2);
         card.addView(name, sp(dp(3)));
         card.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT), 8, color, true));
         card.addView(txt("L" + item.itemLevel + " · GALIA " + item.power + (item.quantity > 1 ? " · ×" + item.quantity : ""), 7, GOLD2, true));
@@ -642,7 +641,7 @@ public class PolishedActivity extends PremiumActivity {
     private void globalCatalogSearchDialog(){EditText query=profileInput("Pvz., nuodai, kardas, mitinis, mana…","",false,60);new AlertDialog.Builder(this).setTitle("Ieškoti daiktų kodekse").setMessage("Paieška tikrina pavadinimą, aprašą, poveikį, regioną, kategoriją ir retumą.").setView(query).setNegativeButton("ATŠAUKTI",null).setPositiveButton("IEŠKOTI",(dialog,which)->{String value=query.getText().toString().trim();if(!value.isEmpty())catalogSearchResults(value,0);}).show();}
 
     private void catalogSearchResults(String rawQuery,int page){
-        String query=rawQuery.toLowerCase(Locale.forLanguageTag("lt-LT"));ArrayList<ItemCatalogV092.ItemDef> matches=new ArrayList<>();for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){String text=(item.name+" "+item.description+" "+item.effect+" "+item.region+" "+item.category+" "+item.rarity+" "+rarityLabel(item.rarity)+" "+ItemCatalogV092.categoryLabel(item.category)).toLowerCase(Locale.forLanguageTag("lt-LT"));if(text.contains(query))matches.add(item);}matches.sort((a,b)->Integer.compare(b.level,a.level));int pageSize=20,pageCount=Math.max(1,(matches.size()+pageSize-1)/pageSize),safe=Math.max(0,Math.min(page,pageCount-1)),start=safe*pageSize,end=Math.min(matches.size(),start+pageSize);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(12),dp(12),dp(12),dp(10));scroll.addView(column);column.addView(serif("„"+rawQuery+"“",21,PARCH,true));column.addView(txt(matches.size()+" rezultatų · puslapis "+(safe+1)+"/"+pageCount,9,SUB,false),sp(dp(8)));for(int index=start;index<end;index+=2){LinearLayout pair=row();pair.addView(catalogCard(matches.get(index)),new LinearLayout.LayoutParams(0,dp(198),1));pair.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));if(index+1<end)pair.addView(catalogCard(matches.get(index+1)),new LinearLayout.LayoutParams(0,dp(198),1));else pair.addView(new View(this),new LinearLayout.LayoutParams(0,dp(198),1));column.addView(pair,sp(dp(7)));}AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null);if(safe>0)builder.setNeutralButton("ANKSTESNIS",(dialog,which)->catalogSearchResults(rawQuery,safe-1));if(end<matches.size())builder.setPositiveButton("KITAS",(dialog,which)->catalogSearchResults(rawQuery,safe+1));builder.show();
+        String query=rawQuery.toLowerCase(Locale.forLanguageTag("lt-LT"));ArrayList<ItemCatalogV092.ItemDef> matches=new ArrayList<>();for(ItemCatalogV092.ItemDef item:ItemCatalogV092.ALL){String text=(item.name+" "+item.description+" "+item.effect+" "+item.region+" "+item.category+" "+item.rarity+" "+rarityLabel(item.rarity)+" "+ItemCatalogV092.categoryLabel(item.category)).toLowerCase(Locale.forLanguageTag("lt-LT"));if(text.contains(query))matches.add(item);}matches.sort((a,b)->Integer.compare(b.level,a.level));int pageSize=20,pageCount=Math.max(1,(matches.size()+pageSize-1)/pageSize),safe=Math.max(0,Math.min(page,pageCount-1)),start=safe*pageSize,end=Math.min(matches.size(),start+pageSize);ScrollView scroll=new ScrollView(this);LinearLayout column=col();column.setPadding(dp(12),dp(12),dp(12),dp(10));scroll.addView(column);column.addView(serif("„"+rawQuery+"“",21,PARCH,true));column.addView(txt(matches.size()+" rezultatų · puslapis "+(safe+1)+"/"+pageCount,9,SUB,false),sp(dp(8)));addCatalogCards(column,matches,start,end);AlertDialog.Builder builder=new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI",null);if(safe>0)builder.setNeutralButton("ANKSTESNIS",(dialog,which)->catalogSearchResults(rawQuery,safe-1));if(end<matches.size())builder.setPositiveButton("KITAS",(dialog,which)->catalogSearchResults(rawQuery,safe+1));builder.show();
     }
 
     private void catalogDialog(String title, String category, int page) {
@@ -656,17 +655,20 @@ public class PolishedActivity extends PremiumActivity {
         LinearLayout column = col();column.setPadding(dp(12), dp(12), dp(12), dp(10));scroll.addView(column);
         column.addView(serif(title, 22, PARCH, true));
         column.addView(txt(items.size() + " daiktų · puslapis " + (safePage + 1) + "/" + pageCount, 9, SUB, false), sp(dp(9)));
-        for (int index = start; index < end; index += 2) {
-            LinearLayout pair = row();pair.addView(catalogCard(items.get(index)), new LinearLayout.LayoutParams(0, dp(198), 1));
-            pair.addView(new Space(this), new LinearLayout.LayoutParams(dp(7), 1));
-            if (index + 1 < end) pair.addView(catalogCard(items.get(index + 1)), new LinearLayout.LayoutParams(0, dp(198), 1));
-            else pair.addView(new View(this), new LinearLayout.LayoutParams(0, dp(198), 1));
-            column.addView(pair, sp(dp(7)));
-        }
+        addCatalogCards(column,items,start,end);
         AlertDialog.Builder builder = new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI", null);
         if (safePage > 0) builder.setNeutralButton("ANKSTESNIS", (dialog, which) -> catalogDialog(title, category, safePage - 1));
         if (end < items.size()) builder.setPositiveButton("KITAS", (dialog, which) -> catalogDialog(title, category, safePage + 1));
         builder.show();
+    }
+
+    private void addCatalogCards(LinearLayout column,List<ItemCatalogV092.ItemDef> items,int start,int end){
+        boolean single=pref("large_text",false)||getResources().getConfiguration().fontScale>1.15f;
+        for(int index=start;index<end;index+=single?1:2){
+            LinearLayout line=row();line.addView(catalogCard(items.get(index)),new LinearLayout.LayoutParams(0,-2,1));
+            if(!single){line.addView(new Space(this),new LinearLayout.LayoutParams(dp(7),1));line.addView(index+1<end?catalogCard(items.get(index+1)):new View(this),new LinearLayout.LayoutParams(0,-2,1));}
+            column.addView(line,sp(dp(7)));
+        }
     }
 
     private View catalogCard(ItemCatalogV092.ItemDef item) {
@@ -674,7 +676,7 @@ public class PolishedActivity extends PremiumActivity {
         card.setBackground(round(PANEL_2, 13, Color.argb(160, Color.red(color), Color.green(color), Color.blue(color))));
         ItemArtView artwork = new ItemArtView(this);artwork.setItem(item.name, item.category, item.rarity);
         card.addView(artwork, new LinearLayout.LayoutParams(-1, dp(112)));
-        TextView name = serif(item.name, 11, PARCH, true);name.setMaxLines(2);card.addView(name, sp(dp(3)));
+        TextView name = serif(item.name, 11, PARCH, true);card.addView(name, sp(dp(3)));
         card.addView(txt(rarityLabel(item.rarity).toUpperCase(Locale.ROOT) + " · L" + item.level+(locked?" · UŽRAKINTA":""), 7, locked?Color.rgb(215,154,91):color, true));
         card.addView(txt("GALIA " + item.power + " · " + ItemCatalogV092.categoryLabel(item.category), 7, SUB, false));
         card.setContentDescription(item.name + ". " + rarityLabel(item.rarity) + ". Lygis " + item.level);
@@ -711,7 +713,7 @@ public class PolishedActivity extends PremiumActivity {
         column.addView(serif(set.name, 22, PARCH, true));column.addView(txt(set.region + " · " + rarityLabel(set.rarity).toUpperCase(Locale.ROOT), 9, rarity(set.rarity), true), sp(dp(7)));
         column.addView(txt("2 DALYS · " + set.bonus2 + "\n4 DALYS · " + set.bonus4 + "\n6 DALYS · " + set.bonus6, 10, GREEN, true), sp(dp(9)));
         ArrayList<ItemCatalogV092.ItemDef> pieces = new ArrayList<>();for (ItemCatalogV092.ItemDef item : ItemCatalogV092.ALL) if (set.id.equals(item.setId)) pieces.add(item);
-        for (int index = 0; index < pieces.size(); index += 2) {LinearLayout pair = row();pair.addView(catalogCard(pieces.get(index)), new LinearLayout.LayoutParams(0, dp(198), 1));pair.addView(new Space(this), new LinearLayout.LayoutParams(dp(7), 1));if (index + 1 < pieces.size()) pair.addView(catalogCard(pieces.get(index + 1)), new LinearLayout.LayoutParams(0, dp(198), 1));else pair.addView(new View(this), new LinearLayout.LayoutParams(0, dp(198), 1));column.addView(pair, sp(dp(7)));}
+        addCatalogCards(column,pieces,0,pieces.size());
         new AlertDialog.Builder(this).setView(scroll).setNegativeButton("UŽDARYTI", null).show();
     }
 
@@ -894,7 +896,7 @@ public class PolishedActivity extends PremiumActivity {
     }
 
     private SeekBar volumeSlider(String key,int fallback,String description){
-        SeekBar slider=new SeekBar(this);slider.setMax(100);slider.setProgress(getSharedPreferences("vaeloria_visual",MODE_PRIVATE).getInt(key,fallback));slider.setMinHeight(dp(48));slider.setContentDescription(description+". "+slider.getProgress()+" procentų");
+        SeekBar slider=new SeekBar(this);slider.setMax(100);slider.setProgress(getSharedPreferences("vaeloria_visual",MODE_PRIVATE).getInt(key,fallback));slider.setMinimumHeight(dp(48));slider.setContentDescription(description+". "+slider.getProgress()+" procentų");
         slider.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar bar,int value,boolean fromUser){bar.setContentDescription(description+". "+value+" procentų");if(fromUser)getSharedPreferences("vaeloria_visual",MODE_PRIVATE).edit().putInt(key,value).apply();}public void onStartTrackingTouch(SeekBar bar){}public void onStopTrackingTouch(SeekBar bar){if(audio!=null&&"ambient_volume".equals(key)){audio.stopAmbient();audio.startAmbient(state.location);}}});return slider;
     }
 
