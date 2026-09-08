@@ -44,17 +44,35 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Restore stable signing key
-        uses: actions/cache@v4
+      - name: Look for legacy signing backup
+        uses: actions/cache/restore@v4
         with:
           path: ~/.android/debug.keystore
           key: vaeloria-android-debug-signing-v1
-          fail-on-cache-miss: true
 
-      - name: Verify upgrade-compatible signing identity
+      - name: Restore and verify release signing identity
+        id: signing
+        env:
+          VAELORIA_KEYSTORE_B64: ${{ secrets.VAELORIA_KEYSTORE_B64 }}
         run: |
-          FP=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
-          test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          KEY_PATH="$RUNNER_TEMP/vaeloria-release.keystore"
+          if [ -n "$VAELORIA_KEYSTORE_B64" ]; then
+            umask 077
+            printf '%s' "$VAELORIA_KEYSTORE_B64" | base64 --decode > "$KEY_PATH"
+          elif [ -f "$HOME/.android/debug.keystore" ]; then
+            cp "$HOME/.android/debug.keystore" "$KEY_PATH"
+          fi
+          if [ -f "$KEY_PATH" ]; then
+            FP=$(keytool -list -v -keystore "$KEY_PATH" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+            test "$FP" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+            echo "VAELORIA_SIGNED_RELEASE=true" >> "$GITHUB_ENV"
+            echo "VAELORIA_RELEASE_KEYSTORE=$KEY_PATH" >> "$GITHUB_ENV"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "VAELORIA_SIGNED_RELEASE=false" >> "$GITHUB_ENV"
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Original signing key is unavailable. Tests and unsigned release verification will run; publication stays blocked."
+          fi
 
       - uses: android-actions/setup-android@v3
 
@@ -100,14 +118,33 @@ jobs:
             adb shell wm density 160
             gradle -p vaeloria-android :app:connectedDebugAndroidTest --stacktrace
 
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vaeloria-test-reports-${{ github.run_id }}
+          path: |
+            vaeloria-android/app/build/reports/tests/
+            vaeloria-android/app/build/reports/androidTests/
+            vaeloria-android/app/build/outputs/androidTest-results/
+          if-no-files-found: ignore
+
       - name: Build optimized release APK
         run: |
           gradle :app:assembleRelease --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+          if [ "$VAELORIA_SIGNED_RELEASE" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1-unsigned.apk
+          fi
 
       - name: APK identity, security, resources and signer audit
         run: |
-          APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+          if [ "$VAELORIA_SIGNED_RELEASE" = "true" ]; then
+            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+          else
+            APK=app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1-unsigned.apk
+          fi
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           ZIPALIGN="$ANDROID_HOME/build-tools/35.0.0/zipalign"
@@ -136,18 +173,20 @@ jobs:
           test "$(stat -c %s "$APK")" -gt 10000000
           unzip -t "$APK"
           "$ZIPALIGN" -c -P 16 4 "$APK"
-          "$APKSIGNER" verify --verbose "$APK"
-          CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
-          test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          if [ "$VAELORIA_SIGNED_RELEASE" = "true" ]; then
+            "$APKSIGNER" verify --verbose "$APK"
+            CERT=$($APKSIGNER verify --print-certs "$APK" | sed -n 's/Signer #1 certificate SHA-256 digest: //p' | head -1 | tr -d ':[:space:]' | tr '[:lower:]' '[:upper:]')
+            test "$CERT" = "07F9E852AF8F51562E2F621B270BB2097C9CA00E433B633D4F85A3EEAC746C88"
+          fi
           if unzip -p "$APK" 'classes*.dex' | strings | grep -E '(gsk_|sk-)[A-Za-z0-9_-]{16,}' >/dev/null; then exit 1; fi
           sha256sum "$APK" | tee apk-sha256-v111.txt
 
       - name: Upload verified APK and audits
         uses: actions/upload-artifact@v4
         with:
-          name: vaeloria-ooc-v1.1.1-apk-and-audits-${{ github.run_id }}
+          name: vaeloria-ooc-v1.1.1-signed-${{ steps.signing.outputs.signed }}-${{ github.run_id }}
           path: |
-            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1.apk
+            vaeloria-android/app/build/outputs/apk/release/Vaeloria-OOC-v1.1.1*.apk
             vaeloria-android/apk-badging-v111.txt
             vaeloria-android/apk-permissions-v111.txt
             vaeloria-android/apk-manifest-v111.txt
@@ -155,7 +194,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish GitHub release
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/agent/vaeloria-local-android'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/agent/vaeloria-local-android' && steps.signing.outputs.signed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

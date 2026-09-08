@@ -81,6 +81,7 @@ public class OpenAiFlowDeviceTest {
             GameState state=a.state;state.worldMinute=720;state.location="Veyrhold";
             assertEquals("",a.db.world().recordNpcInteraction("Pasikalbėti su Brynja","social",state));
             state.location="Luminara";
+            assertFalse(a.db.world().recordNpcInteraction("Pasikalbėti su Brynja","social",state).isEmpty());
             assertEquals("",a.db.world().recordNpcInteraction("Ištirti Brynja įrangą","discovery",state));
             state.worldMinute=120;
             assertEquals("",a.db.world().recordNpcInteraction("Pasikalbėti su Brynja","social",state));
